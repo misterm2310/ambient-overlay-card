@@ -1,2 +1,335 @@
-# ambient-overlay-card
-lovelace-ambient-overlay-card
+# Ambient Overlay Card for Home Assistant
+
+Eine benutzerdefinierte Lovelace-Karte für Home Assistant, die dynamische Animationen über dein Dashboard legt – von echtem Wetter (Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken-Drift) über Himmelsphänomene (Sternenhimmel, Sternschnuppen, Wunschstern, Komet) bis zu Tieren, Deko- und Anlass-Effekten (Herbstlaub, Luftballons, Lichterkette, Geburtstags-Modus, Weihnachtsmann, Wichteltür, Spinne mit Netz, goldener Labrador, Dampflok mit optionaler Festtags-Beladung, Fledermäuse, Eule, Bienenschwarm, Vogelhäuschen). Inklusive visuellem GUI-Editor mit **Live-Vorschau**, automatischer Theme-Anpassung und optionaler Wetter-Automatik mit echten Kombi-Effekten.
+
+---
+
+## 🎨 Features
+
+* **23 einzeln wählbare Effekte** (plus Sternenhimmel, Mond und Sonne automatisch über die Wetter-Automatik, siehe unten) – siehe Tabelle weiter unten, sinnvoll gruppiert im Editor-Dropdown (Wetter → Himmel/Nacht → Deko/Anlass → Tiere).
+* **🚂 Dampflok mit variabler Waggon-Anzahl:** Fährt am unteren Bildschirmrand entlang - erkennbare Lok-Silhouette mit Kessel, Schornstein, Kabine mit Fähnchen, Kuhfänger und Rädern, dazu sichtbarer Dampf, der aus dem Schornstein aufsteigt. Alle Waggon-Fenster und das Lok-Kabinenfenster sind dauerhaft warm beleuchtet, vorne an der Lok-Nase sitzt eine kleine Frontlampe. Die vier festen Waggons sind im Alltag mit Obst, Bauklötzen, Postsäcken und Holzscheiten beladen - optional mit zwei Sensoren umschaltbar auf festliche Weihnachts-Ladung (Schneemann, Weihnachtsmann, Geschenke, Geschenke-Sack) oder Abendessen-Ladung (Geschirr, Braten, Nachtisch, Getränke). Der Zug wird dabei automatisch länger, nicht gestaucht. Zwei kleine Überraschungen: bei jeder Durchfahrt hupt die Lok kurz ("TUUT"-Sprechblase), und ganz selten formt sich einer der Dampf-Puffs kurz zu einem Herz.
+* **👥 Personen-Waggons:** Für jede im Editor angehakte Person, die laut `person.`-Entity gerade **zuhause** ist, hängt hinten ein eigener Waggon mit großem Profilbild (oder der Namens-Initiale, falls kein Bild hinterlegt ist). Kommt jemand heim oder geht raus, aktualisiert sich der Zug sofort.
+* **🎟️ Gäste-Waggons aus einem Sensor:** Optional einen Sensor auswählen (z. B. ein `input_text`), in dem komma-getrennte Namen stehen - für **jeden Namen** wird ein eigener Waggon angehängt. Ideal z. B. für eine Gästeliste zum Abendessen: trägst du "Marcel, Rudolf" ein, rollen zwei zusätzliche Waggons mit. Ändert sich die Liste, reagiert der Zug sofort. Alternativ geht auch ein fest eingetragener Text.
+* **🚦 Schlusswagen:** Ganz am Zugende hängt immer ein kleiner Wagen mit nur zwei Rädern, auf dem zwei Lampen abwechselnd rot und grün blinken - wie ein Bahnübergangs-Signal.
+* **🎅 Sensor-gesteuerte Festtags-Beladung:** Optional einen `input_boolean`/`binary_sensor` auswählen (z. B. für die Weihnachtszeit) - ist der Sensor "an", werden drei Waggons stattdessen festlich und reichlich beladen: mehrere Schneemänner, ein Weihnachtsmann umgeben von Geschenken, und ein großer Weihnachtsmann-Sack mit Zuckerstange und zweitem kleinen Sack.
+* **🧝🚪 Wichteltür-Szene:** Freistehende Rundbogen-Holztür (mit Kranz, Herz-Scharnieren und leuchtendem Fenster) unten rechts, dazu ein Weihnachtsbaum mit blinkender Lichterkette, ein sechseckiges Laternenhaus, ein Briefkasten mit Namen und ein Weg, der zur Tür hinaufführt.
+* **🌫️ Sanftes Ausblenden statt abruptem Verschwinden:** Ändert sich das Wetter bei aktiver Wetter-Automatik von selbst, verblasst der alte Effekt sanft, während ein manueller Wechsel im Editor weiterhin sofort umschaltet.
+* **👁️ Live-Vorschau im Editor:** Direkt beim Einstellen der Regler siehst du oben im Editor eine kleine, verkleinerte Vorschau des Effekts – ganz ohne zu speichern.
+* **🌦️ Optionale Wetter-Automatik:** Statt manuell einen Effekt auszuwählen, kann die Karte sich an einer echten `weather.*`-Entity orientieren und automatisch den passenden Effekt zeigen.
+* **⛈️ Echte Kombi-Effekte:** Meldet die Wetter-Entity "Schneeregen", laufen Schnee **und** Regen gleichzeitig; bei "Gewitter mit Regen" laufen Blitz **und** Regen gleichzeitig.
+* **☃️ Wachsende Schneedecke:** Läuft der Schnee-Effekt eine Weile, sammelt sich unten am Bildschirmrand langsam eine echte kleine Schneeschicht an.
+* **🎂 Geburtstags-Modus:** Luftballons, Konfetti-Regen und ein Wimpelketten-Banner mit frei einstellbarem Text (Standard "Happy Birthday!").
+* **🎅🐕☄️🚂🐦 Periodisch durchlaufende Figuren:** Weihnachtsmann, Labrador, Komet, Dampflok und der Vogelhäuschen-Besuch ziehen periodisch durchs Bild statt dauerhaft sichtbar zu sein – wie oft, stellst du über "Anzahl/Frequenz" ein. Der Weihnachtsmann verliert dabei gelegentlich (etwa jeder 3. Vorbeiflug) ein Geschenk, das aus dem Schlitten fällt.
+* **🕷️ Spinne mit Netz:** Mathematisch berechnetes, symmetrisches Netz oben rechts, eine Spinne mit blinkenden roten Augen seilt sich daran auf und ab - verliert dabei mitten im Abstieg kurz den Halt, seilt sich hektisch wieder hoch, und tut dann so, als wäre nichts gewesen.
+* **🐕 Goldener Labrador:** Läuft mit echter Beinbewegung (diagonale Beinpaare schwingen gegenläufig wie im echten Trab), dazu Schwanzwedeln, Kopfnicken, eine kurze Schnüffel-Pause mitten im Lauf und verblassende Pfotenabdrücke. Optional schüttelt er sich kurz, wenn eine angegebene Wetter-Entity gerade Regen meldet.
+* **🦇 Fledermäuse:** Mehrere flatternde Silhouetten über den kompletten Bildschirm verteilt, theme-abhängig eingefärbt, damit sie auf **jedem** Theme sichtbar bleiben.
+* **🦉 Eule:** Sitzt auf einem Ast in der oberen linken Ecke - mit Federstruktur, Ohrbüscheln, Glanzpunkten in den Augen sowie **abwechselndem Blinzeln**.
+* **🐝 Bienenschwarm:** 5-8 Bienen gleichzeitig, jede mit eigenem Zickzack-Pfad über den kompletten Bildschirm.
+* **🌤️ Wolken-Drift:** Mehrere weiche, zart verschwommene Wolken ziehen über den kompletten Bildschirm - theme-abhängig eingefärbt und mit gleichmäßig verteiltem Zeitversatz, damit möglichst durchgehend mindestens eine Wolke zu sehen ist.
+* **⭐ Wunschstern-Funkeln:** Ein einzelner Stern mit weichem Strahlenkranz-Glanz leuchtet einmal auf, verschwindet komplett und blitzt an einer neuen zufälligen Position wieder auf.
+* **✨ Sternenhimmel mit Teleport-Effekt:** Jeder einzelne Stern springt zwischen mehreren zufälligen Positionen hin und her - läuft komplett über CSS, ressourcenschonend auch auf schwächeren Geräten. Läuft ausschließlich über die Wetter-Automatik (bei klarer Nacht), nicht mehr als eigenständig wählbarer Effekt - das vermeidet doppelte Sterne, falls man zusätzlich noch eine eigene Sternenhimmel-Karte hätte.
+* **🌙 Mond mit echter Mondphase:** Erscheint oben rechts (Spiegelbild der Eulen-/Vogelhäuschen-Position), sobald die Sonne untergegangen ist - unabhängig vom Wetter, läuft also z. B. auch zusammen mit Regen oder Schnee bei Nacht. Die Mondphase (Neumond bis Vollmond) wird direkt aus dem aktuellen Datum berechnet, kein zusätzlicher Sensor nötig. Nur über die Wetter-Automatik, nicht einzeln wählbar.
+* **☀️ Sonne bei "sonnig":** Teilt sich denselben Platz wie der Mond (Tag und Nacht schließen sich ja gegenseitig aus), mit sanft rotierenden Strahlen. Nur über die Wetter-Automatik, nicht einzeln wählbar.
+* **🌗 Auto-Theme-Modus mit View-Theme-Unterstützung:** Erkennt automatisch Hell-/Dunkelmodus – auch wenn das Theme nur auf einer einzelnen Dashboard-Seite gesetzt ist.
+* **✨ Echtes "Kräftig":** Bei maximaler Deckkraft wird jeder Effekt spürbar kräftiger dargestellt.
+* **GUI-Editor mit Kontext:** Der Editor blendet nur die Regler ein, die für den aktuell gewählten Effekt auch wirklich etwas tun.
+* **🔒 Sicherheit:** Benutzerdefinierte Laub-SVG-Formen werden über eine Whitelist geprüft; der Geburtstags-Banner-Text wird automatisch gegen Schadcode abgesichert.
+* **🔋 Akku- und ressourcenschonend:** Animationen pausieren automatisch, sobald das Dashboard-Tab im Hintergrund ist. Fast alle Effekte laufen rein über CSS (GPU-beschleunigt).
+* **🎯 Robuste Sichtbarkeit:** Effekte werden in einen unabhängigen Container direkt in `<body>` gerendert, mit einem extrem hohen Stapel-Wert (z-index) - dadurch werden sie zuverlässig als Vollbild-Overlay angezeigt, selbst über anderen Custom Cards mit eigenen Übergangs-Animationen.
+
+---
+
+## 📦 Installation
+
+### Über HACS (Empfohlen)
+
+1. Öffne **HACS** in deiner Home Assistant Seitenleiste.
+2. Klicke oben rechts auf die drei Punkte (`⋮`) → **Benutzerdefinierte Repositories**.
+3. Füge deine GitHub-Repository-URL ein:
+   `https://github.com/misterm2310/ambient-overlay-card`
+4. Wähle als Kategorie **Lovelace**.
+5. Klicke auf **Hinzufügen** und anschließend auf **Herunterladen**.
+6. Lade dein Dashboard neu (`Strg` + `F5`).
+
+---
+
+### Manuelle Installation
+
+1. Lade die Datei `ambient-overlay-card.js` aus dem aktuellen Release herunter.
+2. Kopiere die Datei in deinen Home Assistant Ordner: `/config/www/ambient-overlay-card.js`.
+3. Gehe in Home Assistant zu **Einstellungen → Dashboards → Drei Punkte oben rechts → Ressourcen**.
+4. Füge eine neue Ressource hinzu:
+   * **URL:** `/local/ambient-overlay-card.js`
+   * **Typ:** JavaScript-Modul
+5. Lade dein Dashboard neu.
+
+> 💡 **Tipp bei Update-Problemen:** Falls nach einem Update alles beim Alten bleibt, liegt's fast immer am Browser-Cache. Harten Reload machen (`Strg` + `Shift` + `R`) oder die Ressourcen-URL kurz um `?v=2` (nächste Zahl hochzählen) ergänzen.
+
+---
+
+### 🔄 Umstieg von der Vorgänger-Karte
+
+Diese Karte hieß früher **Weather & Event Overlay Card** (`weather-event-overlay-card`). Wer von dieser Version kommt, muss drei Dinge anpassen:
+
+1. **Ressource:** Alte Ressourcen-URL (`/local/weather-event-overlay-card.js`) entfernen, neue hinzufügen (`/local/ambient-overlay-card.js`). Bei HACS stattdessen das alte Repository entfernen und das neue hinzufügen.
+2. **Dashboard-Karten:** In jeder Karte die Zeile `type: custom:weather-event-overlay-card` ändern in `type: custom:ambient-overlay-card`.
+3. **Neu laden:** Harten Reload machen (`Strg` + `Shift` + `R`).
+
+Alle Konfigurationsoptionen (`event`, `count_preset`, `person_entities`, ...) bleiben unverändert – du musst also nur den Typ austauschen, sonst nichts.
+
+---
+
+## 🖱️ Einrichtung über den GUI-Editor (empfohlen)
+
+Karte zum Dashboard hinzufügen → **Ambient Overlay Card** auswählen → im Editor:
+
+1. Oben siehst du direkt eine **Live-Vorschau** – die aktualisiert sich automatisch, während du unten Einstellungen änderst.
+2. **Effekt** wählen – entweder einen festen Effekt (Regen, Schnee, Eule, Dampflok, Wichteltür, ...) oder **"🌦️ Automatisch (nach Wetter)"**.
+3. Bei "Automatisch": darunter erscheint **Wetter-Sensor** – dort deine `weather.*`-Entity aus der Liste auswählen.
+4. Bei "🎂 Geburtstags-Modus": darunter erscheint ein Feld für den **Banner-Text**.
+5. Bei "🚂 Dampflok" erscheinen mehrere optionale Felder:
+   * **Weihnachtsmann-Sensor** – wählst du hier einen `input_boolean`/`binary_sensor` aus, schaltet der Zug auf die festliche Beladung um, sobald dieser Sensor "an" ist.
+   * **Abendessen-Sensor** – dasselbe für die Abendessen-Beladung (Weihnachten hat Vorrang).
+   * **Personen-Waggons** – eine Checkbox-Liste aller `person.`-Entities. Jede angehakte Person, die gerade zuhause ist, bekommt einen eigenen Waggon. Die Reihenfolge der Waggons entspricht der Reihenfolge, in der du sie anhakst.
+   * **Gäste-Waggons aus Sensor** – ein Dropdown mit allen `input_text.`, `input_select.` und `sensor.`-Entities. Stehen dort komma-getrennte Namen drin, gibt's pro Name einen Waggon.
+   * **Freitext-Waggon** – fester Text als Alternative, falls du keinen Sensor nutzen willst.
+6. Bei "🐕 Goldener Labrador": darunter erscheint optional **Wetter-Sensor** – wählst du hier deine echte `weather.*`-Entity aus, schüttelt sich der Hund kurz, sobald diese aktuell Regen meldet.
+7. **Anzahl / Frequenz**, **Deckkraft / Helligkeit** und ggf. **Farbmodus** nach Geschmack einstellen.
+
+Der Editor blendet dabei automatisch nur die Regler ein, die für den gewählten Effekt auch etwas bewirken:
+* Bei **Blitz, Weihnachtsmann, Hund, Dampflok, Eule, Wichteltür, Vogelhäuschen und Geburtstags-Modus** gibt's keinen Farbmodus (feste Farben).
+* Bei der **Spinne, Eule und Wunschstern** gibt's keine Anzahl (es gibt jeweils nur die eine).
+* Bei **Weihnachtsmann, Hund, Komet, Dampflok, Vogelhäuschen und Blätter** steuert "Anzahl/Frequenz" NICHT eine Partikelmenge, sondern wie oft etwas passiert (Vorbeiziehen, Vorbeifliegen, Windstoß).
+* Bei **Wichteltür** steuert "Anzahl/Frequenz" stattdessen, wie oft das Fenster aufleuchtet.
+* Bei **Fledermäuse, Bienen, Wolken-Drift und Geburtstags-Modus** ist "Anzahl" eine ganz normale Partikelmenge.
+
+### 🌦️ Wie die Wetter-Automatik genau funktioniert
+
+Ist "Automatisch" aktiv, schaut die Karte sich den aktuellen Zustand deiner gewählten Wetter-Entity an und übersetzt ihn automatisch in einen (oder bei zwei Zuständen sogar zwei gleichzeitige) Effekt(e):
+
+| HA-Wetterzustand | Effekt(e) |
+|---|---|
+| `rainy`, `pouring` | 🌧️ Regen |
+| `snowy` | ❄️ Schnee |
+| `snowy-rainy` | ❄️ Schnee **+** 🌧️ Regen gleichzeitig |
+| `hail` | 🧊 Hagel |
+| `lightning` | ⚡ Blitz |
+| `lightning-rainy` | ⚡ Blitz **+** 🌧️ Regen gleichzeitig |
+| `fog` | 🌫️ Nebel |
+| `windy`, `windy-variant` | 💨 Sturm |
+| `cloudy`, `partlycloudy` | 🌤️ Wolken-Drift |
+| `clear-night` | ✨ Sternenhimmel |
+| `sunny` | ☀️ Sonne |
+| alles andere | Aus |
+
+**Zusätzlich, unabhängig vom Wetter-Zustand:** Sobald die Sonne untergegangen ist (`sun.sun` = `below_horizon`), erscheint automatisch der **🌙 Mond** oben rechts – zusätzlich zu einem eventuell laufenden Wetter-Effekt (z. B. Regen + Mond gleichzeitig bei nächtlichem Regen). Die Mondphase wird direkt aus dem aktuellen Datum berechnet, kein zusätzlicher Sensor nötig.
+
+**Wichtig:** Anzahl, Deckkraft und Farbmodus gelten bei aktiver Automatik als **ein gemeinsamer Wert für alle möglichen Wetter-Effekte**. Alle Tier-, Deko- und Anlass-Effekte (Weihnachtsmann, Hund, Dampflok, Fledermäuse, Eule, Bienen, Wunschstern, Spinne, Wichteltür, Vogelhäuschen, Geburtstags-Modus) laufen NICHT über die Wetter-Automatik. Wechselt die Wetter-Automatik den Effekt, blendet der alte Effekt sanft aus statt abrupt zu verschwinden - bei einem manuellen Wechsel im Editor passiert das dagegen sofort.
+
+---
+
+## ⚙️ Verwendung (YAML)
+
+### Wetter-Automatik
+```yaml
+type: custom:ambient-overlay-card
+event: weather_auto
+weather_entity: weather.home
+count_preset: medium
+opacity_preset: medium
+color_mode: auto
+```
+
+### Dampflok mit sensor-gesteuerter Festtags-Beladung
+```yaml
+type: custom:ambient-overlay-card
+event: train
+count_preset: medium
+opacity_preset: high
+santa_sensor: input_boolean.weihnachtszeit
+dinner_sensor: input_boolean.schalter_abendessen
+person_entities: person.marco, person.sandra
+custom_wagon_entity: input_text.gaeste
+```
+
+### Dampflok mit fester Gäste-Beschriftung (ohne Sensor)
+```yaml
+type: custom:ambient-overlay-card
+event: train
+count_preset: medium
+opacity_preset: high
+custom_wagon_text: Marcel, Rudolf
+```
+
+#### 🚃 Reihenfolge der Waggons
+
+Von der Lok aus gezählt (die Lok fährt vorne):
+
+* **Position 1:** die Lok
+* **Position 2–5:** die vier festen Waggons (Alltags-, Weihnachts- oder Abendessen-Ladung)
+* **danach:** die Personen-Waggons – in der Reihenfolge, wie du sie im Editor angehakt hast, die zuerst angehakte Person ist am nächsten an der Lok
+* **danach:** die Gäste-Waggons – in der Reihenfolge, wie die Namen im Sensor bzw. im Freitext stehen
+* **ganz am Ende:** der Schlusswagen mit den blinkenden Lampen – immer das letzte Element
+
+### Goldener Labrador mit Regen-Schütteln (optional)
+```yaml
+type: custom:ambient-overlay-card
+event: dog
+count_preset: medium
+opacity_preset: high
+weather_entity: weather.home
+```
+
+### Wichteltür
+```yaml
+type: custom:ambient-overlay-card
+event: gnome_door
+count_preset: medium
+opacity_preset: high
+```
+
+### Vogelhäuschen
+```yaml
+type: custom:ambient-overlay-card
+event: birdhouse
+count_preset: medium
+opacity_preset: high
+```
+
+### Spinne mit Netz (Auto-Farbmodus)
+```yaml
+type: custom:ambient-overlay-card
+event: spider
+opacity_preset: medium
+color_mode: auto
+```
+
+### Geburtstags-Modus mit eigenem Text
+```yaml
+type: custom:ambient-overlay-card
+event: birthday
+birthday_text: "Happy Birthday, Max!"
+count_preset: medium
+opacity_preset: high
+```
+
+### Wolken-Drift (theme-abhängig)
+```yaml
+type: custom:ambient-overlay-card
+event: clouds
+count_preset: low
+opacity_preset: medium
+color_mode: auto
+```
+
+### Fledermäuse (theme-abhängig)
+```yaml
+type: custom:ambient-overlay-card
+event: bats
+count_preset: medium
+opacity_preset: high
+color_mode: auto
+```
+
+### Eule (ruhig, keine Anzahl nötig)
+```yaml
+type: custom:ambient-overlay-card
+event: owl
+opacity_preset: medium
+```
+
+### Bienenschwarm
+```yaml
+type: custom:ambient-overlay-card
+event: bee
+count_preset: medium
+opacity_preset: medium
+```
+
+### Wunschstern-Funkeln (Auto-Farbmodus)
+```yaml
+type: custom:ambient-overlay-card
+event: wishstar
+opacity_preset: high
+color_mode: auto
+```
+
+### Komet (selten, dramatisch)
+```yaml
+type: custom:ambient-overlay-card
+event: comet
+count_preset: low
+opacity_preset: high
+color_mode: auto
+```
+
+### Herbstlaub mit eigenem Farbverlauf (nur per YAML einstellbar)
+```yaml
+type: custom:ambient-overlay-card
+event: leaves
+count_preset: medium
+opacity_preset: medium
+leaf_colors:
+  - "#c9a227"
+  - "#a83232"
+  - "#d9812c"
+```
+
+---
+
+## 🧩 Verfügbare Effekte
+
+| `event` | Beschreibung |
+|---|---|
+| `off` | Kein Effekt (Standard) |
+| `weather_auto` | 🌦️ Automatisch nach echter Wetter-Entity, inkl. Kombi-Effekten (siehe oben) |
+| `rain` | 🌧️ Regen |
+| `snow` | ❄️ Schnee (mit wachsender Schneedecke am unteren Rand) |
+| `hail` | 🧊 Hagel |
+| `lightning` | ⚡ Blitz / Gewitter |
+| `fog` | 🌫️ Wabernde Nebelschwaden |
+| `storm` | 💨 Sturm/Windböen |
+| `clouds` | 🌤️ Theme-abhängig eingefärbte, gleichmäßig verteilte Wolken |
+| `shooting_stars` | 🌠 Sternschnuppen |
+| `wishstar` | ⭐ Ein Stern mit weichem Strahlenkranz, blitzt an wechselnden Positionen auf |
+| `comet` | ☄️ Seltener, dramatischer Komet mit langem Schweif |
+| `leaves` | 🍂 Periodischer Herbstwind-Stoß mit 3-Farben-Verlauf (kein Dauer-Fall mehr) |
+| `balloons` | 🎈 Aufsteigende Luftballons |
+| `lights` | 💡 Blinkende Lichterkette am oberen Rand |
+| `birthday` | 🎂 Geburtstags-Modus: Ballons + Konfetti + Banner mit eigenem Text |
+| `santa` | 🎅 Weihnachtsmann mit Schlitten & 2 Rentieren (periodischer Vorbeiflug, verliert gelegentlich ein Geschenk) |
+| `gnome_door` | 🧝🚪 Wichteltür-Szene: Tür mit Kranz, Weihnachtsbaum mit Lichterkette, Laterne, Briefkasten, Weg |
+| `spider` | 🕷️ Spinnennetz mit auf- und abseilender Spinne (blinkende rote Augen, verliert dabei mal kurz den Halt) |
+| `dog` | 🐕 Goldener Labrador mit echter Lauf-Beinbewegung, Schnüffel-Pause und Pfotenabdrücken (optional Schütteln bei Regen) |
+| `train` | 🚂 Dampflok mit vier Waggons (Obst/Bauklötze/Postsäcke/Holz, optional festliche Sensor-Beladung oder Abendessen-Beladung), beleuchteten Fenstern, Frontlampe, Dampf aus dem Schornstein, Hupen und ganz selten herzförmiger Dampf. Optional erweiterbar um Personen-Waggons, Gäste-Waggons aus einem Sensor und einen blinkenden Schlusswagen |
+| `bats` | 🦇 Fledermausschwarm, theme-abhängig eingefärbt |
+| `owl` | 🦉 Eule auf einem Ast, mit abwechselndem Blinzeln |
+| `bee` | 🐝 Bienenschwarm (5-8 Stück) im Zickzack-Flug |
+| `birdhouse` | 🐦🏠 Vogelhäuschen auf einem Ast oben links, Vogel fliegt periodisch vorbei |
+
+---
+
+## 🔧 Konfigurationsoptionen
+
+| Option | Typ | Standard | Beschreibung |
+|---|---|---|---|
+| `event` | string | `off` | Welcher Effekt aktiv ist, oder `weather_auto` für die Wetter-Automatik (siehe Tabelle oben) |
+| `weather_entity` | string | `""` | HA-Entity-ID einer `weather.*`-Entity, z. B. `weather.home` (bei `event: weather_auto` bestimmt sie den Effekt; bei `event: dog` optional fürs Schütteln bei Regen) |
+| `birthday_text` | string | `"Happy Birthday!"` | Text im Banner (nur relevant bei `event: birthday`) - wird automatisch gegen Schadcode abgesichert |
+| `santa_sensor` | string | `""` | HA-Entity-ID eines `input_boolean`/`binary_sensor` (nur relevant bei `event: train`) - ist er "an", tragen drei Waggons festliche Fracht statt der normalen Alltags-Ladung |
+| `dinner_sensor` | string | `""` | HA-Entity-ID eines `input_boolean`/`binary_sensor` (nur relevant bei `event: train`) - ist er "an", tragen drei Waggons Geschirr, Braten und Getränke statt der normalen Alltags-Ladung. `santa_sensor` hat Vorrang, falls beide gleichzeitig an wären. |
+| `person_entities` | string | `""` | Komma-getrennte Liste von `person.`-Entities (nur relevant bei `event: train`) - für jede Person, die gerade zuhause ist, wird hinten ein Waggon mit Profilbild (falls vorhanden) oder Namens-Initiale angehängt. Im Editor als Checkbox-Liste auswählbar, dieses Feld ist nur für direktes YAML-Schreiben. |
+| `custom_wagon_entity` | string | `""` | HA-Entity-ID eines Sensors mit komma-getrennten Namen, z. B. `input_text.gaeste` (nur relevant bei `event: train`) - für **jeden Namen** wird hinten ein eigener Waggon angehängt. Im Editor als Dropdown auswählbar (`input_text.`, `input_select.`, `sensor.`). Hat Vorrang vor `custom_wagon_text`. Ist der Sensor leer oder `unknown`/`unavailable`, entfallen die Waggons. |
+| `custom_wagon_text` | string | `""` | Fester Text für zusätzliche Waggons (nur relevant bei `event: train`), falls kein Sensor gewählt ist. Mehrere Namen mit Komma trennen ergibt mehrere Waggons, z. B. `Marcel, Rudolf`. |
+| `count_preset` | `low` \| `medium` \| `high` | `medium` | Anzahl bzw. Frequenz – Bedeutung hängt vom Effekt ab (siehe Editor-Hinweistexte oben) |
+| `opacity_preset` | `low` \| `medium` \| `high` | `medium` | Deckkraft/Helligkeit des Effekts |
+| `color_mode` | `auto` \| `custom` | `auto` | Automatische Theme-Erkennung oder feste Farbe (nur bei Effekten mit Farbmodus) |
+| `color` | string (hex) oder `auto` | `auto` | Manuelle Farbe für Effekte mit Farbmodus (Regen, Schnee, Nebel, Hagel, Sturm, Wolken-Drift, Fledermäuse, Sternschnuppen, Sternenhimmel, Wunschstern, Spinnennetz, Komet) |
+| `leaf_colors` | Array aus 3 Hex-Farben | `["#c9a227", "#a83232", "#d9812c"]` | Farbverlauf für den Laub-Effekt (nur per YAML editierbar, nicht im GUI-Editor) |
+| `leaf_shape` | string (SVG-Pfad) | interne Standardform | Optionale eigene Blattform, nur per YAML (wird sicherheitsgeprüft) |
+
+---
+
+## 📄 Lizenz
+
+MIT
