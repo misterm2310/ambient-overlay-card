@@ -1747,12 +1747,15 @@ function renderMoon(cfg, hass, hostEl) {
   // clipPath auf den jeweils beleuchteten Bereich begrenzt, damit sie
   // bei jeder Phase (nicht nur Vollmond) nur dort auftauchen, wo gerade
   // wirklich Licht drauf fällt.
+  const craterStyle = `fill="#cfbf8c" stroke="#b09d68" stroke-width="0.7"`;
   const cratersSvg = `
-    <circle cx="21" cy="30" r="3.5" fill="#e0d4ae" opacity="0.6"/>
-    <circle cx="35" cy="42" r="2.5" fill="#e0d4ae" opacity="0.6"/>
-    <circle cx="24" cy="48" r="2" fill="#e0d4ae" opacity="0.6"/>
-    <circle cx="38" cy="28" r="1.8" fill="#e0d4ae" opacity="0.5"/>
-    <circle cx="16" cy="40" r="1.6" fill="#e0d4ae" opacity="0.5"/>
+    <circle cx="20" cy="29" r="4" ${craterStyle}/>
+    <circle cx="37" cy="44" r="3" ${craterStyle}/>
+    <circle cx="25" cy="50" r="2.4" ${craterStyle}/>
+    <circle cx="41" cy="29" r="2.2" ${craterStyle}/>
+    <circle cx="14" cy="41" r="2" ${craterStyle}/>
+    <circle cx="45" cy="40" r="2.3" ${craterStyle}/>
+    <circle cx="31" cy="34" r="1.6" ${craterStyle}/>
   `;
 
   let moonSvg;
@@ -1761,7 +1764,7 @@ function renderMoon(cfg, hass, hostEl) {
     moonSvg = `<circle cx="29" cy="39" r="24" fill="${unlitFill}" stroke="${unlitStroke}" stroke-width="1"/>`;
   } else if (lightPath === "full") {
     moonSvg = `
-      <circle cx="29" cy="39" r="24" fill="#f0e6c8"/>
+      <circle cx="29" cy="39" r="24" fill="#f0e6c8" stroke="${unlitStroke}" stroke-width="1"/>
       ${cratersSvg}
     `;
   } else {
@@ -1801,34 +1804,43 @@ function renderSun(cfg, hass, hostEl) {
       position: fixed; top: 2vh; right: 1vw; width: 58px; height: 78px;
       pointer-events: none; z-index: 999998;
     }
-    .sun-rays {
-      animation: sun-rotate 40s linear infinite;
-      transform-box: fill-box; transform-origin: center;
+    .sun-halo {
+      animation: sun-glow 4s ease-in-out infinite;
     }
     .sun-core {
       animation: sun-pulse 4s ease-in-out infinite;
       transform-box: fill-box; transform-origin: center;
     }
-    @keyframes sun-rotate {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    @keyframes sun-glow {
+      0%, 100% { opacity: 0.75; }
+      50% { opacity: 1; }
     }
     @keyframes sun-pulse {
       0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.06); }
+      50% { transform: scale(1.04); }
     }
   `;
 
-  const rays = Array.from({ length: 8 }, (_, i) => {
-    const angle = i * 45;
-    return `<line x1="29" y1="39" x2="29" y2="9" stroke="#ffd93d" stroke-width="3.5" stroke-linecap="round" transform="rotate(${angle} 29 39)"/>`;
-  }).join("");
-
+  // Lichtschein bewusst per Farbverlauf statt Weichzeichner-Filter:
+  // Filter können auf schwächeren Browsern (z. B. Fire TV) ein
+  // sichtbares Rechteck um die Figur erzeugen.
   const html = `
     <div class="sun-container" style="opacity:${finalOpacity};" aria-hidden="true">
       <svg viewBox="0 0 58 78" style="width:100%; height:100%;">
-        <g class="sun-rays">${rays}</g>
-        <circle class="sun-core" cx="29" cy="39" r="16" fill="#ffcb3d" stroke="#e8a92a" stroke-width="1.5"/>
+        <defs>
+          <radialGradient id="sun-halo-grad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffd93d" stop-opacity="0.9"/>
+            <stop offset="55%" stop-color="#ffc233" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#ffb020" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="sun-core-grad" cx="42%" cy="40%" r="65%">
+            <stop offset="0%" stop-color="#fff4b0"/>
+            <stop offset="55%" stop-color="#ffcb3d"/>
+            <stop offset="100%" stop-color="#f5a623"/>
+          </radialGradient>
+        </defs>
+        <circle class="sun-halo" cx="29" cy="39" r="28" fill="url(#sun-halo-grad)"/>
+        <circle class="sun-core" cx="29" cy="39" r="16" fill="url(#sun-core-grad)" stroke="#d98a1a" stroke-width="2"/>
       </svg>
     </div>
   `;
