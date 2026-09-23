@@ -1133,135 +1133,118 @@ function renderTrain(cfg, hass, hostEl) {
   // Vier verschiedene Ladungen, die statt der einheitlichen Kohle oben auf
   // den Waggon kommen - jede innerhalb desselben Bereichs (x=2-81, y=8-32),
   // damit sie zum Waggon-Umriss passt.
+  // Ladungs-Motive. Bewusst wenige, dafür GROSSE Einzelteile: der
+  // Waggon ist nur 87 Einheiten breit, viele kleine Teile werden am
+  // Bildschirm zu unkenntlichen Farbklecksen. Alle Motive stehen auf
+  // dem Waggonboden (y=32) und wachsen nach oben in den freien Platz.
   const CARGO = {
     food: `
-      <circle cx="14" cy="25" r="7.5" fill="#d81f26"/>
-      <circle cx="29" cy="21" r="8" fill="#f5a623"/>
-      <circle cx="45" cy="24" r="7.5" fill="#7cb342"/>
-      <circle cx="60" cy="20" r="8" fill="#d81f26"/>
-      <circle cx="74" cy="24" r="7" fill="#f5a623"/>
-      <path d="M14,17.5 L15,14 M29,13 L30,10 M60,12 L61,9" stroke="#4a7a2a" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="18" cy="18" r="13" fill="#d81f26" stroke="#8a1015" stroke-width="1.8"/>
+      <path d="M18,5 Q19,-1 24,-2" stroke="#4a7a2a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <circle cx="43.5" cy="17" r="14" fill="#f5a623" stroke="#a86a10" stroke-width="1.8"/>
+      <path d="M43.5,3 Q45,-3 50,-4" stroke="#4a7a2a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <circle cx="69" cy="18" r="13" fill="#7cb342" stroke="#4a7a1f" stroke-width="1.8"/>
+      <path d="M69,5 Q70,-1 75,-2" stroke="#4a7a2a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
     `,
     toys: `
-      <rect x="4" y="14" width="14" height="18" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1.5"/>
-      <rect x="20" y="8" width="14" height="24" fill="#ffd93d" stroke="#1a1a1a" stroke-width="1.5"/>
-      <rect x="36" y="17" width="14" height="15" fill="#e63946" stroke="#1a1a1a" stroke-width="1.5"/>
-      <rect x="52" y="10" width="14" height="22" fill="#7cb342" stroke="#1a1a1a" stroke-width="1.5"/>
-      <rect x="68" y="15" width="13" height="17" fill="#9b59b6" stroke="#1a1a1a" stroke-width="1.5"/>
+      <rect x="6" y="6" width="24" height="26" fill="#4a90d9" stroke="#1a1a1a" stroke-width="2"/>
+      <path d="M12,14 L24,14 M18,14 L18,26" stroke="#2a5f96" stroke-width="2.5"/>
+      <rect x="32" y="-3" width="24" height="35" fill="#ffd93d" stroke="#1a1a1a" stroke-width="2"/>
+      <circle cx="44" cy="9" r="6" fill="#e8952a"/>
+      <rect x="58" y="10" width="24" height="22" fill="#e63946" stroke="#1a1a1a" stroke-width="2"/>
+      <path d="M64,21 L76,21" stroke="#8a2020" stroke-width="2.5"/>
     `,
     presents: `
-      <rect x="4" y="16" width="20" height="16" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1.5"/>
-      <circle cx="14" cy="16" r="2.8" fill="#ffd93d" stroke="#1a1a1a" stroke-width="1"/>
-      <rect x="30" y="10" width="22" height="22" fill="#e63946" stroke="#1a1a1a" stroke-width="1.5"/>
-      <circle cx="41" cy="10" r="2.8" fill="#7cb342" stroke="#1a1a1a" stroke-width="1"/>
-      <rect x="58" y="15" width="20" height="17" fill="#9b59b6" stroke="#1a1a1a" stroke-width="1.5"/>
-      <circle cx="68" cy="15" r="2.8" fill="#ffd93d" stroke="#1a1a1a" stroke-width="1"/>
+      <rect x="8" y="10" width="30" height="22" fill="#4a90d9" stroke="#1a1a1a" stroke-width="2"/>
+      <path d="M23,10 L23,32 M8,21 L38,21" stroke="#ffd93d" stroke-width="3.5"/>
+      <path d="M23,10 Q16,2 13,7 Q16,11 23,10 Q30,2 33,7 Q30,11 23,10 Z" fill="#ffd93d" stroke="#1a1a1a" stroke-width="1.3"/>
+      <rect x="46" y="2" width="34" height="30" fill="#e63946" stroke="#1a1a1a" stroke-width="2"/>
+      <path d="M63,2 L63,32 M46,17 L80,17" stroke="#7cb342" stroke-width="4"/>
+      <path d="M63,2 Q55,-7 52,-1 Q55,3 63,2 Q71,-7 74,-1 Q71,3 63,2 Z" fill="#7cb342" stroke="#1a1a1a" stroke-width="1.3"/>
     `,
     wood: `
-      <circle cx="12" cy="25" r="7" fill="#8a5a2f" stroke="#4a2f18" stroke-width="1.5"/>
-      <circle cx="12" cy="25" r="3" fill="#c9a05a"/>
-      <circle cx="27" cy="21" r="7.5" fill="#6b4423" stroke="#4a2f18" stroke-width="1.5"/>
-      <circle cx="27" cy="21" r="3.2" fill="#a67c3d"/>
-      <circle cx="43" cy="25" r="7" fill="#8a5a2f" stroke="#4a2f18" stroke-width="1.5"/>
-      <circle cx="43" cy="25" r="3" fill="#c9a05a"/>
-      <circle cx="58" cy="21" r="7.5" fill="#6b4423" stroke="#4a2f18" stroke-width="1.5"/>
-      <circle cx="58" cy="21" r="3.2" fill="#a67c3d"/>
-      <circle cx="73" cy="25" r="7" fill="#8a5a2f" stroke="#4a2f18" stroke-width="1.5"/>
-      <circle cx="73" cy="25" r="3" fill="#c9a05a"/>
+      <circle cx="18" cy="19" r="13" fill="#8a5a2f" stroke="#4a2f18" stroke-width="2"/>
+      <circle cx="18" cy="19" r="5.5" fill="#c9a05a"/>
+      <circle cx="43.5" cy="17" r="14" fill="#6b4423" stroke="#4a2f18" stroke-width="2"/>
+      <circle cx="43.5" cy="17" r="6" fill="#a67c3d"/>
+      <circle cx="69" cy="19" r="13" fill="#8a5a2f" stroke="#4a2f18" stroke-width="2"/>
+      <circle cx="69" cy="19" r="5.5" fill="#c9a05a"/>
     `,
     santa_sack: `
-      <path d="M28,32 Q24,16 50,12 Q76,16 72,32 Z" fill="#c0392b" stroke="#6b1810" stroke-width="1.5"/>
-      <path d="M36,14 Q50,6 64,14" stroke="#6b1810" stroke-width="1.5" fill="none"/>
-      <rect x="32" y="8" width="9" height="11" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1"/>
-      <circle cx="50" cy="8" r="5" fill="#ffd93d" stroke="#1a1a1a" stroke-width="1"/>
-      <path d="M60,7 L66,7 L63,0 Z" fill="#7cb342" stroke="#1a1a1a" stroke-width="1"/>
-      <path d="M10,32 Q7,22 16,20 Q25,22 22,32 Z" fill="#8a2020" stroke="#4a1010" stroke-width="1.2"/>
-      <path d="M13,20 Q16,15 19,20" stroke="#4a1010" stroke-width="1" fill="none"/>
-      <path d="M6,10 Q6,5 11,5 Q16,5 16,10 L16,26" stroke="#e63946" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <path d="M6,10 Q6,5 11,5 Q16,5 16,10 L16,26" stroke="#ffffff" stroke-width="3" fill="none" stroke-dasharray="2.5,2.5" stroke-linecap="round"/>
+      <path d="M14,32 Q6,7 43.5,1 Q81,7 73,32 Z" fill="#c0392b" stroke="#6b1810" stroke-width="2"/>
+      <path d="M24,5 Q43.5,-7 63,5" stroke="#6b1810" stroke-width="2.2" fill="none"/>
+      <rect x="26" y="-9" width="15" height="16" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1.4"/>
+      <path d="M33.5,-9 L33.5,7 M26,-1 L41,-1" stroke="#ffd93d" stroke-width="2"/>
+      <circle cx="55" cy="-4" r="8" fill="#ffd93d" stroke="#1a1a1a" stroke-width="1.4"/>
     `,
     snowman: `
-      <circle cx="14" cy="29" r="6" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="0.9"/>
-      <circle cx="14" cy="21" r="4.3" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="0.9"/>
-      <path d="M10.5,20.5 L17.5,20.5 L17.5,18.7 L10.5,18.7 Z" fill="#1a1a1a"/>
-      <circle cx="12.5" cy="20.5" r="0.6" fill="#1a1a1a"/>
-      <circle cx="15.5" cy="20.5" r="0.6" fill="#1a1a1a"/>
-      <circle cx="14" cy="27" r="0.7" fill="#1a1a1a"/>
-      <circle cx="40" cy="27" r="9" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="1"/>
-      <circle cx="40" cy="15" r="6.5" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="1"/>
-      <path d="M33.5,14 L46.5,14 L46.5,10.5 L33.5,10.5 Z" fill="#1a1a1a"/>
-      <path d="M31.5,9 L48.5,9 L48.5,7 L31.5,7 Z" fill="#1a1a1a"/>
-      <path d="M40,15 L45,16 L40,17 Z" fill="#e8952a"/>
-      <circle cx="37" cy="14" r="0.9" fill="#1a1a1a"/>
-      <circle cx="43" cy="14" r="0.9" fill="#1a1a1a"/>
-      <circle cx="40" cy="25" r="1" fill="#1a1a1a"/>
-      <circle cx="40" cy="29" r="1" fill="#1a1a1a"/>
-      <path d="M31,21 L23,17 M49,21 L57,17" stroke="#6b4423" stroke-width="1.5" stroke-linecap="round"/>
-      <circle cx="66" cy="28" r="6.6" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="0.9"/>
-      <circle cx="66" cy="19.4" r="4.7" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="0.9"/>
-      <path d="M61.8,18.9 L70.2,18.9 L70.2,16.9 L61.8,16.9 Z" fill="#1a1a1a"/>
-      <circle cx="64.3" cy="18.9" r="0.65" fill="#1a1a1a"/>
-      <circle cx="67.7" cy="18.9" r="0.65" fill="#1a1a1a"/>
-      <circle cx="66" cy="26" r="0.75" fill="#1a1a1a"/>
+      <circle cx="43.5" cy="21" r="11" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="1.6"/>
+      <circle cx="43.5" cy="6" r="8.5" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="1.6"/>
+      <circle cx="43.5" cy="-6" r="6.5" fill="#f5f5f5" stroke="#c9c2b4" stroke-width="1.6"/>
+      <path d="M35,3 L26,-4 M52,3 L61,-4" stroke="#6b4423" stroke-width="2.8" stroke-linecap="round"/>
+      <rect x="38" y="-20" width="11" height="9" fill="#1a1a1a"/>
+      <rect x="33.5" y="-12" width="20" height="2.8" fill="#1a1a1a"/>
+      <circle cx="41" cy="-7" r="1.1" fill="#1a1a1a"/>
+      <circle cx="46" cy="-7" r="1.1" fill="#1a1a1a"/>
+      <path d="M43.5,-5 L49.5,-3.5 L43.5,-2 Z" fill="#e8952a"/>
+      <circle cx="43.5" cy="3" r="1.3" fill="#1a1a1a"/>
+      <circle cx="43.5" cy="9" r="1.3" fill="#1a1a1a"/>
     `,
     santa: `
-      <rect x="8" y="20" width="11" height="12" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1"/>
-      <circle cx="13.5" cy="20" r="2.2" fill="#ffd93d" stroke="#1a1a1a" stroke-width="0.7"/>
-      <circle cx="40" cy="27" r="9" fill="#c0392b" stroke="#6b1810" stroke-width="1.2"/>
-      <rect x="33" y="30" width="14" height="3" fill="#1a1a1a"/>
-      <circle cx="40" cy="15" r="6" fill="#f0d1a8" stroke="#c9a878" stroke-width="0.8"/>
-      <path d="M34,18 Q40,24 46,18 L46,22 Q40,27 34,22 Z" fill="#ffffff"/>
-      <path d="M33,11 Q40,4 47,11 Q47,5 40,4 Q33,5 33,11 Z" fill="#c0392b" stroke="#6b1810" stroke-width="1"/>
-      <circle cx="47" cy="5" r="2.2" fill="#ffffff"/>
-      <circle cx="37" cy="14" r="0.8" fill="#1a1a1a"/>
-      <circle cx="43" cy="14" r="0.8" fill="#1a1a1a"/>
-      <rect x="60" y="18" width="12" height="14" fill="#7cb342" stroke="#1a1a1a" stroke-width="1"/>
-      <circle cx="66" cy="18" r="2.2" fill="#e63946" stroke="#1a1a1a" stroke-width="0.7"/>
+      <rect x="4" y="16" width="18" height="16" fill="#7cb342" stroke="#1a1a1a" stroke-width="1.6"/>
+      <path d="M13,16 L13,32 M4,24 L22,24" stroke="#e63946" stroke-width="2.2"/>
+      <circle cx="46" cy="20" r="12" fill="#c0392b" stroke="#6b1810" stroke-width="1.6"/>
+      <rect x="36" y="24" width="20" height="4.5" fill="#1a1a1a"/>
+      <circle cx="46" cy="2" r="8" fill="#f0d1a8" stroke="#c9a878" stroke-width="1.1"/>
+      <path d="M38,6 Q46,15 54,6 L54,11 Q46,18 38,11 Z" fill="#ffffff"/>
+      <path d="M37,-3 Q46,-14 55,-3 Q55,-12 46,-14 Q37,-12 37,-3 Z" fill="#c0392b" stroke="#6b1810" stroke-width="1.4"/>
+      <circle cx="55" cy="-13" r="3.2" fill="#ffffff"/>
+      <circle cx="43" cy="1" r="1.2" fill="#1a1a1a"/>
+      <circle cx="49" cy="1" r="1.2" fill="#1a1a1a"/>
+      <rect x="66" y="14" width="17" height="18" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1.6"/>
+      <path d="M74.5,14 L74.5,32 M66,23 L83,23" stroke="#ffd93d" stroke-width="2.2"/>
     `,
     plates: `
-      <ellipse cx="14" cy="27" rx="10" ry="4" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.3"/>
-      <ellipse cx="14" cy="26" rx="6" ry="2.4" fill="#e8d9c0"/>
-      <circle cx="14" cy="25.5" r="2.2" fill="#e63946"/>
-      <ellipse cx="40" cy="24" rx="11" ry="4.5" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.3"/>
-      <ellipse cx="40" cy="23" rx="7" ry="2.7" fill="#e8d9c0"/>
-      <circle cx="37" cy="22.5" r="2" fill="#7cb342"/>
-      <circle cx="43" cy="23" r="1.8" fill="#e8952a"/>
-      <ellipse cx="66" cy="27" rx="10" ry="4" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.3"/>
-      <ellipse cx="66" cy="26" rx="6" ry="2.4" fill="#e8d9c0"/>
-      <circle cx="66" cy="25.5" r="2.2" fill="#ffd93d"/>
+      <ellipse cx="43.5" cy="27" rx="32" ry="5.5" fill="#ffffff" stroke="#1a1a1a" stroke-width="2"/>
+      <ellipse cx="43.5" cy="20" rx="22" ry="10" fill="#e8d9c0" stroke="#c9b48a" stroke-width="1.4"/>
+      <circle cx="32" cy="15" r="5.5" fill="#e63946" stroke="#8a2020" stroke-width="1.1"/>
+      <circle cx="45" cy="11" r="6" fill="#7cb342" stroke="#4a7a1f" stroke-width="1.1"/>
+      <circle cx="58" cy="15" r="5" fill="#e8952a" stroke="#a86a10" stroke-width="1.1"/>
     `,
     roast: `
-      <ellipse cx="40" cy="27" rx="24" ry="6.5" fill="#e8d9c0" stroke="#1a1a1a" stroke-width="1.3"/>
-      <ellipse cx="38" cy="19" rx="15" ry="10" fill="#c9791a" stroke="#8a4f0f" stroke-width="1.3"/>
-      <path d="M27,25 L21,31 M49,25 L55,31" stroke="#c9791a" stroke-width="4.5" stroke-linecap="round"/>
-      <path d="M27,25 L21,31 M49,25 L55,31" stroke="#8a4f0f" stroke-width="1" fill="none"/>
-      <circle cx="12" cy="27" r="3.2" fill="#7cb342" stroke="#4a7a1f" stroke-width="1"/>
-      <circle cx="66" cy="27" r="3.2" fill="#e63946" stroke="#8a2020" stroke-width="1"/>
+      <ellipse cx="43.5" cy="28" rx="32" ry="5" fill="#e8d9c0" stroke="#1a1a1a" stroke-width="1.8"/>
+      <path d="M27,21 L17,30 M60,21 L70,30" stroke="#c9791a" stroke-width="7" stroke-linecap="round"/>
+      <ellipse cx="43.5" cy="13" rx="22" ry="14" fill="#c9791a" stroke="#8a4f0f" stroke-width="1.8"/>
+      <path d="M32,6 Q43.5,0 55,6" stroke="#8a4f0f" stroke-width="1.6" fill="none"/>
+      <circle cx="13" cy="25" r="5" fill="#7cb342" stroke="#4a7a1f" stroke-width="1.2"/>
+      <circle cx="74" cy="25" r="5" fill="#e63946" stroke="#8a2020" stroke-width="1.2"/>
     `,
     drinks: `
-      <rect x="8" y="14" width="8" height="18" rx="1.5" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1.2"/>
-      <rect x="10" y="9" width="4" height="6" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1"/>
-      <rect x="34" y="12" width="9" height="20" rx="1.5" fill="#7cb342" stroke="#1a1a1a" stroke-width="1.2"/>
-      <rect x="36.5" y="6" width="4" height="7" fill="#7cb342" stroke="#1a1a1a" stroke-width="1"/>
-      <path d="M60,16 L68,16 L66,32 L62,32 Z" fill="#e8952a" stroke="#1a1a1a" stroke-width="1.2"/>
-      <rect x="62" y="10" width="4" height="7" fill="#e8952a" stroke="#1a1a1a" stroke-width="1"/>
+      <rect x="8" y="4" width="16" height="28" rx="2.5" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1.8"/>
+      <rect x="13" y="-6" width="6" height="11" fill="#4a90d9" stroke="#1a1a1a" stroke-width="1.5"/>
+      <rect x="10" y="12" width="12" height="9" fill="#e8f0f8" opacity="0.85"/>
+      <rect x="35" y="-2" width="17" height="34" rx="2.5" fill="#7cb342" stroke="#1a1a1a" stroke-width="1.8"/>
+      <rect x="40.5" y="-13" width="6" height="12" fill="#7cb342" stroke="#1a1a1a" stroke-width="1.5"/>
+      <rect x="37.5" y="8" width="12" height="9" fill="#eef7e4" opacity="0.85"/>
+      <path d="M62,8 L79,8 L76,32 L65,32 Z" fill="#e8952a" stroke="#1a1a1a" stroke-width="1.8"/>
+      <rect x="67.5" y="-2" width="6" height="11" fill="#e8952a" stroke="#1a1a1a" stroke-width="1.5"/>
     `,
     mailbags: `
-      <path d="M6,32 Q2,16 22,13 Q42,16 38,32 Z" fill="#9a8a68" stroke="#4a3f28" stroke-width="1.5"/>
-      <path d="M11,14 Q22,7 33,14" stroke="#4a3f28" stroke-width="1.4" fill="none"/>
-      <rect x="16" y="18" width="12" height="7" fill="#e8d9c0" stroke="#4a3f28" stroke-width="0.9"/>
-      <path d="M45,32 Q41,17 60,14 Q79,17 75,32 Z" fill="#8a7a5a" stroke="#4a3f28" stroke-width="1.5"/>
-      <path d="M50,15 Q60,9 70,15" stroke="#4a3f28" stroke-width="1.4" fill="none"/>
-      <rect x="54" y="19" width="12" height="7" fill="#e8d9c0" stroke="#4a3f28" stroke-width="0.9"/>
+      <path d="M8,32 Q2,10 22,4 Q42,10 36,32 Z" fill="#9a8a68" stroke="#4a3f28" stroke-width="2"/>
+      <path d="M13,6 Q22,-4 31,6" stroke="#4a3f28" stroke-width="2.2" fill="none"/>
+      <rect x="14" y="14" width="16" height="11" fill="#e8d9c0" stroke="#4a3f28" stroke-width="1.3"/>
+      <path d="M48,32 Q42,12 62,6 Q82,12 76,32 Z" fill="#8a7a5a" stroke="#4a3f28" stroke-width="2"/>
+      <path d="M53,8 Q62,-2 71,8" stroke="#4a3f28" stroke-width="2.2" fill="none"/>
+      <rect x="54" y="16" width="16" height="11" fill="#e8d9c0" stroke="#4a3f28" stroke-width="1.3"/>
     `,
     dessert: `
-      <path d="M6,32 L10,20 L22,20 L26,32 Z" fill="#e8c9a0" stroke="#1a1a1a" stroke-width="1.3"/>
-      <ellipse cx="16" cy="19" rx="7" ry="3.2" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.1"/>
-      <circle cx="16" cy="16" r="1.8" fill="#e63946"/>
-      <path d="M35,32 L41,14 L47,32 Z" fill="#c9791a" stroke="#1a1a1a" stroke-width="1.3"/>
-      <path d="M35,25 L47,25" stroke="#f0e0c0" stroke-width="2.5"/>
-      <ellipse cx="66" cy="24" rx="10" ry="8" fill="#e8952a" stroke="#1a1a1a" stroke-width="1.3"/>
-      <path d="M58,22 Q66,17 74,22" stroke="#c9791a" stroke-width="1.5" fill="none"/>
+      <path d="M8,32 L13,9 L35,9 L40,32 Z" fill="#e8c9a0" stroke="#1a1a1a" stroke-width="1.8"/>
+      <ellipse cx="24" cy="8" rx="13" ry="6" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.5"/>
+      <circle cx="24" cy="0" r="4" fill="#e63946" stroke="#8a2020" stroke-width="1.1"/>
+      <path d="M52,7 L73,7 L62.5,32 Z" fill="#e8c9a0" stroke="#1a1a1a" stroke-width="1.8"/>
+      <path d="M56,14 L69,14 M58,20 L67,20" stroke="#c9a878" stroke-width="1.4"/>
+      <circle cx="62.5" cy="1" r="9" fill="#f0a0b8" stroke="#1a1a1a" stroke-width="1.5"/>
+      <circle cx="62.5" cy="-10" r="6.5" fill="#fff0c0" stroke="#1a1a1a" stroke-width="1.5"/>
     `,
   };
 
