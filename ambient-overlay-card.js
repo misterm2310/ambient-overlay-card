@@ -1689,12 +1689,14 @@ function renderBirdhouse(cfg, hass, hostEl) {
   const html = `
     <div class="birdhouse-box" style="opacity:${finalOpacity};" aria-hidden="true">
       <svg viewBox="0 0 58 78" style="width:100%; height:100%;">
+        <g transform="translate(5.941,9.941) scale(0.8235)">
         <path d="M-6,68 Q26,58 62,68 L62,74 Q26,66 -6,74 Z" fill="#5a3d24"/>
         <path d="M4,10 L29,-6 L54,10 Z" fill="#a83a2a" stroke="#6b2015" stroke-width="2"/>
         <path d="M6,12 L52,12 L48,54 Q48,58 44,58 L14,58 Q10,58 10,54 Z" fill="#c68a3d" stroke="#6b4a2f" stroke-width="2"/>
         <circle cx="29" cy="32" r="8" fill="#3a2712"/>
         <path d="M20,44 L38,44" stroke="#6b4a2f" stroke-width="3" stroke-linecap="round"/>
         <path d="M29,58 L29,64" stroke="#6b4a2f" stroke-width="3"/>
+        </g>
       </svg>
     </div>
     <div class="bird-fly-container" aria-hidden="true">
@@ -1785,8 +1787,10 @@ function renderMoon(cfg, hass, hostEl) {
   const html = `
     <div class="moon-container" style="opacity:${finalOpacity};" aria-hidden="true">
       <svg viewBox="0 0 58 78" style="width:100%; height:100%;">
+        <g transform="translate(-4.143,-12.571) scale(1.1429)">
         <g class="moon-glow">
           ${moonSvg}
+        </g>
         </g>
       </svg>
     </div>
@@ -1827,6 +1831,7 @@ function renderSun(cfg, hass, hostEl) {
   const html = `
     <div class="sun-container" style="opacity:${finalOpacity};" aria-hidden="true">
       <svg viewBox="0 0 58 78" style="width:100%; height:100%;">
+        <g transform="translate(0,-7) scale(1)">
         <defs>
           <radialGradient id="sun-halo-grad" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stop-color="#ffd93d" stop-opacity="0.9"/>
@@ -1841,6 +1846,7 @@ function renderSun(cfg, hass, hostEl) {
         </defs>
         <circle class="sun-halo" cx="29" cy="39" r="28" fill="url(#sun-halo-grad)"/>
         <circle class="sun-core" cx="29" cy="39" r="16" fill="url(#sun-core-grad)" stroke="#d98a1a" stroke-width="2"/>
+        </g>
       </svg>
     </div>
   `;
@@ -1897,7 +1903,8 @@ function renderOwl(cfg, hass, hostEl) {
   `;
   const html = `
     <div class="owl-container" style="opacity:${finalOpacity};" aria-hidden="true">
-      <svg viewBox="0 0 120 130" style="width:100%; height:100%;">
+      <svg viewBox="0 0 58 78" style="width:100%; height:100%;">
+        <g transform="translate(1,2.133) scale(0.4667)">
         <path d="M92,10 A14,14 0 1,0 92,38 A11,11 0 1,1 92,10 Z" fill="#f4ecd8" opacity="0.8"/>
         <path d="M0,112 Q60,102 120,112 L120,120 Q60,110 0,120 Z" fill="#5a3d24"/>
         <path d="M14,108 L4,100 M100,108 L112,100" stroke="#5a3d24" stroke-width="3" stroke-linecap="round"/>
@@ -1927,6 +1934,7 @@ function renderOwl(cfg, hass, hostEl) {
           <circle class="owl-eye-lid left" cx="48" cy="46" r="13" fill="#8a6238"/>
           <circle class="owl-eye-lid right" cx="72" cy="46" r="13" fill="#8a6238"/>
           <path d="M54,56 L66,56 L60,66 Z" fill="#e8952a"/>
+        </g>
         </g>
       </svg>
     </div>
