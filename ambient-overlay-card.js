@@ -330,9 +330,8 @@ const COUNT_IS_INTERVAL_TEXT = {
   dog: "Wie oft der Labrador durchläuft: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (keine Partikelmenge, da es nur einen Hund gibt).",
   train: "Wie oft die Dampflok vorbeituckert: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (keine Partikelmenge, da es nur eine gibt).",
 
-  comet: "Wie oft der Komet vorbeizieht: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (deutlich seltener als Sternschnuppen).",
-
-  birdhouse: "Wie oft ein Vogel am Häuschen vorbeifliegt: Wenig ≈ alle 100 Sek., Mittel ≈ alle 60 Sek., Viel ≈ alle 30 Sek.",
+  night_sky: "Wie oft der Komet vorbeizieht: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. Steuert gleichzeitig die Anzahl der Sternschnuppen (3 / 5 / 8).",
+  owl_birdhouse: "Wie oft tagsüber ein Vogel am Häuschen vorbeifliegt: Wenig ≈ alle 100 Sek., Mittel ≈ alle 60 Sek., Viel ≈ alle 30 Sek. (nachts sitzt dort die Eule, dann ohne Wirkung).",
 };
 
 const EVENT_CAPABILITIES = {
@@ -573,12 +572,20 @@ function renderShootingStars(cfg, hass, hostEl) {
     top: (Math.random() * 50).toFixed(2),
     left: (Math.random() * 100).toFixed(2),
     dur: (Math.random() * 3 + 2).toFixed(2),
-    delay: (Math.random() * 5).toFixed(2),
+    offset: (Math.random() * 5).toFixed(2),
   }));
 
-  const starsHtml = stars.map((s) =>
-    `<div class="shooting-star" style="top:${s.top}vh; left:${s.left}vw; animation-duration:${s.dur}s; animation-delay:${s.delay}s; color:${color};"></div>`
-  ).join("\n");
+  // Verzögerung aus der absoluten Uhrzeit ableiten (negativer Wert), damit
+  // die Sternschnuppen bei einem Neu-Rendern GENAU DA weiterlaufen, wo sie
+  // gerade waren. Mit einer festen positiven Verzögerung würden sie sonst
+  // jedes Mal von vorne anfangen - z. B. immer dann, wenn der Wunschstern
+  // im selben Effekt seine Position wechselt und neu gezeichnet wird.
+  const nowSec = Date.now() / 1000;
+  const starsHtml = stars.map((s) => {
+    const dur = parseFloat(s.dur);
+    const phase = ((nowSec + parseFloat(s.offset)) % dur).toFixed(2);
+    return `<div class="shooting-star" style="top:${s.top}vh; left:${s.left}vw; animation-duration:${s.dur}s; animation-delay:-${phase}s; color:${color};"></div>`;
+  }).join("\n");
 
   const html = `<div class="shooting-stars-container" style="opacity:${opacity};" aria-hidden="true">${starsHtml}</div>`;
   const css = `
@@ -1500,7 +1507,13 @@ function renderComet(cfg, hass, hostEl) {
   const interval = { low: 340, medium: 210, high: 100 }[cfg.count_preset || "medium"] || 210;
   const flightSeconds = 3.5;
   const flightPct = Math.min(30, (flightSeconds / interval) * 100).toFixed(2);
-  const fadePct = (parseFloat(flightPct) + 0.5).toFixed(2);
+  // Ein- und Ausblenden MÜSSEN sich auf die Flugdauer beziehen, nicht auf
+  // feste Prozentwerte des Gesamtzyklus: bei seltenen Durchflügen ist der
+  // Flug nur ~1,7% des Zyklus lang, ein fest verdrahtetes "1%" hätte davon
+  // fast alles zum Einblenden verbraucht - der Komet wäre nur den letzten
+  // Sekundenbruchteil überhaupt zu sehen gewesen.
+  const cometFadeInPct = (parseFloat(flightPct) * 0.12).toFixed(3);
+  const fadePct = (parseFloat(flightPct) * 1.2).toFixed(2);
   const delaySec = (-((Date.now() / 1000) % interval)).toFixed(2);
 
   const css = `
@@ -1526,7 +1539,7 @@ function renderComet(cfg, hass, hostEl) {
     }
     @keyframes comet-fly {
       0% { transform: translate(0, 0) rotate(35deg); opacity: 0; }
-      1% { opacity: ${finalOpacity}; }
+      ${cometFadeInPct}% { opacity: ${finalOpacity}; }
       ${flightPct}% { transform: translate(130vw, 100vh) rotate(35deg); opacity: ${finalOpacity}; }
       ${fadePct}% { opacity: 0; }
       100% { opacity: 0; transform: translate(130vw, 100vh) rotate(35deg); }
@@ -1618,6 +1631,7 @@ function renderBirdhouse(cfg, hass, hostEl) {
   // Anteil des Zyklus für den kompletten Anflug+Vorbeiflug (Rest ist Pause,
   // in der der Vogel unsichtbar wartet).
   const flightPct = Math.min(35, (9 / interval) * 100).toFixed(2);
+  const birdFadeInPct = (parseFloat(flightPct) * 0.15).toFixed(3);
   const landPct = (flightPct * 0.4).toFixed(2);
   const leavePct = (flightPct * 0.6).toFixed(2);
 
@@ -1637,7 +1651,7 @@ function renderBirdhouse(cfg, hass, hostEl) {
     }
     @keyframes bird-visit {
       0%   { transform: translate(0, 4vh); opacity: 0; }
-      3%   { opacity: ${finalOpacity}; }
+      ${birdFadeInPct}%   { opacity: ${finalOpacity}; }
       ${landPct}% { transform: translate(9vw, 0); opacity: ${finalOpacity}; }
       ${leavePct}% { transform: translate(9vw, 0); opacity: ${finalOpacity}; }
       ${flightPct}% { transform: translate(112vw, -3vh); opacity: ${finalOpacity}; }
@@ -2730,7 +2744,10 @@ class AmbientOverlayCard extends HTMLElement {
       let cfgForRender = this._config;
       if (event === "snow") {
         cfgForRender = { ...this._config, _snowLevel: this._snowLevel };
-      } else if (event === "wishstar") {
+      } else if (event === "night_sky") {
+        // Der Wunschstern steckt im Sammel-Effekt "Nachthimmel" - die
+        // zufällige Position muss also unter DIESEM Namen durchgereicht
+        // werden, sonst landet der Stern immer auf dem Standardwert.
         cfgForRender = { ...this._config, _wishstarPos: this._wishstarPos };
       } else if (event === "dog") {
         if (!this._periodicStartTimes[event]) {
