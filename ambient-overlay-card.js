@@ -173,13 +173,6 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-function colorStringToBrightness(colorStr) {
-  if (!colorStr || colorStr === "transparent" || colorStr === "rgba(0, 0, 0, 0)") return null;
-  const nums = colorStr.match(/[\d.]+/g);
-  if (!nums || nums.length < 3) return null;
-  const r = parseFloat(nums[0]), g = parseFloat(nums[1]), b = parseFloat(nums[2]);
-  return (r * 299 + g * 587 + b * 114) / 1000;
-}
 
 function brightnessFromAnyColor(str) {
   if (!str) return null;
@@ -435,11 +428,17 @@ function renderSnow(cfg, hass, hostEl) {
   const flakes = spreadSample(FLAKES_DATA, count);
 
   const isHigh = (cfg.opacity_preset || "medium") === "high";
+  // Verzögerung aus der absoluten Uhrzeit ableiten, damit die Flocken bei
+  // einem Neu-Rendern weiterfallen statt nach oben zu springen. Das passiert
+  // beim Schnee besonders oft: der Zähler für die wachsende Schneedecke
+  // rendert alle 15 Sekunden neu - mit fester Verzögerung sprang jede
+  // Flocke dabei sichtbar ein Stück zurück nach oben.
+  const snowNowSec = Date.now() / 1000;
   const flakeHTML = flakes.map((f) => {
     const op = isHigh
       ? Math.min(1, Math.max(f.op, 0.85)).toFixed(2)
       : (f.op * opacity).toFixed(2);
-    return `<i class="snowflake" style="left:${f.l}vw; font-size:${f.s}px; --start-x:0px; --end-x:${f.ex}px; animation-duration:${f.dur}s; animation-delay:calc(-20s * ${f.d}); opacity:${op}; color:${color};">❄</i>`;
+    return `<i class="snowflake" style="left:${f.l}vw; font-size:${f.s}px; --start-x:0px; --end-x:${f.ex}px; animation-duration:${f.dur}s; animation-delay:-${((snowNowSec + f.d * 20) % f.dur).toFixed(2)}s; opacity:${op}; color:${color};">❄</i>`;
   }).join("\n");
 
   const css = `
@@ -512,28 +511,6 @@ function renderLeaves(cfg, hass, hostEl) {
   return { css, html: `<div class="leaves" aria-hidden="true">${leafHTML}</div>` };
 }
 
-function renderBalloons(cfg, hass, hostEl) {
-  const count = getParticleCount(cfg.count_preset || "medium", "balloons");
-  const opacity = getOpacityValue(cfg.opacity_preset || "medium");
-  const balloons = spreadSample(BALLOONS, count);
-
-  const balloonHTML = balloons.map((b) => `
-    <div class="balloon-wrapper" style="left:${b.l}vw; animation-duration:${b.dur}s; animation-delay:${b.d}s; opacity:${opacity};">
-      <div class="balloon" style="width:${b.size}px; height:${(b.size * 1.6)}px; color:${b.color};">
-        ${BALLOON_SVG}
-      </div>
-    </div>
-  `).join("\n");
-
-  const css = `
-    ${overlayBaseCss("balloons-container")}
-    .balloon-wrapper { position:absolute; bottom:-20%; animation:balloon-rise linear infinite; will-change: transform; }
-    .balloon { display:flex; align-items:center; justify-content:center; }
-    .balloon svg { width:100%; height:100%; filter:drop-shadow(2px 4px 6px rgba(0,0,0,0.25)); }
-    @keyframes balloon-rise { 0% { transform: translateY(10vh); } 100% { transform: translateY(-120vh); } }
-  `;
-  return { css, html: `<div class="balloons-container" aria-hidden="true">${balloonHTML}</div>` };
-}
 
 function renderLights(cfg, hass, hostEl) {
   const opacity = getOpacityValue(cfg.opacity_preset || "medium");
@@ -2595,7 +2572,10 @@ class AmbientOverlayCard extends HTMLElement {
   getCardSize() { return 0; }
 
   static getStubConfig() {
-    return { event: "lightning", count_preset: "medium", opacity_preset: "medium", color: "auto" };
+    // Muss ein im Dropdown WAEHLBARER Effekt sein (siehe EVENT_CAPABILITIES),
+    // sonst steht eine frisch hinzugefuegte Karte ohne Auswahl und ohne
+    // Regler da. "night_sky" laeuft sofort, ganz ohne weitere Einstellungen.
+    return { event: "night_sky", count_preset: "medium", opacity_preset: "medium", color: "auto" };
   }
 
   static getConfigElement() {
