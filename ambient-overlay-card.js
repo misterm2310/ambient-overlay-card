@@ -332,38 +332,21 @@ const COUNT_IS_INTERVAL_TEXT = {
 
   comet: "Wie oft der Komet vorbeizieht: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (deutlich seltener als Sternschnuppen).",
 
-  gnome_door: "Wie oft das Fenster der Wichteltür aufleuchtet: Wenig ≈ alle 40 Sek., Mittel ≈ alle 25 Sek., Viel ≈ alle 14 Sek.",
   birdhouse: "Wie oft ein Vogel am Häuschen vorbeifliegt: Wenig ≈ alle 100 Sek., Mittel ≈ alle 60 Sek., Viel ≈ alle 30 Sek.",
 };
 
 const EVENT_CAPABILITIES = {
   off: { count: false, opacity: false, color: false },
   weather_auto: { count: true, opacity: true, color: true },
-  rain: { count: true, opacity: true, color: true },
-  snow: { count: true, opacity: true, color: true },
-  hail: { count: true, opacity: true, color: true },
-  lightning: { count: true, opacity: true, color: false },
-  fog: { count: true, opacity: true, color: true },
-  storm: { count: true, opacity: true, color: true },
   leaves: { count: true, opacity: true, color: false },
-  shooting_stars: { count: true, opacity: true, color: true },
-  balloons: { count: true, opacity: true, color: false },
-  lights: { count: true, opacity: true, color: false },
+  night_sky: { count: true, opacity: true, color: true },
   santa: { count: true, opacity: true, color: false },
   spider: { count: false, opacity: true, color: true },
   dog: { count: true, opacity: true, color: false },
   train: { count: true, opacity: true, color: false },
-
-  comet: { count: true, opacity: true, color: true },
   bats: { count: true, opacity: true, color: true },
-  owl: { count: false, opacity: true, color: false },
+  owl_birdhouse: { count: true, opacity: true, color: false },
   bee: { count: true, opacity: true, color: false },
-  clouds: { count: true, opacity: true, color: true },
-
-  gnome_door: { count: true, opacity: true, color: false },
-
-  birdhouse: { count: true, opacity: true, color: false },
-  wishstar: { count: false, opacity: true, color: true },
   birthday: { count: true, opacity: true, color: false },
 };
 
@@ -1984,148 +1967,6 @@ function renderBee(cfg, hass, hostEl) {
 // Verbesserung: erzeugt ein verzweigtes Eisblumen-/Raureif-Muster
 // mathematisch (wie schon beim Spinnennetz), das von einer Ecke (0,0)
 // diagonal ins Bild hineinwächst - Hauptäste mit kleinen Seitenzweigen.
-function renderGnomeDoor(cfg, hass, hostEl) {
-  // Wichteltür-Szene: sitzt fest unten rechts, das runde Fenster leuchtet
-  // immer wieder für eine Weile warm auf. Weihnachtlich gestaltet: dunkelgrüne
-  // Tür, ein Kranz aus kleinen Blättern/Beeren mit roter Schleife rund ums
-  // Fenster, kleine Herz-Scharniere am linken Rand.
-  // Alle feinen Linien/Metallteile (Rahmen, Holzmaserung, Laterne,
-  // Briefkasten) wechseln automatisch zwischen hell und dunkel, je nachdem
-  // ob der erkannte Hintergrund hell oder dunkel ist - sonst gehen die
-  // Details auf dunklem Theme in der ebenfalls dunklen Farbgebung unter.
-  const isDark = isDarkModeActive(hass, hostEl);
-  const lineColor = isDark ? "#f0e6c8" : "#3a2a10";
-  const metalColor = isDark ? "#d8d8d8" : "#1a1a1a";
-  const opacity = getOpacityValue(cfg.opacity_preset || "medium");
-  const isHigh = (cfg.opacity_preset || "medium") === "high";
-  const finalOpacity = isHigh ? 1 : opacity;
-  const cycle = { low: 40, medium: 25, high: 14 }[cfg.count_preset || "medium"] || 25;
-
-  // Kranz: Ring aus kleinen Blatt-/Beeren-Punkten um Fenster-Mittelpunkt
-  // (30,33), mathematisch verteilt statt von Hand gesetzt.
-  const wreathDots = Array.from({ length: 16 }, (_, i) => {
-    const angle = (i / 16) * 2 * Math.PI - Math.PI / 2;
-    const rx = 30 + 9.5 * Math.cos(angle);
-    const ry = 33 + 9.5 * Math.sin(angle);
-    const isBerry = i % 4 === 1;
-    return `<circle cx="${rx.toFixed(1)}" cy="${ry.toFixed(1)}" r="${isBerry ? 1.5 : 2.1}" fill="${isBerry ? "#c0392b" : "#2e7d4f"}"/>`;
-  }).join("");
-
-  const css = `
-    .gnome-door-box {
-      position: fixed; bottom: 10vh; right: 40px; width: 54px; height: 62px;
-      pointer-events: none; z-index: 9999;
-    }
-    .gnome-path-box {
-      position: fixed; bottom: 0; right: 40px; width: 54px; height: 10vh;
-      pointer-events: none; z-index: 9998;
-    }
-    .gnome-tree-box {
-      position: fixed; bottom: 10vh; right: 0px; width: 40px; height: 66px;
-      pointer-events: none; z-index: 9998;
-    }
-    .tree-light {
-      animation: tree-light-twinkle 1.8s ease-in-out infinite;
-    }
-    @keyframes tree-light-twinkle {
-      0%, 100% { opacity: 0.35; }
-      50% { opacity: 1; }
-    }
-    .gnome-lantern-box {
-      position: fixed; bottom: 10vh; right: 94px; width: 26px; height: 58px;
-      pointer-events: none; z-index: 9998;
-    }
-    .gnome-mailbox-box {
-      position: fixed; bottom: 0; right: 99px; width: 32px; height: 52px;
-      pointer-events: none; z-index: 9998;
-    }
-    .gnome-light {
-      animation: gnome-light-flicker ${cycle}s ease-in-out infinite;
-    }
-    .lantern-flame {
-      animation: lantern-flicker 2.4s ease-in-out infinite;
-      transform-box: fill-box; transform-origin: center;
-    }
-    @keyframes lantern-flicker {
-      0%, 100% { opacity: 0.88; transform: scale(1); }
-      20% { opacity: 1; transform: scale(1.08); }
-      35% { opacity: 0.72; transform: scale(0.92); }
-      50% { opacity: 0.96; transform: scale(1.04); }
-      65% { opacity: 0.8; transform: scale(0.96); }
-      82% { opacity: 1; transform: scale(1.06); }
-    }
-    @keyframes gnome-light-flicker {
-      0%, 55% { opacity: 0.18; }
-      65%, 88% { opacity: 1; filter: drop-shadow(0 0 5px #ffd97a); }
-      98%, 100% { opacity: 0.18; }
-    }
-  `;
-  const html = `
-    <div class="gnome-tree-box" style="opacity:${finalOpacity};" aria-hidden="true">
-      <svg viewBox="0 0 40 66" style="width:100%; height:100%;">
-        <path d="M4,58 L36,58 L20,38 Z" fill="#1f5c3f" stroke="${lineColor}" stroke-width="1.5"/>
-        <path d="M8,42 L32,42 L20,24 Z" fill="#256b48" stroke="${lineColor}" stroke-width="1.5"/>
-        <path d="M12,26 L28,26 L20,10 Z" fill="#2a7a52" stroke="${lineColor}" stroke-width="1.5"/>
-        <rect x="17" y="58" width="6" height="8" fill="#5a3d24"/>
-        <path d="M20,10 L20,6" stroke="#ffd93d" stroke-width="1.5"/>
-        <circle cx="20" cy="5" r="2" fill="#ffd93d"/>
-        <path d="M11,50 Q16,55 20,53 Q25,56 29,50 Q23,43 14,36 Q20,41 26,36 Q20,29 17,21 Q21,25 24,21"
-          fill="none" stroke="#2a2a2a" stroke-width="0.7" opacity="0.6"/>
-        <circle class="tree-light" cx="11" cy="50" r="1.7" fill="#e63946" style="animation-delay:0s;"/>
-        <circle class="tree-light" cx="20" cy="53" r="1.7" fill="#ffd93d" style="animation-delay:0.3s;"/>
-        <circle class="tree-light" cx="29" cy="50" r="1.7" fill="#4a90d9" style="animation-delay:0.6s;"/>
-        <circle class="tree-light" cx="14" cy="36" r="1.6" fill="#7cb342" style="animation-delay:0.9s;"/>
-        <circle class="tree-light" cx="26" cy="36" r="1.6" fill="#e63946" style="animation-delay:1.2s;"/>
-        <circle class="tree-light" cx="17" cy="21" r="1.4" fill="#ffd93d" style="animation-delay:1.5s;"/>
-        <circle class="tree-light" cx="24" cy="21" r="1.4" fill="#4a90d9" style="animation-delay:0.45s;"/>
-      </svg>
-    </div>
-    <div class="gnome-mailbox-box" style="opacity:${finalOpacity};" aria-hidden="true">
-      <svg viewBox="0 0 26 46" style="width:100%; height:100%;">
-        <rect x="11" y="20" width="4" height="24" fill="${metalColor}"/>
-        <path d="M11,42 Q13,44 15,42" stroke="${metalColor}" stroke-width="1.4" fill="none"/>
-        <path d="M2,15 Q2,7 9,7 L15,7 Q22,7 22,15 L22,19 L2,19 Z" fill="#3a4a3a" stroke="${metalColor}" stroke-width="1"/>
-        <rect x="2" y="16" width="20" height="3" fill="${metalColor}"/>
-        <path d="M20,9 L25,7 L25,12 Z" fill="#c0392b" stroke="#6b1810" stroke-width="0.6"/>
-        <text x="12" y="14" font-size="6" font-family="Georgia, serif" fill="#f0ebe0" text-anchor="middle" font-weight="bold">Olaf</text>
-      </svg>
-    </div>
-    <div class="gnome-lantern-box" style="opacity:${finalOpacity};" aria-hidden="true">
-      <svg viewBox="0 0 26 58" style="width:100%; height:100%;">
-        <path d="M8,55 Q13,52 18,55 L19.5,57.5 L6.5,57.5 Z" fill="${metalColor}"/>
-        <rect x="11.5" y="19" width="3" height="31" fill="${metalColor}"/>
-        <path d="M7,19 L19,19 L20.5,10 L17,7 L9,7 L5.5,10 Z" fill="#fff3d0" opacity="0.14"/>
-        <path d="M7,19 L19,19 L20.5,10 L17,7 L9,7 L5.5,10 Z" fill="none" stroke="${metalColor}" stroke-width="1.4"/>
-        <path d="M9.5,19 L9.5,9 M16.5,19 L16.5,9" stroke="${metalColor}" stroke-width="0.9"/>
-        <circle class="lantern-flame" cx="13" cy="14" r="3.6" fill="#ffd97a" style="filter: drop-shadow(0 0 3px #ffb347);"/>
-        <path d="M7.5,7 L18.5,7 L13,1.5 Z" fill="${metalColor}"/>
-        <circle cx="13" cy="0.8" r="1.1" fill="${metalColor}"/>
-      </svg>
-    </div>
-    <div class="gnome-path-box" style="opacity:${finalOpacity};" aria-hidden="true">
-      <svg viewBox="0 0 54 60" preserveAspectRatio="none" style="width:100%; height:100%;">
-        <path d="M20,0 L34,0 L48,60 L6,60 Z" fill="#9a9186" stroke="#5a5548" stroke-width="1.5"/>
-        <path d="M15,20 L39,20 M10,40 L44,40" stroke="#5a5548" stroke-width="1.2" opacity="0.5"/>
-      </svg>
-    </div>
-    <div class="gnome-door-box" style="opacity:${finalOpacity};" aria-hidden="true">
-      <svg viewBox="0 0 60 76" style="width:100%; height:100%;">
-        <path d="M15,74 L15,34 Q15,16 30,16 Q45,16 45,34 L45,74 Z" fill="#1f5c3f" stroke="#c9a659" stroke-width="2.2"/>
-        <path d="M21,72 L21,21 M27,72 L27,17.5 M33,72 L33,17.5 M39,72 L39,21" stroke="#c9a659" stroke-width="1" opacity="0.75"/>
-        <circle cx="40" cy="56" r="2.2" fill="#d4af37" stroke="#8a6f1f" stroke-width="0.8"/>
-        <path d="M15,45 C15,43 12,43 12,45 C12,47 15,49 15,51 C15,49 18,47 18,45 C18,43 15,43 15,45 Z" fill="#c0392b" stroke="#6b1810" stroke-width="0.8"/>
-        <path d="M15,60 C15,58 12,58 12,60 C12,62 15,64 15,66 C15,64 18,62 18,60 C18,58 15,58 15,60 Z" fill="#c0392b" stroke="#6b1810" stroke-width="0.8"/>
-        <circle class="gnome-light" cx="30" cy="33" r="6.5" fill="#ffd97a"/>
-        <circle cx="30" cy="33" r="6.5" fill="none" stroke="#c9a659" stroke-width="1.6"/>
-        <path d="M30,26.5 L30,39.5 M23.5,33 L36.5,33" stroke="#c9a659" stroke-width="1"/>
-        ${wreathDots}
-        <path d="M30,23.5 L25,18 Q23,16 25.5,15 Q28,14.5 29.5,17.5 L30,23.5 L30.5,17.5 Q32,14.5 34.5,15 Q37,16 35,18 Z" fill="#c0392b" stroke="#6b1810" stroke-width="0.8"/>
-        <circle cx="30" cy="18.5" r="1.6" fill="#8e2419"/>
-      </svg>
-    </div>
-  `;
-  return { css, html };
-}
 
 function renderClouds(cfg, hass, hostEl) {
   // Verbesserung (Bugfix): Wolken waren fest hellgrau/weiß - auf einem
@@ -2406,47 +2247,75 @@ function renderBirthday(cfg, hass, hostEl) {
       50% { transform: translateX(-50%) translateY(-4px); }
     }
   `;
+  // Welche Bestandteile angezeigt werden, wird im Editor angekreuzt.
+  // Ohne gesetzten Wert ist alles an (wie bisher), damit bestehende
+  // Konfigurationen unverändert aussehen.
+  const showBalloons = cfg.birthday_balloons !== false;
+  const showConfetti = cfg.birthday_confetti !== false;
+  const showBanner = cfg.birthday_banner !== false;
+  const showLights = cfg.birthday_lights !== false;
+
+  const lightsPart = showLights ? renderLights(cfg, hass, hostEl) : null;
+
   const html = `
-    <div class="bday-balloons-container" aria-hidden="true">${balloonHTML}</div>
-    <div class="confetti-container" aria-hidden="true">${confettiHtml}</div>
+    ${showBalloons ? `<div class="bday-balloons-container" aria-hidden="true">${balloonHTML}</div>` : ""}
+    ${showConfetti ? `<div class="confetti-container" aria-hidden="true">${confettiHtml}</div>` : ""}
+    ${showBanner ? `
     <div class="birthday-banner" aria-hidden="true">
       <div class="banner-string"></div>
       ${flagsHtml}
       <div class="banner-text">${safeText}</div>
-    </div>
+    </div>` : ""}
+    ${lightsPart ? lightsPart.html : ""}
   `;
-  return { css, html };
+  return { css: css + (lightsPart ? "\n" + lightsPart.css : ""), html };
+}
+
+// Sammel-Effekt "Nachthimmel": bündelt Sternschnuppen, Wunschstern und
+// Komet. Welche Bestandteile laufen, wird im Editor angekreuzt. Der
+// Sternenhimmel selbst gehört bewusst NICHT dazu, der kommt weiterhin
+// automatisch über die Wetter-Automatik bei klarer Nacht.
+function renderNightSky(cfg, hass, hostEl) {
+  const parts = [];
+  if (cfg.night_shooting_stars !== false) parts.push(renderShootingStars(cfg, hass, hostEl));
+  if (cfg.night_wishstar !== false) parts.push(renderWishStar(cfg, hass, hostEl));
+  if (cfg.night_comet !== false) parts.push(renderComet(cfg, hass, hostEl));
+  return {
+    css: parts.map((p) => p.css).join("\n"),
+    html: parts.map((p) => p.html).join("\n"),
+  };
+}
+
+// Sammel-Effekt "Eule & Vogelhäuschen": beide teilen sich denselben Platz
+// oben links und lösen sich nach Sonnenstand ab - tagsüber das
+// Vogelhäuschen, nachts die Eule. Ohne sun.sun-Entity wird das
+// Vogelhäuschen gezeigt.
+function renderOwlBirdhouse(cfg, hass, hostEl) {
+  const sunState = hass?.states?.["sun.sun"]?.state;
+  const isNight = sunState === "below_horizon";
+  return isNight ? renderOwl(cfg, hass, hostEl) : renderBirdhouse(cfg, hass, hostEl);
 }
 
 const RENDERERS = {
   rain: renderRain,
   snow: renderSnow,
   leaves: renderLeaves,
-  balloons: renderBalloons,
-  lights: renderLights,
-  shooting_stars: renderShootingStars,
   lightning: renderLightning,
   fog: renderFog,
   hail: renderHail,
   storm: renderStorm,
-  santa: renderSanta,
-  spider: renderSpider,
+  clouds: renderClouds,
   stars: renderStars,
-  dog: renderDog,
-  train: renderTrain,
-
-  comet: renderComet,
-  bats: renderBats,
-  owl: renderOwl,
   moon: renderMoon,
   sun: renderSun,
+  night_sky: renderNightSky,
+  owl_birdhouse: renderOwlBirdhouse,
+  santa: renderSanta,
+  spider: renderSpider,
+  dog: renderDog,
+  train: renderTrain,
+  bats: renderBats,
   bee: renderBee,
-  clouds: renderClouds,
-
-  gnome_door: renderGnomeDoor,
-
-  birdhouse: renderBirdhouse,
-  wishstar: renderWishStar,
   birthday: renderBirthday,
 };
 
@@ -2487,7 +2356,7 @@ class AmbientOverlayCard extends HTMLElement {
     // dass unser Effekt-Container IMMER ganz oben liegt, egal was sonst
     // noch auf der Seite ist.
     // Verbesserung: läuft die Dampflok als EIGENE Karte gleichzeitig mit
-    // einem anderen Effekt (z. B. der Wichteltür, die ja auch unten am
+    // einem anderen Effekt, der ebenfalls unten am
     // Rand sitzt), sollen sich beide nicht zufällig überdecken je nachdem
     // welche Karte zuerst geladen wurde - die Lok bekommt deshalb einen
     // minimal höheren Wert und fährt dadurch IMMER sichtbar davor her.
@@ -2610,6 +2479,13 @@ class AmbientOverlayCard extends HTMLElement {
       leaf_colors: ["#c9a227", "#a83232", "#d9812c"],
       weather_entity: "",
       birthday_text: "Happy Birthday!",
+      birthday_balloons: true,
+      birthday_confetti: true,
+      birthday_banner: true,
+      birthday_lights: true,
+      night_shooting_stars: true,
+      night_wishstar: true,
+      night_comet: true,
       santa_sensor: "",
       dinner_sensor: "",
       person_entities: "",
@@ -2731,7 +2607,10 @@ class AmbientOverlayCard extends HTMLElement {
   }
 
   _updateWishstar(events) {
-    if (events.includes("wishstar")) {
+    // Der Wunschstern steckt jetzt im Sammel-Effekt "Nachthimmel" und
+    // läuft nur, wenn er dort auch angehakt ist.
+    const wishstarActive = events.includes("night_sky") && this._config?.night_wishstar !== false;
+    if (wishstarActive) {
       if (!this._wishstarTimer) {
         const cycle = { low: 12000, medium: 8000, high: 5000 }[this._config?.opacity_preset || "medium"] || 8000;
         const regen = () => {
@@ -2902,6 +2781,13 @@ class AmbientOverlayCardEditor extends HTMLElement {
       leaf_colors: ["#c9a227", "#a83232", "#d9812c"],
       weather_entity: "",
       birthday_text: "Happy Birthday!",
+      birthday_balloons: true,
+      birthday_confetti: true,
+      birthday_banner: true,
+      birthday_lights: true,
+      night_shooting_stars: true,
+      night_wishstar: true,
+      night_comet: true,
       santa_sensor: "",
       dinner_sensor: "",
       person_entities: "",
@@ -2951,6 +2837,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
     const caps = EVENT_CAPABILITIES[c.event] || { count: false, opacity: false, color: false };
     const isWeatherAuto = c.event === "weather_auto";
     const isBirthday = c.event === "birthday";
+    const isNightSky = c.event === "night_sky";
     const isTrain = c.event === "train";
     const isDog = c.event === "dog";
 
@@ -2982,38 +2869,37 @@ class AmbientOverlayCardEditor extends HTMLElement {
           <select id="event" style="width:100%; padding:6px;">
             <option value="off" ${c.event === "off" ? "selected" : ""}>Aus</option>
             <option value="weather_auto" ${isWeatherAuto ? "selected" : ""}>🌦️ Automatisch (nach Wetter)</option>
-            <option value="rain" ${c.event === "rain" ? "selected" : ""}>🌧️ Regen</option>
-            <option value="snow" ${c.event === "snow" ? "selected" : ""}>❄️ Schnee</option>
-            <option value="hail" ${c.event === "hail" ? "selected" : ""}>🧊 Hagel</option>
-            <option value="lightning" ${c.event === "lightning" ? "selected" : ""}>⚡ Blitz</option>
-            <option value="fog" ${c.event === "fog" ? "selected" : ""}>🌫️ Nebel</option>
-            <option value="storm" ${c.event === "storm" ? "selected" : ""}>💨 Sturm</option>
-            <option value="clouds" ${c.event === "clouds" ? "selected" : ""}>🌤️ Wolken-Drift</option>
-
-            <option value="gnome_door" ${c.event === "gnome_door" ? "selected" : ""}>🧝🚪 Wichteltür</option>
-
-            <option value="birdhouse" ${c.event === "birdhouse" ? "selected" : ""}>🐦🏠 Vogelhäuschen</option>
-            <option value="shooting_stars" ${c.event === "shooting_stars" ? "selected" : ""}>🌠 Sternschnuppen</option>
-            <option value="wishstar" ${c.event === "wishstar" ? "selected" : ""}>⭐ Wunschstern-Funkeln</option>
-            <option value="comet" ${c.event === "comet" ? "selected" : ""}>☄️ Komet</option>
-            <option value="leaves" ${c.event === "leaves" ? "selected" : ""}>🍂 Laub</option>
-            <option value="balloons" ${c.event === "balloons" ? "selected" : ""}>🎈 Luftballons</option>
-            <option value="lights" ${c.event === "lights" ? "selected" : ""}>💡 Lichterkette</option>
+            <option value="night_sky" ${c.event === "night_sky" ? "selected" : ""}>🌠 Nachthimmel</option>
+            <option value="owl_birdhouse" ${c.event === "owl_birdhouse" ? "selected" : ""}>🦉🐦 Eule &amp; Vogelhäuschen</option>
             <option value="birthday" ${isBirthday ? "selected" : ""}>🎂 Geburtstags-Modus</option>
+            <option value="leaves" ${c.event === "leaves" ? "selected" : ""}>🍂 Laub</option>
             <option value="santa" ${c.event === "santa" ? "selected" : ""}>🎅 Weihnachtsmann</option>
-            <option value="spider" ${c.event === "spider" ? "selected" : ""}>🕷️ Spinne mit Netz</option>
-            <option value="dog" ${c.event === "dog" ? "selected" : ""}>🐕 Goldener Labrador</option>
             <option value="train" ${c.event === "train" ? "selected" : ""}>🚂 Dampflok</option>
-
-
+            <option value="dog" ${c.event === "dog" ? "selected" : ""}>🐕 Goldener Labrador</option>
+            <option value="spider" ${c.event === "spider" ? "selected" : ""}>🕷️ Spinne mit Netz</option>
             <option value="bats" ${c.event === "bats" ? "selected" : ""}>🦇 Fledermäuse</option>
-            <option value="owl" ${c.event === "owl" ? "selected" : ""}>🦉 Eule</option>
             <option value="bee" ${c.event === "bee" ? "selected" : ""}>🐝 Bienen</option>
           </select>
         `, isWeatherAuto
           ? "Bei 'Automatisch' entscheidet der Zustand deiner Wetter-Entity unten, welcher Effekt läuft."
           : "Welcher Effekt manuell dauerhaft angezeigt wird."
         )}
+
+        ${isBirthday ? this._row("Was soll gezeigt werden?", `
+          <div style="border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:8px;">
+            ${[["birthday_balloons","Luftballons"],["birthday_confetti","Konfetti"],["birthday_banner","Schild / Wimpelkette"],["birthday_lights","Lichterkette"]].map(([key,label]) =>
+              `<label style="display:flex; align-items:center; gap:6px; padding:3px 0; cursor:pointer;"><input type="checkbox" class="part-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""} /> ${label}</label>`
+            ).join("")}
+          </div>
+        `, "Einzeln an- und abwählbar. Mindestens eins sollte angehakt sein, sonst bleibt der Bildschirm leer.") : ""}
+
+        ${isNightSky ? this._row("Was soll gezeigt werden?", `
+          <div style="border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:8px;">
+            ${[["night_shooting_stars","Sternschnuppen"],["night_wishstar","Wunschstern-Funkeln"],["night_comet","Komet"]].map(([key,label]) =>
+              `<label style="display:flex; align-items:center; gap:6px; padding:3px 0; cursor:pointer;"><input type="checkbox" class="part-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""} /> ${label}</label>`
+            ).join("")}
+          </div>
+        `, "Einzeln an- und abwählbar. Der Sternenhimmel selbst läuft weiterhin automatisch bei klarer Nacht über die Wetter-Automatik.") : ""}
 
         ${isBirthday ? this._row("Banner-Text", `
           <input id="birthday_text" type="text" value="${c.birthday_text ? c.birthday_text.replace(/"/g, "&quot;") : ""}" placeholder="Happy Birthday!" style="width:100%; padding:6px; box-sizing:border-box;" />
@@ -3151,6 +3037,13 @@ class AmbientOverlayCardEditor extends HTMLElement {
     `;
 
     this.querySelector("#event").addEventListener("change", (e) => this._update("event", e.target.value, true));
+
+    // Ankreuzfelder der Sammel-Effekte (Geburtstag, Nachthimmel)
+    this.querySelectorAll(".part-toggle").forEach((box) => {
+      box.addEventListener("change", (e) => {
+        this._update(e.target.dataset.key, e.target.checked, false);
+      });
+    });
 
     const birthdayTextInput = this.querySelector("#birthday_text");
     if (birthdayTextInput) {
