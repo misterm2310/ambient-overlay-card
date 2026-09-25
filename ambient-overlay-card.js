@@ -984,7 +984,7 @@ function renderTrain(cfg, hass, hostEl) {
         ? `
           <circle cx="43" cy="-6" r="36" fill="#e8e0d0" stroke="#1a1a1a" stroke-width="1.8"/>
           <clipPath id="person-clip-${escapeHtml(st.entity_id)}"><circle cx="43" cy="-6" r="33.5"/></clipPath>
-          <image x="9.5" y="-39.5" width="67" height="67" href="${picture}" preserveAspectRatio="xMidYMid slice" clip-path="url(#person-clip-${escapeHtml(st.entity_id)})"/>
+          <image x="9.5" y="-39.5" width="67" height="67" href="${escapeHtml(picture)}" preserveAspectRatio="xMidYMid slice" clip-path="url(#person-clip-${escapeHtml(st.entity_id)})"/>
         `
         : `
           <circle cx="43" cy="-6" r="36" fill="#8a9bb0" stroke="#1a1a1a" stroke-width="1.8"/>
@@ -2351,10 +2351,19 @@ class AmbientOverlayCard extends HTMLElement {
     // Rand sitzt), sollen sich beide nicht zufällig überdecken je nachdem
     // welche Karte zuerst geladen wurde - die Lok bekommt deshalb einen
     // minimal höheren Wert und fährt dadurch IMMER sichtbar davor her.
-    const z = this._config?.event === "train" ? 2147483647 : 2147483646;
-    this._portalHost.style.cssText = `position:fixed; top:0; left:0; width:0; height:0; pointer-events:none; z-index:${z};`;
+    this._portalHost.style.cssText = `position:fixed; top:0; left:0; width:0; height:0; pointer-events:none;`;
+    this._applyPortalZIndex();
     this._portalShadow = this._portalHost.attachShadow({ mode: "open" });
     document.body.appendChild(this._portalHost);
+  }
+
+  // Muss bei JEDEM Rendern neu gesetzt werden, nicht nur beim Anlegen:
+  // wird eine bestehende Karte im Editor nachträglich auf die Dampflok
+  // umgestellt (oder umgekehrt), bliebe der Wert sonst auf dem Stand von
+  // damals stehen und die Lok läge plötzlich hinter einem anderen Effekt.
+  _applyPortalZIndex() {
+    if (!this._portalHost) return;
+    this._portalHost.style.zIndex = this._config?.event === "train" ? "2147483647" : "2147483646";
   }
 
   _syncPortalVisibility() {
@@ -2560,9 +2569,14 @@ class AmbientOverlayCard extends HTMLElement {
       // Home-Assistant-Installation vorhandene eingebaute sun.sun-Entity,
       // kein zusätzlicher Sensor oder Konfiguration nötig.
       const sunState = this._hass?.states?.["sun.sun"]?.state;
-      if (sunState === "below_horizon" && !events.includes("moon")) {
-        events = events.filter((e) => e !== "off");
-        events.push("moon");
+      if (sunState === "below_horizon") {
+        // Die Sonne darf nachts nicht stehenbleiben: manche Wetter-
+        // Integrationen melden den TAGES-Zustand und bleiben auch nach
+        // Sonnenuntergang auf "sunny". Ohne diese Zeile lägen Sonne und
+        // Mond exakt übereinander (beide sitzen oben rechts) und ergäben
+        // ein seltsames Mischbild.
+        events = events.filter((e) => e !== "off" && e !== "sun");
+        if (!events.includes("moon")) events.push("moon");
       }
       return events.length > 0 ? events : ["off"];
     }
@@ -2696,6 +2710,7 @@ class AmbientOverlayCard extends HTMLElement {
   _render(allowFade = false) {
     if (!this._config) return;
     if (!this._portalShadow) return;
+    this._applyPortalZIndex();
 
     const events = this._resolveEvents();
     this._updateSnowAccumulation(events);

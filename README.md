@@ -129,10 +129,10 @@ Ist "Automatisch" aktiv, schaut die Karte sich den aktuellen Zustand deiner gew�
 | `windy`, `windy-variant` | 💨 Sturm |
 | `cloudy`, `partlycloudy` | 🌤️ Wolken-Drift |
 | `clear-night` | ✨ Sternenhimmel |
-| `sunny` | ☀️ Sonne |
+| `sunny` | ☀️ Sonne (nur tagsüber) |
 | alles andere | Aus |
 
-**Zusätzlich, unabhängig vom Wetter-Zustand:** Sobald die Sonne untergegangen ist (`sun.sun` = `below_horizon`), erscheint automatisch der **🌙 Mond** oben rechts – zusätzlich zu einem eventuell laufenden Wetter-Effekt (z. B. Regen + Mond gleichzeitig bei nächtlichem Regen). Die Mondphase wird direkt aus dem aktuellen Datum berechnet, kein zusätzlicher Sensor nötig.
+**Zusätzlich, unabhängig vom Wetter-Zustand:** Sobald die Sonne untergegangen ist (`sun.sun` = `below_horizon`), erscheint automatisch der **🌙 Mond** oben rechts – zusätzlich zu einem eventuell laufenden Wetter-Effekt (z. B. Regen + Mond gleichzeitig bei nächtlichem Regen). Die Mondphase wird direkt aus dem aktuellen Datum berechnet, kein zusätzlicher Sensor nötig. Die Sonne wird dabei ausgeblendet, selbst wenn die Wetter-Entity noch "sunny" meldet – beide sitzen am selben Platz und lägen sonst übereinander.
 
 **Wichtig:** Anzahl, Deckkraft und Farbmodus gelten bei aktiver Automatik als **ein gemeinsamer Wert für alle möglichen Wetter-Effekte**. Alle Tier-, Deko- und Anlass-Effekte (Weihnachtsmann, Hund, Dampflok, Fledermäuse, Bienen, Spinne, Laub, Nachthimmel, Eule & Vogelhäuschen, Geburtstags-Modus) laufen NICHT über die Wetter-Automatik. Wechselt die Wetter-Automatik den Effekt, blendet der alte Effekt sanft aus statt abrupt zu verschwinden - bei einem manuellen Wechsel im Editor passiert das dagegen sofort.
 
@@ -298,7 +298,7 @@ Diese Effekte lassen sich **nicht** einzeln auswählen – sie erscheinen aussch
 | 💨 Sturm / Windböen | `windy`, `windy-variant` |
 | 🌤️ Wolken-Drift | `cloudy`, `partlycloudy` |
 | ✨ Sternenhimmel | `clear-night` |
-| ☀️ Sonne mit warmem Lichtschein | `sunny` |
+| ☀️ Sonne mit warmem Lichtschein | `sunny`, aber nur solange die Sonne über dem Horizont steht |
 | 🌙 Mond mit echter Mondphase | sobald die Sonne untergegangen ist, wetterunabhängig |
 
 ---
