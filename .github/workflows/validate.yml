@@ -1,0 +1,37 @@
+name: Prüfen
+
+# ✅ Läuft bei jedem Hochladen: Ist die Karte fehlerfrei lesbar
+# und passt die Versionsnummer? Erst wenn das grün ist, legt
+# „Release automatisch anlegen“ ein Release an.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  karte:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Syntax prüfen
+        run: node --check ambient-overlay-card.js
+      - name: Versionsnummer prüfen
+        run: |
+          V=$(grep -oP '^const CARD_VERSION = "\K[^"]+' ambient-overlay-card.js || true)
+          if ! echo "$V" | grep -qP '^\d+\.\d+\.\d+(-beta\.\d+)?$'; then
+            echo "❌ CARD_VERSION fehlt oder ist kaputt: '$V'"; exit 1
+          fi
+          echo "✅ Version $V"
+
+  hacs:
+    runs-on: ubuntu-latest
+    # ℹ️ Nur zur Info: meckert HACS über Kleinkram (z. B. Themen/Topics),
+    # blockiert das KEIN Release.
+    continue-on-error: true
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: plugin

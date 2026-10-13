@@ -1,0 +1,62 @@
+name: Releases aufräumen
+
+# 🧹 Damit es nicht immer mehr Releases werden: Nach jedem neuen Release
+# bleiben nur die neuesten 10 normalen Versionen stehen.
+# 🧪 Betas (Vorabversionen) zählen nicht mit: nur die allerneueste Beta bleibt.
+# Alles andere wird gelöscht – Release UND Tag. Der Code bleibt in der Git-Historie.
+# Von Hand starten geht auch: Actions → „Releases aufräumen“ → Run workflow.
+on:
+  # 🤖 nach dem Automaten „Release automatisch anlegen“
+  workflow_run:
+    workflows: ["Release automatisch anlegen"]
+    types: [completed]
+    branches: [main, beta]
+  # ✋ und falls du doch mal von Hand ein Release anlegst
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Nie zwei Aufräumer gleichzeitig
+concurrency:
+  group: releases-aufraeumen
+  cancel-in-progress: false
+
+env:
+  # 🆕 So viele der neuesten Releases bleiben stehen
+  NEUESTE: "10"
+
+jobs:
+  aufraeumen:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Alte Releases löschen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # alle Releases holen (mit Kennzeichen „Vorabversion“ = Beta)
+          gh release list --repo "$REPO" --limit 500 --json tagName,createdAt,isPrerelease > releases.json
+          # normale Versionen, das Neueste zuerst
+          jq -r 'map(select(.isPrerelease | not)) | sort_by(.createdAt) | reverse | .[].tagName' releases.json > alle.txt
+          # 🧪 Betas, das Neueste zuerst: nur die allerneueste Beta bleibt
+          jq -r 'map(select(.isPrerelease)) | sort_by(.createdAt) | reverse | .[].tagName' releases.json > betas.txt
+          echo "Normale Releases: $(wc -l < alle.txt), Betas: $(wc -l < betas.txt)"
+          geloescht=0
+          # alles ab Platz 11 löschen
+          tail -n +$((NEUESTE + 1)) alle.txt > weg.txt
+          while read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "🗑️ lösche: $tag"
+            gh release delete "$tag" --repo "$REPO" --yes --cleanup-tag
+            geloescht=$((geloescht + 1))
+          done < weg.txt
+          tail -n +2 betas.txt | while read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "🗑️ lösche alte Beta: $tag"
+            gh release delete "$tag" --repo "$REPO" --yes --cleanup-tag
+          done
+          echo "Fertig – $geloescht normale Releases gelöscht, $(head -n "$NEUESTE" alle.txt | wc -l) bleiben stehen."

@@ -3,6 +3,10 @@
  * Lovelace Custom Card — stimmungsvolle Overlay-Effekte fürs Dashboard
  */
 
+// 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
+// GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
+const CARD_VERSION = "1.0.9";
+
 /* ============================== HELFER ============================== */
 
 function fireEvent(node, type, detail) {
