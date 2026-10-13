@@ -333,4 +333,6 @@ Diese Effekte lassen sich **nicht** einzeln auswählen – sie erscheinen aussch
 
 ## 📄 Lizenz
 
-MIT
+Veröffentlicht unter der **MIT-Lizenz** – siehe [LICENSE](LICENSE).
+
+Kurz gesagt: Du darfst die Karte frei verwenden, verändern und weitergeben, auch kommerziell. Einzige Bedingung ist, dass der Lizenztext samt Urheberrechtshinweis erhalten bleibt. Eine Gewährleistung gibt es nicht.

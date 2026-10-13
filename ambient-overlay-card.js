@@ -297,6 +297,78 @@ function getCachedRandomSet(key, count, factory) {
 // abrupt zu verschwinden.
 const FADE_DURATION_MS = 2500;
 
+// Phasenversatz der periodisch durchziehenden Figuren.
+//
+// Alle rechnen ihre Startzeit aus der absoluten Uhrzeit:
+// "-(jetzt % intervall)". Das sorgt dafuer, dass eine Figur nach einem
+// Neu-Rendern genau dort weiterlaeuft, wo sie war - aber es hat einen
+// Haken: Zug, Hund und Komet teilen sich dieselbe Intervall-Tabelle.
+// Ohne Versatz starten sie deshalb IMMER im selben Moment, weil sie alle
+// ab demselben Nullpunkt zaehlen. Beim Neustart von Home Assistant faellt
+// das besonders auf - dann zieht die ganze Gesellschaft gleichzeitig los.
+//
+// Jede Figur bekommt darum einen festen Anteil ihres Intervalls als
+// Versatz. Bei gleichem Intervall liegen die Durchlaeufe dadurch
+// gleichmaessig verteilt statt uebereinander.
+const PERIODIC_PHASE = {
+  train: 0,
+  comet: 1 / 3,
+  dog: 2 / 3,
+  santa: 0.5,
+  birdhouse: 0.25,
+};
+
+// Wie lange eine Figur tatsaechlich sichtbar unterwegs ist (in Sekunden).
+// Den Rest des Intervalls wartet sie unsichtbar ausserhalb des Bildes.
+// Diese Werte stehen so auch in den Renderern ("30 / interval * 100" usw.).
+const PERIODIC_FLIGHT_SEC = {
+  train: 30,
+  dog: 20,
+  santa: 18,
+  birdhouse: 9,
+  comet: 3.5,
+};
+
+// Zeitpunkt, an dem die Karte geladen wurde (also praktisch der Moment des
+// Home-Assistant-Neustarts bzw. des Seiten-Aufbaus). Wird einmal beim Laden
+// der Datei festgehalten und aendert sich danach nie wieder.
+const SCRIPT_START_SEC = Date.now() / 1000;
+
+// Merker fuer den Neustart-Versatz, einmal pro Figur+Intervall berechnet.
+const _bootSkip = {};
+
+function periodicDelaySec(interval, key) {
+  const offset = (PERIODIC_PHASE[key] || 0) * interval;
+  const memo = key + ":" + interval;
+
+  // Zweiter Teil gegen das "alles auf einmal": nicht nur den Startzeitpunkt
+  // versetzen, sondern auch verhindern, dass eine Figur beim Laden der
+  // Karte mitten im Durchlauf steht. Ohne das poppt bei etwa jedem
+  // dritten Neustart ein Zug oder Hund unvermittelt in der Bildschirmmitte
+  // auf, weil die Animation ja aus der absoluten Uhrzeit berechnet wird
+  // und nicht weiss, dass die Seite gerade erst neu aufgebaut wurde.
+  //
+  // Trick: Wir schauen EINMAL beim Laden, wo die Figur in ihrem Zyklus
+  // gerade steht. Steckt sie mitten im Durchlauf, schieben wir ihre Phase
+  // genau bis zum Ende des Durchlaufs vor - sie ist damit "schon durch",
+  // bleibt unsichtbar und faehrt erst beim naechsten regulaeren Mal
+  // saeuberlich von der Seite ins Bild.
+  //
+  // Wichtig: Dieser Schub wird nur ein einziges Mal berechnet und danach
+  // gemerkt. Sonst wuerde jedes Neu-Rendern die Figur erneut nach vorne
+  // schubsen und sie kaeme nie an - genau der Fehler, den wir bei den
+  // Sternschnuppen schon hatten.
+  if (_bootSkip[memo] === undefined) {
+    const flight = Math.min(PERIODIC_FLIGHT_SEC[key] || 0, interval * 0.3);
+    const phaseAtBoot = (SCRIPT_START_SEC + offset) % interval;
+    _bootSkip[memo] = (phaseAtBoot > 0 && phaseAtBoot < flight)
+      ? flight - phaseAtBoot
+      : 0;
+  }
+
+  return (-((Date.now() / 1000 + offset + _bootSkip[memo]) % interval)).toFixed(2);
+}
+
 const WEATHER_STATE_MAP = {
   "rainy": ["rain"],
   "pouring": ["rain"],
@@ -715,7 +787,7 @@ function renderSanta(cfg, hass, hostEl) {
   const interval = { low: 340, medium: 210, high: 100 }[cfg.count_preset || "medium"] || 210;
   const flightPct = Math.min(30, (18 / interval) * 100);
   const nowSec = Date.now() / 1000;
-  const delaySec = (-(nowSec % interval)).toFixed(2);
+  const delaySec = periodicDelaySec(interval, "santa");
 
   // Gelegentlich (etwa jeder 3. Durchflug) verliert der Schlitten ein
   // Geschenk, das runterfällt - deterministisch nach Durchflug-Nummer
@@ -923,7 +995,7 @@ function renderTrain(cfg, hass, hostEl) {
   const interval = { low: 340, medium: 210, high: 100 }[cfg.count_preset || "medium"] || 210;
   const walkPct = Math.min(30, (30 / interval) * 100).toFixed(2);
   const nowSec = Date.now() / 1000;
-  const delaySec = (-(nowSec % interval)).toFixed(2);
+  const delaySec = periodicDelaySec(interval, "train");
 
   // 5. mögliche Ladung "Weihnachtsmann-Sack": ersetzt die Holzscheite im
   // letzten Waggon, aber NUR wenn der konfigurierte Sensor (z. B. ein
@@ -1322,7 +1394,7 @@ function renderDog(cfg, hass, hostEl) {
   const walkPct = Math.min(30, (20 / interval) * 100);
   const startHeight = typeof cfg._startHeight === "number" ? cfg._startHeight : Math.random() * 70 + 10;
   const drift = typeof cfg._drift === "number" ? cfg._drift : (Math.random() * 16 - 8);
-  const delaySec = (-((Date.now() / 1000) % interval)).toFixed(2);
+  const delaySec = periodicDelaySec(interval, "dog");
 
   // Schnüffel-Pause: kurzes Anhalten + Kopf senken, bei ca. 40% der Laufstrecke.
   const sniffFrac = 0.4;
@@ -1491,7 +1563,7 @@ function renderComet(cfg, hass, hostEl) {
   // Sekundenbruchteil überhaupt zu sehen gewesen.
   const cometFadeInPct = (parseFloat(flightPct) * 0.12).toFixed(3);
   const fadePct = (parseFloat(flightPct) * 1.2).toFixed(2);
-  const delaySec = (-((Date.now() / 1000) % interval)).toFixed(2);
+  const delaySec = periodicDelaySec(interval, "comet");
 
   const css = `
     .comet-container {
@@ -1604,7 +1676,7 @@ function renderBirdhouse(cfg, hass, hostEl) {
   const isHigh = (cfg.opacity_preset || "medium") === "high";
   const finalOpacity = isHigh ? 1 : opacity;
   const interval = { low: 100, medium: 60, high: 30 }[cfg.count_preset || "medium"] || 60;
-  const delaySec = (-((Date.now() / 1000) % interval)).toFixed(2);
+  const delaySec = periodicDelaySec(interval, "birdhouse");
   // Anteil des Zyklus für den kompletten Anflug+Vorbeiflug (Rest ist Pause,
   // in der der Vogel unsichtbar wartet).
   const flightPct = Math.min(35, (9 / interval) * 100).toFixed(2);
