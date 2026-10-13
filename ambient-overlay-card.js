@@ -5,7 +5,41 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.10";
+const CARD_VERSION = "1.0.11";
+
+/* ============================== CREDITS ============================== */
+// 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
+// eine extra Bild-Datei würde bei HACS-Installationen fehlen).
+const CREDITS_LOGO = "data:image/webp;base64,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";
+const CREDITS_REPO = "https://github.com/misterm2310/ambient-overlay-card";
+
+// Credits-Bereich ganz unten im Editor - wie bei der Einkaufsliste
+function creditsHtml() {
+  return `<div class="aoc-credits" translate="no">
+    <style>
+      .aoc-credits { text-align:center; margin-top:18px; padding-top:14px; border-top:1px solid var(--divider-color, rgba(127,127,127,.25)); color:var(--primary-text-color, #222); font-size:14px; line-height:1.5; }
+      .aoc-credits p { margin:6px 0; }
+      .aoc-logo { background:#fff; border-radius:14px; padding:10px; display:inline-block; max-width:100%; box-shadow:0 1px 4px rgba(0,0,0,.12); }
+      .aoc-logo img { display:block; max-width:100%; width:220px; height:auto; }
+      .aoc-btns { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:12px 0; }
+      .aoc-btn { color:var(--primary-text-color, #222); background:var(--secondary-background-color, rgba(127,127,127,.12)); border-radius:12px; padding:10px 14px; text-decoration:none; font-weight:500; }
+      .aoc-btn.pp { display:inline-flex; align-items:center; gap:8px; background:#0070BA; color:#fff; border:2px solid #003087; font-weight:700; }
+      .aoc-btn.pp svg { width:20px; height:20px; flex:none; }
+      .aoc-small { font-size:12px; opacity:.7; }
+    </style>
+    <div class="aoc-logo"><img src="${CREDITS_LOGO}" alt="Mister-M" loading="lazy"></div>
+    <p><b>Ambient Overlay Card</b> v${CARD_VERSION}</p>
+    <p>Gemacht von <b>Mister-M</b> – mit Hilfe von Claude 🤖</p>
+    <div class="aoc-btns">
+      <a class="aoc-btn" href="${CREDITS_REPO}" target="_blank" rel="noopener">🐙 GitHub</a>
+      <a class="aoc-btn" href="${CREDITS_REPO}/discussions" target="_blank" rel="noopener">💡 Idee oder Wunsch</a>
+      <a class="aoc-btn" href="${CREDITS_REPO}/issues" target="_blank" rel="noopener">🐞 Fehler melden</a>
+      <a class="aoc-btn pp" href="https://paypal.me/MarcoStrickmann" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 2.7 5 6.2 5c2 0 3.5 1.1 5.8 3.4C14.3 6.1 15.8 5 17.8 5c3.5 0 5.2 3.6 3.8 6.8C19.5 16.4 12 21 12 21z" fill="#fff"/></svg><span>Spenden mit PayPal</span></a>
+    </div>
+    <p class="aoc-small">Die Karte ist und bleibt kostenlos. Wenn sie dir gefällt, freue ich mich über eine kleine Spende – ganz freiwillig. Beim Antippen öffnet sich PayPal im Browser; vorher geht nichts ins Internet.</p>
+    <p class="aoc-small">Lizenz: MIT</p>
+  </div>`;
+}
 
 /* ============================== HELFER ============================== */
 
@@ -3121,6 +3155,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
         <div id="custom_color_picker">
           ${this._row("Farbe", `<input id="color" type="color" value="${c.color === "auto" ? "#ffffff" : c.color}" style="width:100%; height:36px;" />`)}
         </div>` : ""}
+
+        ${creditsHtml()}
       </div>
     `;
 
@@ -3271,6 +3307,13 @@ class AmbientOverlayCardEditor extends HTMLElement {
 }
 
 /* ============================== REGISTRIERUNG ============================== */
+
+// 🌙 Zeigt in der Browser-Konsole, welche Version wirklich geladen ist
+console.info(
+  `%c 🌙 AMBIENT OVERLAY CARD %c v${CARD_VERSION} `,
+  "color:#fde68a; background:#1e3a8a; font-weight:700;",
+  "color:#1e3a8a; background:#fde68a; font-weight:700;"
+);
 
 if (!customElements.get("ambient-overlay-card")) {
   customElements.define("ambient-overlay-card", AmbientOverlayCard);
