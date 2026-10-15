@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.14-beta.2";
+const CARD_VERSION = "1.0.14-beta.3";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -4628,10 +4628,15 @@ class AmbientOverlayCardEditor extends HTMLElement {
     }
     html += this._panel("ueber", "💙", "Über die Karte", `v${CARD_VERSION} · Mister-M`, creditsHtml());
 
+    // Beim Neuaufbau nicht springen: Höhe kurz festhalten und Scroll-Stelle merken
+    const scroller = this._scroller();
+    const keepTop = scroller ? scroller.scrollTop : null;
+    if (this.isConnected && this.offsetHeight) this.style.minHeight = this.offsetHeight + "px";
+
     this.shadowRoot.innerHTML = `
       <style>${EDITOR_CSS}</style>
       <div class="wrap">
-        <div class="pv">
+        <div class="pv"${this._pvH ? ` style="height:${this._pvH}px"` : ""}>
           <div class="pv-stage"></div>
           <div class="pv-msg"></div>
           <span class="pv-tag">Live-Vorschau</span>
@@ -4641,6 +4646,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       </div>`;
 
     this._lastSig = this._hass ? this._statusSig() : null;
+    this._afterRender(scroller, keepTop);
     this._wireResize();
     // Felder direkt anschließen (manche Ereignisse "blubbern" nicht hoch)
     this.shadowRoot.querySelectorAll("input, select").forEach((el) => {
@@ -4651,10 +4657,50 @@ class AmbientOverlayCardEditor extends HTMLElement {
     this._updatePreview();
   }
 
+  /* ---------- Nicht springen ---------- */
+
+  // Das Fenster, in dem der Editor scrollt (liegt bei HA außerhalb der Karte)
+  _scroller() {
+    let n = this;
+    for (let i = 0; i < 40 && n; i++) {
+      n = n.parentElement || n.getRootNode?.().host || null;
+      if (!n || n === document.body || n === document.documentElement) break;
+      const st = getComputedStyle(n);
+      if (/(auto|scroll)/.test(st.overflowY) && n.scrollHeight > n.clientHeight) return n;
+    }
+    return document.scrollingElement || null;
+  }
+
+  // Das angetippte Teil merken, damit es danach an derselben Stelle steht
+  _rememberAnchor(target) {
+    const a = target.closest?.("[data-fx], .panel[data-panel]");
+    if (!a) { this._anchor = null; return; }
+    const sel = a.dataset.fx !== undefined ? `[data-fx="${a.dataset.fx}"]` : `.panel[data-panel="${CSS.escape(a.dataset.panel)}"]`;
+    this._anchor = { sel, top: a.getBoundingClientRect().top, t: Date.now() };
+  }
+
+  _afterRender(scroller, keepTop) {
+    if (scroller && keepTop !== null) {
+      scroller.scrollTop = keepTop;
+      const a = this._anchor;
+      this._anchor = null;
+      const el = a && Date.now() - a.t < 1500 ? this.shadowRoot.querySelector(a.sel) : null;
+      if (el) {
+        const diff = el.getBoundingClientRect().top - a.top;
+        if (Math.abs(diff) > 1) scroller.scrollTop += diff;
+      }
+    }
+    // Festgehaltene Höhe wieder freigeben, wenn alles steht
+    const release = () => { this.style.minHeight = ""; };
+    if (window.requestAnimationFrame) requestAnimationFrame(() => requestAnimationFrame(release));
+    else release();
+  }
+
   /* ---------- Bedienung (alles über einen gemeinsamen Klick-Empfänger) ---------- */
 
   _onClick(e) {
     const t = e.target;
+    this._rememberAnchor(t);
     const root = this.shadowRoot;
     const el = (sel) => t.closest?.(sel);
     let b;
@@ -5073,6 +5119,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
     stage.style.left = left + "px";
     stage.style.transform = `scale(${s})`;
     pv.style.height = Math.round(vh * s) + "px";
+    this._pvH = Math.round(vh * s);
   }
 
   // Ein Effekt-Eintrag -> CSS + HTML für die Vorschau
