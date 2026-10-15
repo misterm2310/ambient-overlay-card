@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.12-beta.2";
+const CARD_VERSION = "1.0.12-beta.3";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1783,6 +1783,9 @@ function renderBirdhouse(cfg, hass, hostEl) {
   const finalOpacity = isHigh ? 1 : opacity;
   const interval = { low: 100, medium: 60, high: 30 }[cfg.count_preset || "medium"] || 60;
   const delaySec = periodicDelaySec(interval, "birdhouse");
+  // 🎃 An Halloween: Kürbis vor dem Häuschen, Spinnwebe unterm Dach,
+  // und der Vogel fliegt mit Mini-Hexenhut vorbei.
+  const spooky = isHalloweenTime(cfg, hass);
   // Anteil des Zyklus für den kompletten Anflug+Vorbeiflug (Rest ist Pause,
   // in der der Vogel unsichtbar wartet).
   const flightPct = Math.min(35, (9 / interval) * 100).toFixed(2);
@@ -1820,6 +1823,12 @@ function renderBirdhouse(cfg, hass, hostEl) {
       0% { transform: scaleY(1) rotate(0deg); }
       100% { transform: scaleY(0.5) rotate(-15deg); }
     }
+    ${spooky ? `
+    .birdhouse-box .pk-face-glow { animation: bh-pk-flicker 1.9s steps(1) infinite; }
+    @keyframes bh-pk-flicker {
+      0% { opacity: 1; } 13% { opacity: 0.65; } 21% { opacity: 0.95; } 34% { opacity: 0.55; }
+      45% { opacity: 1; } 61% { opacity: 0.75; } 72% { opacity: 0.5; } 84% { opacity: 0.9; } 100% { opacity: 1; }
+    }` : ""}
   `;
   const html = `
     <div class="birdhouse-box" style="opacity:${finalOpacity};" aria-hidden="true">
@@ -1831,17 +1840,28 @@ function renderBirdhouse(cfg, hass, hostEl) {
         <circle cx="29" cy="32" r="8" fill="#3a2712"/>
         <path d="M20,44 L38,44" stroke="#6b4a2f" stroke-width="3" stroke-linecap="round"/>
         <path d="M29,58 L29,64" stroke="#6b4a2f" stroke-width="3"/>
+        ${spooky ? `
+        <g stroke="#f2f2f6" fill="none" stroke-linecap="round" opacity="0.9">
+          <path d="M51,13 L51,29 M51,13 L43,27 M51,13 L38,21 M51,13 L36,13" stroke-width="0.7"/>
+          <path d="M51,18 L48.5,17.5 L46.5,15.5 L45,13" stroke-width="0.6"/>
+          <path d="M51,23 L46,22.5 L42,19 L40.5,13" stroke-width="0.6"/>
+        </g>
+        <g transform="translate(36,51) scale(0.3)">${pumpkinShapes(true)}</g>` : ""}
         </g>
       </svg>
     </div>
     <div class="bird-fly-container" aria-hidden="true">
       <div class="bird-fly-box">
-        <svg viewBox="0 0 33 24" style="width:100%; height:100%;">
+        <svg viewBox="0 0 33 24" style="width:100%; height:100%; overflow:visible;">
           <ellipse cx="15" cy="12" rx="9" ry="6.5" fill="#4a90d9"/>
           <circle cx="24" cy="9" r="4.5" fill="#4a90d9"/>
           <path d="M28,8 L32,9 L28,11 Z" fill="#e8952a"/>
           <circle cx="25" cy="8" r="1" fill="#1a1a1a"/>
           <path class="bird-wing" d="M15,10 Q6,4 3,12 Q9,14 15,10 Z" fill="#3a7ab8"/>
+          ${spooky ? `
+          <path d="M20.5,5.5 L23,-4 Q24,-7 19,-8 Q26,-7.5 25.5,-3 L27.5,5.5 Z" fill="#1f1a2a" stroke="#000" stroke-width="0.6"/>
+          <path d="M21,3.6 L27,3.6 L27.3,5.2 L20.7,5.2 Z" fill="#8a2a8a"/>
+          <ellipse cx="24" cy="5.6" rx="5.6" ry="1.3" fill="#1f1a2a" stroke="#000" stroke-width="0.5"/>` : ""}
         </svg>
       </div>
     </div>
@@ -3375,7 +3395,15 @@ class AmbientOverlayCardEditor extends HTMLElement {
     const isDog = c.event === "dog";
     const isHalloween = c.event === "halloween";
     // Halloween-Schalter gibt's überall, wo sich etwas verkleidet
-    const hasHalloweenLook = ["train", "dog", "owl_birdhouse", "weather_auto"].includes(c.event);
+    // Jeder Effekt erklärt nur, was sich bei IHM verkleidet
+    const HALLOWEEN_HINTS = {
+      train: "Am 31. Oktober tragen vier Waggons automatisch Kürbisse, Hexenkessel, Sarg und Süßigkeiten. Ist dieser Schalter 'an', auch an anderen Tagen. Weihnachten und Abendessen haben Vorrang.",
+      dog: "Am 31. Oktober trägt der Hund automatisch Teufelshörnchen und ein Halstuch. Ist dieser Schalter 'an', auch an anderen Tagen.",
+      owl_birdhouse: "Am 31. Oktober trägt die Eule nachts automatisch einen Hexenhut. Tagsüber steht ein Kürbis vor dem Vogelhäuschen, unterm Dach hängt eine Spinnwebe und der Vogel fliegt mit Hexenhut vorbei. Ist dieser Schalter 'an', auch an anderen Tagen.",
+      weather_auto: "Am 31. Oktober wird der Mond automatisch zum orangen Vollmond. Ist dieser Schalter 'an', auch an anderen Tagen.",
+    };
+    const halloweenHint = HALLOWEEN_HINTS[c.event];
+    const hasHalloweenLook = !!halloweenHint;
 
     const weatherEntities = this._hass && this._hass.states
       ? Object.keys(this._hass.states).filter((eid) => eid.startsWith("weather."))
@@ -3455,8 +3483,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
                     return `<option value="${eid}" ${c.halloween_sensor === eid ? "selected" : ""}>${friendly}</option>`;
                   }).join("")}
                 </select>
-              `, "Am 31. Oktober gibt's den Halloween-Look automatisch: Kürbis-Zug, Hund mit Teufelshörnchen, Eule mit Hexenhut, oranger Vollmond. Ist dieser Schalter 'an', auch an anderen Tagen.")
-            : this._row("Halloween-Schalter (optional)", `<input id="halloween_sensor" type="text" placeholder="input_boolean.halloween" value="${c.halloween_sensor || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, "Am 31. Oktober gibt's den Halloween-Look automatisch. Ist dieser Schalter 'an', auch an anderen Tagen.")
+              `, halloweenHint)
+            : this._row("Halloween-Schalter (optional)", `<input id="halloween_sensor" type="text" placeholder="input_boolean.halloween" value="${c.halloween_sensor || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, halloweenHint)
         ) : ""}
 
         ${isBirthday ? this._row("Banner-Text", `
