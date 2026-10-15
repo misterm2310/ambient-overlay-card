@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.14-beta.3";
+const CARD_VERSION = "1.0.14-beta.4";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3818,7 +3818,7 @@ const EDITOR_CSS = `
   @media (max-width: 420px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
 
   /* Schalter-Zeilen */
-  .sw-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; cursor: pointer; }
+  .sw-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; cursor: pointer; position: relative; }
   .sw-row .em { font-size: 20px; width: 26px; text-align: center; }
   .sw-row .txt { flex: 1; font-size: 15px; }
   .sw-row .txt small { display: block; color: var(--secondary-text-color, #727272); font-size: 12px; margin-top: 1px; }
@@ -4659,11 +4659,13 @@ class AmbientOverlayCardEditor extends HTMLElement {
 
   /* ---------- Nicht springen ---------- */
 
-  // Das Fenster, in dem der Editor scrollt (liegt bei HA außerhalb der Karte)
+  // Das Fenster, in dem der Editor scrollt. Bei HA liegt es außerhalb der
+  // Karte im Dialog - der Editor steckt dort in einem "Schlitz" (slot),
+  // deshalb über assignedSlot weitergehen statt nur über parentElement.
   _scroller() {
     let n = this;
-    for (let i = 0; i < 40 && n; i++) {
-      n = n.parentElement || n.getRootNode?.().host || null;
+    for (let i = 0; i < 60 && n; i++) {
+      n = n.assignedSlot || n.parentElement || n.getRootNode?.().host || null;
       if (!n || n === document.body || n === document.documentElement) break;
       const st = getComputedStyle(n);
       if (/(auto|scroll)/.test(st.overflowY) && n.scrollHeight > n.clientHeight) return n;
@@ -4671,29 +4673,59 @@ class AmbientOverlayCardEditor extends HTMLElement {
     return document.scrollingElement || null;
   }
 
-  // Das angetippte Teil merken, damit es danach an derselben Stelle steht
+  // Das angetippte Teil merken, damit es danach an derselben Stelle steht.
+  // Gezählt wird innerhalb des eigenen Effekts - klappt woanders etwas zu,
+  // verschiebt das die Zählung nicht.
   _rememberAnchor(target) {
-    const a = target.closest?.("[data-fx], .panel[data-panel]");
+    const SEL = ".sw-row, .chip, .seg, .tile, .cond-row, .grp-head, .addc, .btn, .fx-row, .panel[data-panel]";
+    const a = target.closest?.(SEL) || target.closest?.("[data-fx]");
     if (!a) { this._anchor = null; return; }
-    const sel = a.dataset.fx !== undefined ? `[data-fx="${a.dataset.fx}"]` : `.panel[data-panel="${CSS.escape(a.dataset.panel)}"]`;
-    this._anchor = { sel, top: a.getBoundingClientRect().top, t: Date.now() };
+    const fx = a.closest("[data-fx]");
+    const scope = fx || this.shadowRoot;
+    this._anchor = {
+      idx: a.matches(SEL) ? [...scope.querySelectorAll(SEL)].indexOf(a) : -1,
+      fx: fx ? fx.dataset.fx : null,
+      fxSel: fx ? `[data-fx="${fx.dataset.fx}"] .fx-row` : null,
+      top: a.getBoundingClientRect().top,
+      fxTop: fx ? fx.querySelector(".fx-row").getBoundingClientRect().top : null,
+      t: Date.now(),
+    };
+  }
+
+  _findAnchor(a) {
+    if (a.idx < 0) return null;
+    const SEL = ".sw-row, .chip, .seg, .tile, .cond-row, .grp-head, .addc, .btn, .fx-row, .panel[data-panel]";
+    const scope = a.fx !== null && a.fx !== undefined ? this.shadowRoot.querySelector(`[data-fx="${a.fx}"]`) : this.shadowRoot;
+    return scope ? [...scope.querySelectorAll(SEL)][a.idx] || null : null;
+  }
+
+  _fixScroll(scroller, a) {
+    if (!scroller || !a) return;
+    // Erst das angetippte Teil, sonst die Effekt-Zeile drumherum
+    let el = this._findAnchor(a), top = a.top;
+    if (a.fxSel && (!el || !el.isConnected)) { el = this.shadowRoot.querySelector(a.fxSel); top = a.fxTop; }
+    if (!el) return;
+    const diff = el.getBoundingClientRect().top - top;
+    if (Math.abs(diff) > 1) scroller.scrollTop += diff;
   }
 
   _afterRender(scroller, keepTop) {
+    const a = this._anchor && Date.now() - this._anchor.t < 1500 ? this._anchor : null;
+    this._anchor = null;
     if (scroller && keepTop !== null) {
       scroller.scrollTop = keepTop;
-      const a = this._anchor;
-      this._anchor = null;
-      const el = a && Date.now() - a.t < 1500 ? this.shadowRoot.querySelector(a.sel) : null;
-      if (el) {
-        const diff = el.getBoundingClientRect().top - a.top;
-        if (Math.abs(diff) > 1) scroller.scrollTop += diff;
-      }
+      this._fixScroll(scroller, a);
     }
-    // Festgehaltene Höhe wieder freigeben, wenn alles steht
+    // HA baut nach einer Änderung manchmal selbst noch etwas um und springt
+    // dabei - deshalb kurz danach noch einmal geraderücken
+    const later = () => {
+      if (scroller && a) this._fixScroll(scroller, a);
+    };
     const release = () => { this.style.minHeight = ""; };
-    if (window.requestAnimationFrame) requestAnimationFrame(() => requestAnimationFrame(release));
-    else release();
+    if (window.requestAnimationFrame) {
+      Promise.resolve().then(later);
+      requestAnimationFrame(() => { later(); requestAnimationFrame(() => { later(); release(); }); });
+    } else release();
   }
 
   /* ---------- Bedienung (alles über einen gemeinsamen Klick-Empfänger) ---------- */
@@ -4859,6 +4891,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
         [effects[i], effects[j]] = [effects[j], effects[i]];
         this._moveOpenKeys(i, j);
         this._openEntry = j;
+        // Der verschobene Effekt bleibt unter dem Finger (die Liste rückt nach)
+        const row = this.shadowRoot.querySelector(`[data-fx="${i}"] .fx-row`);
+        if (row) this._anchor = { idx: -1, fxSel: `[data-fx="${j}"] .fx-row`, fxTop: row.getBoundingClientRect().top, t: Date.now() };
       } else if (act === "dup") {
         effects.splice(i + 1, 0, JSON.parse(JSON.stringify(effects[i])));
         this._shiftOpenKeys(i + 1, +1);
