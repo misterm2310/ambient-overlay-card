@@ -32,12 +32,13 @@
 | 🕷️🐝🍂 **Noch mehr Tiere & Deko** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen), Bienenschwarm und Herbstlaub. |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
 | 🌫️ **Sanft statt hart** | Wechselt das Wetter von selbst, blendet der alte Effekt weich aus. |
+| 🧺 **Alles in einer Karte** | Alle Effekte in einer einzigen Karte, jeder mit eigenem **„🕒 Wann anzeigen?“** – zum Antippen statt YAML: nur nachts, Zeitraum im Jahr, Uhrzeit, Schalter, Person zuhause, Wetter … plus ODER-/UND-Gruppen. Grüne und graue Punkte zeigen, was gerade läuft und warum etwas wartet. |
 | 👁️ **Editor mit Live-Vorschau** | Effekte als Kacheln zum Antippen, aufklappbare Bereiche, Schiebeschalter und Suchfelder wie in Home Assistant. Oben eine Vorschau mit Knopf „▶ Jetzt vorbeifliegen lassen“ – so musst du nicht minutenlang auf Hexe, Zug oder Hund warten. |
 | 🌗 **Hell & Dunkel** | Die Karte erkennt das Theme selbst, auch wenn es nur auf einer einzelnen Dashboard-Seite gesetzt ist. |
 | 🔋 **Akku-schonend** | Fast alles läuft über CSS (Grafikkarte). Ist der Tab im Hintergrund, pausieren die Animationen. |
 | 🎯 **Immer obendrauf** | Die Effekte liegen in einer eigenen Ebene über allem – auch über anderen Karten mit eigenen Animationen. |
 
-**11 Effekte zum Auswählen** plus die Wetter-Automatik mit 10 weiteren (Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne, Sonne, Mond). Pro Effekt eine Karte – du kannst also mehrere Karten gleichzeitig laufen lassen, z. B. Wetter-Automatik **und** Dampflok **und** Eule.
+**11 Effekte zum Auswählen** plus die Wetter-Automatik mit 10 weiteren (Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne, Sonne, Mond). Entweder alles in **einer Karte** als Liste – oder wie früher pro Effekt eine Karte, z. B. Wetter-Automatik **und** Dampflok **und** Eule auf derselben Seite.
 
 ---
 
@@ -113,6 +114,53 @@ Gut zu wissen:
 * Bei **Bienen, Wolken und Geburtstag** ist „Anzahl“ eine ganz normale Menge.
 * Die **Spinne** gibt es nur einmal, da gibt's keinen Anzahl-Regler.
 * **Weihnachtsmann, Hund, Dampflok, Eule & Vogelhäuschen, Laub, Bienen, Geburtstag und Halloween** haben feste Farben, also keinen Farbmodus.
+
+### 🧺 Alles in einer Karte (Liste)
+
+Statt für jeden Effekt eine eigene Karte mit Sichtbarkeits-Regeln anzulegen, packst du **alle Effekte in eine einzige Karte**. Bei einer Einzel-Karte unten auf **„🔀 In Liste umwandeln“** tippen – dein Effekt bleibt mit allen Einstellungen drin.
+
+* **✨ Meine Effekte:** jede Zeile ist ein Effekt mit **grünem Punkt** (läuft gerade) oder **grauem Punkt** samt Grund („wartet – Sonne ist noch oben“). Mit dem Schalter machst du ihn aus, ohne ihn zu löschen. Antippen klappt ihn auf: dort stecken dieselben Bereiche wie bei der Einzel-Karte, dazu ↑ ↓, kopieren und entfernen (mit Sicherheitsfrage).
+* **🕒 Wann anzeigen?** – pro Effekt. Leer = immer. Fertige Bausteine zum Antippen: *Nur nachts, Nur tagsüber, Zeitraum im Jahr (z. B. 17.10.–2.11., jedes Jahr), Uhrzeit von–bis (auch nur an bestimmten Wochentagen), Schalter ist an, Person ist zuhause, Wetter ist …* und *Eigene Bedingung* für jede beliebige Entität.
+* **Gruppen:** Mehrere Bedingungen untereinander müssen **alle** stimmen. Für „eins davon reicht“ gibt es die blaue **ODER**-Gruppe, die grüne **UND**-Gruppe für „alles davon“. Gruppen lassen sich ineinander stecken; Antippen von ODER/UND schaltet um.
+* **🔒 Gilt für alle Effekte:** Bedingungen, die für die ganze Karte gelten – z. B. „nur wenn der Fernseher an ist“. Stimmt hier etwas nicht, ist gar nichts zu sehen.
+* **Vorschau:** zeigt alles, was gerade läuft („5 von 11 laufen gerade“) – oder nur den Effekt, den du aufgeklappt hast, auch wenn der gerade wartet.
+* Fehlt eine Entität (umbenannt, gelöscht), pausiert nur dieser Effekt und zeigt rot **„⚠️ … nicht gefunden“**. Der Rest läuft weiter.
+
+Die Bedingungen haben dasselbe Format wie die Sichtbarkeit in Home Assistant (`state`, `numeric_state`, `time`, `screen`, `user`, `and`, `or`) – du kannst also deine alten Sichtbarkeits-Regeln 1:1 reinkopieren. Neu dazu kommt `period` für einen Zeitraum im Jahr.
+
+```yaml
+type: custom:ambient-overlay-card
+conditions:                      # 🔒 gilt für alle Effekte
+  - condition: state
+    entity: input_boolean.deko_effekte
+    state: "on"
+effects:
+  - event: weather_auto
+    weather_entity: weather.home
+  - event: halloween
+    conditions:                  # 🕒 Wann anzeigen?
+      - condition: period        # jedes Jahr 17. Oktober bis 2. November
+        from: "10-17"
+        to: "11-02"
+      - condition: state         # nur nachts
+        entity: sun.sun
+        state: below_horizon
+  - event: train
+    person_entities: person.anna, person.ben
+    conditions:
+      - condition: or            # eins davon reicht
+        conditions:
+          - condition: state
+            entity: sun.sun
+            state: above_horizon
+          - condition: time
+            after: "12:00:00"
+            before: "20:00:00"
+  - event: dog
+    enabled: false               # vorübergehend aus
+```
+
+**Und meine alten Karten?** Laufen genau wie vorher weiter – nichts musst du ändern. Auch die Einzel-Karte hat jetzt „🕒 Wann anzeigen?“.
 
 ### 🚃 Reihenfolge der Waggons
 
@@ -279,6 +327,8 @@ Alles geht im visuellen Editor. Für YAML-Fans:
 | `custom_wagon_text` | – | fester Text für Gäste-Waggons, z. B. `Oma, Opa` |
 | `leaf_colors` | `["#c9a227", "#a83232", "#d9812c"]` | drei Hex-Farben fürs Laub (nur YAML) |
 | `leaf_shape` | eingebaute Form | eigene Blattform als SVG-Pfad (nur YAML, wird sicherheitsgeprüft) |
+| `conditions` | – | 🕒 Wann anzeigen? Liste von Bedingungen (Format wie die HA-Sichtbarkeit, plus `period` mit `from`/`to` als `"MM-TT"`). In der Liste: oben = gilt für alle, im Effekt = nur für diesen |
+| `effects` | – | macht aus der Karte eine Liste: jeder Eintrag hat dieselben Optionen wie oben, dazu `conditions` und `enabled: false` zum Ausschalten |
 
 ---
 
@@ -286,9 +336,9 @@ Alles geht im visuellen Editor. Für YAML-Fans:
 
 **Kann ich den Halloween-Look am 31. Oktober abschalten?** Im Moment nicht – an dem Tag kommt er automatisch. Den Halloween-Modus selbst (`event: halloween`) gibt's dagegen nur, wenn du ihn auswählst.
 
-**Kann ich mehrere Effekte gleichzeitig haben?** Ja. Pro Effekt eine Karte anlegen – z. B. Wetter-Automatik, Dampflok und Eule auf derselben Seite.
+**Kann ich mehrere Effekte gleichzeitig haben?** Ja – am einfachsten mit **„Alles in einer Karte“** (siehe oben). Mehrere Einzel-Karten gehen aber weiterhin.
 
-**Wie blende ich alle Effekte auf einmal aus?** Über die normale **Sichtbarkeit** der Karte in Home Assistant, z. B. an einen `input_boolean` gekoppelt. Die Effekte verstecken sich dann mit.
+**Wie blende ich alle Effekte auf einmal aus?** In der Liste über **🔒 Gilt für alle Effekte**, z. B. mit einem `input_boolean`. Die normale **Sichtbarkeit** der Karte in Home Assistant klappt auch.
 
 **Belastet das mein Tablet?** Kaum. Fast alles läuft über CSS, und bei Tabs im Hintergrund pausiert alles. Auf sehr schwachen Geräten bei `count_preset` einfach `low` nehmen.
 
