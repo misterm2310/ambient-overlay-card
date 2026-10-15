@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.12-beta.3";
+const CARD_VERSION = "1.0.12-beta.4";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3366,9 +3366,83 @@ class AmbientOverlayCardEditor extends HTMLElement {
     if (newKey !== oldKey) {
       this._weatherEntityListKey = newKey;
       this._render();
+    } else {
+      this.querySelectorAll(".aoc-entity-picker > ha-selector, .aoc-entity-picker > ha-entity-picker")
+        .forEach((el) => { el.hass = hass; });
     }
   }
-  connectedCallback() { this._render(); }
+  connectedCallback() {
+    this._render();
+    this._loadHaPickers();
+  }
+
+  // Platzhalter für ein Suchfeld - wird nach dem Aufbau durch das
+  // Original-Suchfeld von Home Assistant ersetzt (siehe _mountPickers).
+  _pickerRow(label, key, domains, hint, placeholder) {
+    return this._row(label, `<div class="aoc-entity-picker" data-key="${key}" data-domains="${domains.join(",")}" data-placeholder="${escapeHtml(placeholder)}"></div>`, hint);
+  }
+
+  // Home Assistant lädt sein Suchfeld erst, wenn es irgendwo gebraucht wird.
+  // Damit es im Editor sicher da ist, lassen wir HA einmal den Editor der
+  // eingebauten "Entitäten"-Karte vorbereiten - der bringt es mit.
+  async _loadHaPickers() {
+    if (customElements.get("ha-selector") || customElements.get("ha-entity-picker")) return;
+    try {
+      if (!window.loadCardHelpers) return;
+      const helpers = await window.loadCardHelpers();
+      const card = await helpers.createCardElement({ type: "entities", entities: [] });
+      if (card?.constructor?.getConfigElement) await card.constructor.getConfigElement();
+    } catch (e) { /* kein Problem: dann bleibt das einfache Textfeld */ }
+    if (customElements.get("ha-selector") || customElements.get("ha-entity-picker")) this._render();
+  }
+
+  _mountPickers() {
+    this.querySelectorAll(".aoc-entity-picker").forEach((slot) => {
+      const key = slot.dataset.key;
+      const domains = slot.dataset.domains.split(",");
+      const value = this._config[key] || "";
+      const onValue = (v) => this._update(key, (v || "").trim(), false);
+
+      // 1. Wahl: Original-Suchfeld von Home Assistant (mit Symbol + Name)
+      if (customElements.get("ha-selector") && this._hass) {
+        const el = document.createElement("ha-selector");
+        el.hass = this._hass;
+        el.selector = { entity: { domain: domains } };
+        el.value = value;
+        el.required = false;
+        el.style.display = "block";
+        el.addEventListener("value-changed", (e) => { e.stopPropagation(); onValue(e.detail?.value); });
+        slot.appendChild(el);
+        return;
+      }
+      if (customElements.get("ha-entity-picker") && this._hass) {
+        const el = document.createElement("ha-entity-picker");
+        el.hass = this._hass;
+        el.includeDomains = domains;
+        el.value = value;
+        el.allowCustomEntity = true;
+        el.style.display = "block";
+        el.addEventListener("value-changed", (e) => { e.stopPropagation(); onValue(e.detail?.value); });
+        slot.appendChild(el);
+        return;
+      }
+
+      // Sicherung: Textfeld mit Vorschlägen zum Tippen (Browser-Suche)
+      const listId = "aoc-list-" + key;
+      const matches = this._hass?.states
+        ? Object.keys(this._hass.states).filter((eid) => domains.some((d) => eid.startsWith(d + "."))).sort()
+        : [];
+      slot.innerHTML = `
+        <input type="search" list="${listId}" value="${escapeHtml(value)}" placeholder="${slot.dataset.placeholder}"
+               style="width:100%; padding:6px; box-sizing:border-box;" autocomplete="off" />
+        <datalist id="${listId}">
+          ${matches.map((eid) => `<option value="${escapeHtml(eid)}">${escapeHtml(this._hass.states[eid]?.attributes?.friendly_name || eid)}</option>`).join("")}
+        </datalist>`;
+      const input = slot.querySelector("input");
+      input.addEventListener("change", (e) => onValue(e.target.value));
+      input.addEventListener("search", (e) => onValue(e.target.value));
+    });
+  }
 
   _row(labelText, inputHTML, hint) {
     const hintHtml = hint
@@ -3405,22 +3479,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
     const halloweenHint = HALLOWEEN_HINTS[c.event];
     const hasHalloweenLook = !!halloweenHint;
 
-    const weatherEntities = this._hass && this._hass.states
-      ? Object.keys(this._hass.states).filter((eid) => eid.startsWith("weather."))
-      : [];
-
-    const booleanEntities = this._hass && this._hass.states
-      ? Object.keys(this._hass.states).filter((eid) => eid.startsWith("input_boolean.") || eid.startsWith("binary_sensor."))
-      : [];
-
     const personEntitiesAvailable = this._hass && this._hass.states
       ? Object.keys(this._hass.states).filter((eid) => eid.startsWith("person."))
-      : [];
-
-    const textEntities = this._hass && this._hass.states
-      ? Object.keys(this._hass.states).filter((eid) =>
-          eid.startsWith("input_text.") || eid.startsWith("input_select.") || eid.startsWith("sensor.")
-        ).sort()
       : [];
 
     this.innerHTML = `
@@ -3473,51 +3533,15 @@ class AmbientOverlayCardEditor extends HTMLElement {
           </div>
         `, "Einzeln an- und abwählbar. Mindestens eins sollte angehakt sein, sonst bleibt der Bildschirm leer.") : ""}
 
-        ${hasHalloweenLook ? (
-          booleanEntities.length > 0
-            ? this._row("Halloween-Schalter (optional)", `
-                <select id="halloween_sensor" style="width:100%; padding:6px;">
-                  <option value="" ${!c.halloween_sensor ? "selected" : ""}>-- keiner (nur am 31. Oktober) --</option>
-                  ${booleanEntities.map((eid) => {
-                    const friendly = this._hass.states[eid]?.attributes?.friendly_name || eid;
-                    return `<option value="${eid}" ${c.halloween_sensor === eid ? "selected" : ""}>${friendly}</option>`;
-                  }).join("")}
-                </select>
-              `, halloweenHint)
-            : this._row("Halloween-Schalter (optional)", `<input id="halloween_sensor" type="text" placeholder="input_boolean.halloween" value="${c.halloween_sensor || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, halloweenHint)
-        ) : ""}
+        ${hasHalloweenLook ? this._pickerRow("Halloween-Schalter (optional)", "halloween_sensor", ["input_boolean","binary_sensor"], halloweenHint, "Schalter suchen, z. B. Halloween") : ""}
 
         ${isBirthday ? this._row("Banner-Text", `
           <input id="birthday_text" type="text" value="${c.birthday_text ? c.birthday_text.replace(/"/g, "&quot;") : ""}" placeholder="Happy Birthday!" style="width:100%; padding:6px; box-sizing:border-box;" />
         `, "Text im Banner oben - z. B. 'Happy Birthday, Max!' für eine persönliche Note.") : ""}
 
-        ${isTrain ? (
-          booleanEntities.length > 0
-            ? this._row("Weihnachtsmann-Sensor (optional)", `
-                <select id="santa_sensor" style="width:100%; padding:6px;">
-                  <option value="" ${!c.santa_sensor ? "selected" : ""}>-- keiner (immer Holzscheite) --</option>
-                  ${booleanEntities.map((eid) => {
-                    const friendly = this._hass.states[eid]?.attributes?.friendly_name || eid;
-                    return `<option value="${eid}" ${c.santa_sensor === eid ? "selected" : ""}>${friendly}</option>`;
-                  }).join("")}
-                </select>
-              `, "Optional: ist dieser Schalter/Sensor 'an', werden drei Waggons festlich beladen - Schneemann, Weihnachtsmann und ein roter Geschenke-Sack statt Obst, Bauklötzen und Holzscheiten.")
-            : this._row("Weihnachtsmann-Sensor (optional)", `<input id="santa_sensor" type="text" placeholder="input_boolean.weihnachtszeit" value="${c.santa_sensor || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, "Optional: ist dieser Schalter/Sensor 'an', werden drei Waggons festlich beladen - Schneemann, Weihnachtsmann und ein roter Geschenke-Sack statt Obst, Bauklötzen und Holzscheiten.")
-        ) : ""}
+        ${isTrain ? this._pickerRow("Weihnachtsmann-Sensor (optional)", "santa_sensor", ["input_boolean","binary_sensor"], "Optional: ist dieser Schalter/Sensor 'an', werden die Waggons festlich beladen - Schneemann, Weihnachtsmann, Geschenke und ein roter Geschenke-Sack statt Obst, Bauklötzen, Postsäcken und Holzscheiten.", "Schalter suchen, z. B. Weihnachten") : ""}
 
-        ${isTrain ? (
-          booleanEntities.length > 0
-            ? this._row("Abendessen-Sensor (optional)", `
-                <select id="dinner_sensor" style="width:100%; padding:6px;">
-                  <option value="" ${!c.dinner_sensor ? "selected" : ""}>-- keiner (normale Ladung) --</option>
-                  ${booleanEntities.map((eid) => {
-                    const friendly = this._hass.states[eid]?.attributes?.friendly_name || eid;
-                    return `<option value="${eid}" ${c.dinner_sensor === eid ? "selected" : ""}>${friendly}</option>`;
-                  }).join("")}
-                </select>
-              `, "Optional: ist dieser Schalter/Sensor 'an', tragen drei Waggons Geschirr, ein Braten und Getränke statt Obst, Bauklötzen und Holzscheiten. Weihnachten hat Vorrang, falls beide Sensoren gleichzeitig an wären.")
-            : this._row("Abendessen-Sensor (optional)", `<input id="dinner_sensor" type="text" placeholder="input_boolean.schalter_abendessen" value="${c.dinner_sensor || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, "Optional: ist dieser Schalter/Sensor 'an', tragen drei Waggons Geschirr, ein Braten und Getränke statt Obst, Bauklötzen und Holzscheiten.")
-        ) : ""}
+        ${isTrain ? this._pickerRow("Abendessen-Sensor (optional)", "dinner_sensor", ["input_boolean","binary_sensor"], "Optional: ist dieser Schalter/Sensor 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang, falls beide gleichzeitig an wären.", "Schalter suchen, z. B. Abendessen") : ""}
 
         ${isTrain ? this._row(
           "Personen-Waggons (optional)",
@@ -3535,19 +3559,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
           "Optional: für jede angehakte Person, die gerade zuhause ist, wird hinten ein eigener Waggon mit Profilbild (falls vorhanden) oder Namens-Initiale angehängt."
         ) : ""}
 
-        ${isTrain ? (
-          textEntities.length > 0
-            ? this._row("Gäste-Waggons aus Sensor (optional)", `
-                <select id="custom_wagon_entity" style="width:100%; padding:6px;">
-                  <option value="" ${!c.custom_wagon_entity ? "selected" : ""}>-- keiner --</option>
-                  ${textEntities.map((eid) => {
-                    const friendly = this._hass.states[eid]?.attributes?.friendly_name || eid;
-                    return `<option value="${eid}" ${c.custom_wagon_entity === eid ? "selected" : ""}>${friendly}</option>`;
-                  }).join("")}
-                </select>
-              `, "Optional: ein Sensor (z. B. input_text), in dem komma-getrennte Namen stehen (\"Marcel, Rudolf\"). Für jeden Namen wird hinten ein eigener Waggon angehängt. Hat Vorrang vor dem festen Freitext unten.")
-            : this._row("Gäste-Waggons aus Sensor (optional)", `<input id="custom_wagon_entity" type="text" placeholder="input_text.gaeste" value="${c.custom_wagon_entity || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, "Optional: ein Sensor mit komma-getrennten Namen - für jeden Namen ein eigener Waggon.")
-        ) : ""}
+        ${isTrain ? this._pickerRow("Gäste-Waggons aus Sensor (optional)", "custom_wagon_entity", ["input_text","input_select","sensor"], "Optional: ein Sensor (z. B. input_text), in dem komma-getrennte Namen stehen (\"Marcel, Rudolf\"). Für jeden Namen wird hinten ein eigener Waggon angehängt. Hat Vorrang vor dem festen Freitext unten.", "Sensor suchen, z. B. Gäste") : ""}
 
         ${isTrain ? this._row(
           "Freitext-Waggon (optional)",
@@ -3555,33 +3567,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
           "Optional: fester Text, falls oben kein Sensor gewählt ist. Mehrere Namen mit Komma trennen ergibt mehrere Waggons. Wird ganz hinten angehängt."
         ) : ""}
 
-        ${isWeatherAuto ? (
-          weatherEntities.length > 0
-            ? this._row("Wetter-Sensor", `
-                <select id="weather_entity" style="width:100%; padding:6px;">
-                  <option value="" ${!c.weather_entity ? "selected" : ""}>-- bitte wählen --</option>
-                  ${weatherEntities.map((eid) => {
-                    const friendly = this._hass.states[eid]?.attributes?.friendly_name || eid;
-                    return `<option value="${eid}" ${c.weather_entity === eid ? "selected" : ""}>${friendly}</option>`;
-                  }).join("")}
-                </select>
-              `, "Diese Wetter-Entity liefert den aktuellen Zustand (regnet, schneit, ...), nach dem sich der Effekt oben richtet.")
-            : this._row("Wetter-Sensor", `<input id="weather_entity" type="text" placeholder="weather.home" value="${c.weather_entity || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, "Keine weather-Entity in HA gefunden - trag die Entity-ID hier manuell ein, z. B. weather.home.")
-        ) : ""}
+        ${isWeatherAuto ? this._pickerRow("Wetter-Sensor", "weather_entity", ["weather"], "Diese Wetter-Entity liefert den aktuellen Zustand (regnet, schneit, ...), nach dem sich der Effekt richtet.", "Wetter suchen, z. B. weather.home") : ""}
 
-        ${isDog ? (
-          weatherEntities.length > 0
-            ? this._row("Wetter-Sensor (optional)", `
-                <select id="weather_entity" style="width:100%; padding:6px;">
-                  <option value="" ${!c.weather_entity ? "selected" : ""}>-- keiner (kein Schütteln) --</option>
-                  ${weatherEntities.map((eid) => {
-                    const friendly = this._hass.states[eid]?.attributes?.friendly_name || eid;
-                    return `<option value="${eid}" ${c.weather_entity === eid ? "selected" : ""}>${friendly}</option>`;
-                  }).join("")}
-                </select>
-              `, "Optional: wählst du hier deine echte Wetter-Entity aus, schüttelt sich der Hund kurz, sobald diese aktuell Regen meldet.")
-            : this._row("Wetter-Sensor (optional)", `<input id="weather_entity" type="text" placeholder="weather.home" value="${c.weather_entity || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, "Optional: trägst du hier deine echte Wetter-Entity ein, schüttelt sich der Hund kurz, sobald diese aktuell Regen meldet.")
-        ) : ""}
+        ${isDog ? this._pickerRow("Wetter-Sensor (optional)", "weather_entity", ["weather"], "Optional: wählst du hier deine echte Wetter-Entity aus, schüttelt sich der Hund kurz, sobald diese aktuell Regen meldet.", "Wetter suchen, z. B. weather.home") : ""}
 
         ${caps.count ? this._row("Anzahl / Frequenz", `
           <select id="count_preset" style="width:100%; padding:6px;">
@@ -3626,6 +3614,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
 
     this.querySelector("#event").addEventListener("change", (e) => this._update("event", e.target.value, true));
 
+    // 🔍 Suchfelder für Schalter und Sensoren einsetzen
+    this._mountPickers();
+
     // Ankreuzfelder der Sammel-Effekte (Geburtstag, Nachthimmel, Halloween)
     this.querySelectorAll(".part-toggle").forEach((box) => {
       box.addEventListener("change", (e) => {
@@ -3639,25 +3630,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
       birthdayTextInput.addEventListener("change", (e) => this._update("birthday_text", e.target.value, false));
     }
 
-    const weatherEntitySel = this.querySelector("#weather_entity");
-    if (weatherEntitySel) {
-      weatherEntitySel.addEventListener("change", (e) => this._update("weather_entity", e.target.value.trim(), false));
-    }
 
-    const santaSensorSel = this.querySelector("#santa_sensor");
-    if (santaSensorSel) {
-      santaSensorSel.addEventListener("change", (e) => this._update("santa_sensor", e.target.value.trim(), false));
-    }
 
-    const halloweenSensorSel = this.querySelector("#halloween_sensor");
-    if (halloweenSensorSel) {
-      halloweenSensorSel.addEventListener("change", (e) => this._update("halloween_sensor", e.target.value.trim(), false));
-    }
 
-    const dinnerSensorSel = this.querySelector("#dinner_sensor");
-    if (dinnerSensorSel) {
-      dinnerSensorSel.addEventListener("change", (e) => this._update("dinner_sensor", e.target.value.trim(), false));
-    }
 
     const personEntitiesInput = this.querySelector("#person_entities");
     if (personEntitiesInput) {
@@ -3679,10 +3654,6 @@ class AmbientOverlayCardEditor extends HTMLElement {
       });
     }
 
-    const customWagonEntitySel = this.querySelector("#custom_wagon_entity");
-    if (customWagonEntitySel) {
-      customWagonEntitySel.addEventListener("change", (e) => this._update("custom_wagon_entity", e.target.value, false));
-    }
 
     const customWagonInput = this.querySelector("#custom_wagon_text");
     if (customWagonInput) {
