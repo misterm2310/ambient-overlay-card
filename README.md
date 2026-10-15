@@ -32,7 +32,7 @@
 | 🕷️🐝🍂 **Noch mehr Tiere & Deko** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen), Bienenschwarm und Herbstlaub. |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
 | 🌫️ **Sanft statt hart** | Wechselt das Wetter von selbst, blendet der alte Effekt weich aus. |
-| 👁️ **Live-Vorschau** | Der Editor zeigt oben eine kleine Vorschau und blendet nur die Regler ein, die beim gewählten Effekt etwas tun. |
+| 👁️ **Editor mit Live-Vorschau** | Effekte als Kacheln zum Antippen, aufklappbare Bereiche, Schiebeschalter und Suchfelder wie in Home Assistant. Oben eine Vorschau mit Knopf „▶ Jetzt vorbeifliegen lassen“ – so musst du nicht minutenlang auf Hexe, Zug oder Hund warten. |
 | 🌗 **Hell & Dunkel** | Die Karte erkennt das Theme selbst, auch wenn es nur auf einer einzelnen Dashboard-Seite gesetzt ist. |
 | 🔋 **Akku-schonend** | Fast alles läuft über CSS (Grafikkarte). Ist der Tab im Hintergrund, pausieren die Animationen. |
 | 🎯 **Immer obendrauf** | Die Effekte liegen in einer eigenen Ebene über allem – auch über anderen Karten mit eigenen Animationen. |
@@ -94,16 +94,18 @@ Alle anderen Optionen (`event`, `count_preset`, `person_entities` …) bleiben g
 
 Karte hinzufügen → **Ambient Overlay Card** → im Editor:
 
-1. Oben läuft die **Live-Vorschau** mit – einfach ausprobieren.
-2. **Effekt** wählen – oder **„🌦️ Automatisch (nach Wetter)“**. Die reinen Wetter-Effekte stehen bewusst nicht einzeln in der Liste, die macht die Automatik.
-3. Je nach Effekt erscheinen passende Felder:
-   * **Automatisch:** deine `weather.*`-Entity auswählen.
-   * **🎂 Geburtstag:** den Text für die Wimpelkette.
-   * **🎃 Halloween:** Häkchen für Kürbisse, Gespenst, Hexe, Spinnweben und Fledermäuse.
+1. **▶ Vorschau:** Oben siehst du den Effekt live. Kommt eine Figur nur selten vorbei (Hexe, Zug, Hund, Weihnachtsmann …), schick sie mit **„▶ Jetzt vorbeifliegen lassen“** sofort los.
+2. **✨ Effekt:** Kachel antippen – danach klappt die Auswahl von selbst zu. Antippen der Zeile öffnet sie wieder. Die reinen Wetter-Effekte stehen bewusst nicht einzeln da, die macht die **🌦️ Wetter**-Automatik.
+3. **🧩 Was soll gezeigt werden?** (bei Geburtstag, Nachthimmel und Halloween): jedes Teil mit eigenem Schiebeschalter. Beim Geburtstag steht hier auch der Text für die Wimpelkette.
+4. **🎨 Aussehen:** Anzahl (Wenig/Mittel/Viel), Deckkraft (Zart/Dezent/Kräftig) und bei manchen Effekten die Farbe.
+5. **⚙️ Einstellungen** – je nach Effekt:
+   * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“).
    * **🐕 Labrador:** optional die Wetter-Entity fürs Schütteln bei Regen.
-   * **🚂 Dampflok:** Weihnachts-Schalter, Abendessen-Schalter, Halloween-Schalter, Personen zum Anhaken, Gäste-Sensor oder fester Gäste-Text. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
-   * **Halloween-Schalter** gibt's bei Dampflok, Labrador, Eule & Vogelhäuschen und der Wetter-Automatik (für den Mond). Ohne Schalter kommt der Halloween-Look nur am 31. Oktober.
-4. **Anzahl / Frequenz** und **Deckkraft** nach Geschmack, bei manchen Effekten noch der **Farbmodus**.
+   * **🚂 Dampflok:** Weihnachts-, Abendessen- und Halloween-Schalter, Personen zum Antippen, Gäste-Sensor oder fester Gäste-Text. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
+   * **🎃 Halloween-Schalter** gibt's bei Dampflok, Labrador, Eule & Vogelhäuschen und der Wetter-Automatik (für den Mond). Ohne Schalter kommt der Halloween-Look nur am 31. Oktober. Gefunden werden `input_boolean.`, `binary_sensor.` und `switch.`.
+6. **💙 Über die Karte:** Version, Links und Spenden-Knopf.
+
+Neben vielen Einstellungen steht ein kleines **ⓘ** – antippen, dann kommt eine kurze Erklärung. Rechts in jeder Zeile siehst du eine Zusammenfassung, auch wenn der Bereich zugeklappt ist.
 
 Gut zu wissen:
 * Bei **Weihnachtsmann, Hund, Dampflok, Vogelhäuschen, Komet und Laub** heißt „Anzahl“ nicht *wie viele*, sondern *wie oft* etwas vorbeikommt.
@@ -272,7 +274,7 @@ Alles geht im visuellen Editor. Für YAML-Fans:
 | `dinner_sensor` | – | Schalter: an = Abendessen-Ladung im Zug (Weihnachten hat Vorrang) |
 | `halloween_pumpkins` / `halloween_ghost` / `halloween_witch` / `halloween_webs` / `halloween_bats` | `true` | Teile des Halloween-Modus einzeln an/aus |
 | `halloween_sensor` | – | Schalter: an = Halloween-Look bei Zug, Hund, Eule und Mond. Am 31. Oktober kommt der Look auch ohne Schalter |
-| `person_entities` | – | `person.`-Entities mit Komma – wer zuhause ist, fährt mit (im Editor zum Anhaken) |
+| `person_entities` | – | `person.`-Entities mit Komma – wer zuhause ist, fährt mit (im Editor zum Antippen) |
 | `custom_wagon_entity` | – | Sensor mit Namen und Komma, z. B. `input_text.gaeste` – pro Name ein Waggon. Leer, `unknown` oder `unavailable` = keine Gäste-Waggons. Hat Vorrang vor dem festen Text |
 | `custom_wagon_text` | – | fester Text für Gäste-Waggons, z. B. `Oma, Opa` |
 | `leaf_colors` | `["#c9a227", "#a83232", "#d9812c"]` | drei Hex-Farben fürs Laub (nur YAML) |

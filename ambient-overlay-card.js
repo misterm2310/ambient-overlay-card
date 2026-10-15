@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.12";
+const CARD_VERSION = "1.0.13";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3317,8 +3317,168 @@ class AmbientOverlayCard extends HTMLElement {
 
 /* ============================== VISUELLER EDITOR ============================== */
 
+// Die Effekte als Kacheln: [Schlüssel, Symbol, Kurzname, voller Name]
+const EFFECT_TILES = [
+  ["weather_auto", "🌦️", "Wetter", "Wetter-Automatik"],
+  ["night_sky", "🌠", "Nacht", "Nachthimmel"],
+  ["birthday", "🎂", "Geburtstag", "Geburtstag"],
+  ["halloween", "🎃", "Halloween", "Halloween"],
+  ["santa", "🎅", "Weihnacht", "Weihnachtsmann"],
+  ["leaves", "🍂", "Laub", "Herbstlaub"],
+  ["train", "🚂", "Zug", "Dampflok"],
+  ["dog", "🐕", "Hund", "Labrador"],
+  ["owl_birdhouse", "🦉", "Eule", "Eule & Vogelhaus"],
+  ["spider", "🕷️", "Spinne", "Spinne"],
+  ["bee", "🐝", "Bienen", "Bienen"],
+  ["off", "⭘", "Aus", "Aus"],
+];
+
+// Teile der Sammel-Effekte: [Schlüssel, Symbol, Name, kurze Erklärung]
+const EFFECT_PARTS = {
+  birthday: [
+    ["birthday_balloons", "🎈", "Luftballons", "Steigen von unten auf"],
+    ["birthday_confetti", "🎊", "Konfetti", "Rieselt von oben"],
+    ["birthday_banner", "🚩", "Wimpelkette", "Oben, mit deinem Text"],
+    ["birthday_lights", "💡", "Lichterkette", "Blinkt am oberen Rand"],
+  ],
+  night_sky: [
+    ["night_shooting_stars", "🌠", "Sternschnuppen", "Huschen schräg übers Bild"],
+    ["night_wishstar", "⭐", "Wunschstern", "Funkelt und springt weiter"],
+    ["night_comet", "☄️", "Komet", "Selten, mit langem Schweif"],
+  ],
+  halloween: [
+    ["halloween_pumpkins", "🎃", "Kürbisse", "Flackern unten in den Ecken"],
+    ["halloween_ghost", "👻", "Gespenst", "Schwebt vorbei und ruft „Buh!“"],
+    ["halloween_witch", "🧙", "Hexe auf dem Besen", "Verliert ab und zu den Hut"],
+    ["halloween_webs", "🕸️", "Spinnweben", "Oben in beiden Ecken"],
+    ["halloween_bats", "🦇", "Fledermäuse", "Flattern durchs Bild"],
+  ],
+};
+
+// Text auf dem Start-Knopf der Vorschau (nur bei Figuren, die selten kommen)
+const PREVIEW_PLAY_TEXT = {
+  train: "Zug jetzt losfahren lassen",
+  dog: "Hund jetzt loslaufen lassen",
+};
+
+// Jeder Effekt erklärt nur, was sich bei IHM an Halloween verkleidet
+const HALLOWEEN_HINTS = {
+  train: "Am 31. Oktober tragen vier Waggons automatisch Kürbisse, Hexenkessel, Sarg und Süßigkeiten. Ist dieser Schalter 'an', auch an anderen Tagen. Weihnachten und Abendessen haben Vorrang.",
+  dog: "Am 31. Oktober trägt der Hund automatisch Teufelshörnchen und ein Halstuch. Ist dieser Schalter 'an', auch an anderen Tagen.",
+  owl_birdhouse: "Am 31. Oktober trägt die Eule nachts automatisch einen Hexenhut. Tagsüber steht ein Kürbis vor dem Vogelhäuschen, unterm Dach hängt eine Spinnwebe und der Vogel fliegt mit Hexenhut vorbei. Ist dieser Schalter 'an', auch an anderen Tagen.",
+  weather_auto: "Am 31. Oktober leuchtet der Mond automatisch orange - in seiner echten Mondphase. Ist dieser Schalter 'an', auch an anderen Tagen.",
+};
+
+const EDITOR_CSS = `
+  :host { display: block; }
+  .wrap { padding: 4px 0 8px; color: var(--primary-text-color, #212121); font-family: inherit; }
+
+  /* Vorschau */
+  .pv { position: relative; width: 100%; height: 180px; overflow: hidden; border-radius: 14px; margin-bottom: 6px;
+    background: linear-gradient(180deg, #16202e, #2c3e50); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+  .pv-stage { position: absolute; top: 0; left: 0; transform-origin: top left; }
+  .pv-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.6); font-size: 13px; text-align: center; padding: 0 20px; }
+  .pv-tag { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,.45); color: #fff;
+    font-size: 11px; padding: 3px 8px; border-radius: 10px; pointer-events: none; }
+  .play { position: absolute; right: 10px; top: 8px; display: none; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.93); color: #1a1a1a; border: none; border-radius: 16px; padding: 6px 12px;
+    font: 500 13px inherit; font-family: inherit; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+  .play.show { display: flex; }
+  .play svg { width: 16px; height: 16px; }
+
+  /* Aufklapp-Bereiche */
+  .panel { border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); }
+  .head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 4px; background: none; border: none;
+    color: inherit; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; text-align: left; }
+  .head .ic { width: 24px; text-align: center; font-size: 18px; }
+  .head .sum { margin-left: auto; color: var(--secondary-text-color, #727272); font-weight: 400; font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+  .head .sum.warn { color: var(--error-color, #db4437); font-weight: 500; }
+  .head .chev { color: var(--secondary-text-color, #727272); transition: transform .2s; font-size: 14px; width: 16px; text-align: center; }
+  .panel.open .chev { transform: rotate(180deg); }
+  .body { display: none; padding: 0 4px 14px; }
+  .panel.open .body { display: block; }
+
+  /* Effekt-Kacheln */
+  .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .tile { background: var(--secondary-background-color, rgba(127,127,127,.12)); border: 2px solid transparent; border-radius: 10px;
+    padding: 6px 2px 5px; text-align: center; font: inherit; font-size: 11px; line-height: 1.15; color: inherit; cursor: pointer; min-height: 50px; }
+  .tile .em { font-size: 19px; display: block; margin-bottom: 2px; }
+  .tile.sel { border-color: var(--primary-color, #03a9f4); background: rgba(3,169,244,.15); font-weight: 600; }
+  @media (max-width: 420px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+
+  /* Schalter-Zeilen */
+  .sw-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; cursor: pointer; }
+  .sw-row .em { font-size: 20px; width: 26px; text-align: center; }
+  .sw-row .txt { flex: 1; font-size: 15px; }
+  .sw-row .txt small { display: block; color: var(--secondary-text-color, #727272); font-size: 12px; margin-top: 1px; }
+  .sw-row input { position: absolute; opacity: 0; pointer-events: none; }
+  .sw { width: 36px; height: 14px; border-radius: 7px; background: var(--switch-unchecked-track-color, #9e9e9e); position: relative; flex: none; transition: background .15s; }
+  .sw::after { content: ""; position: absolute; top: -3px; left: -2px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--switch-unchecked-button-color, #fafafa); box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: left .15s, background .15s; }
+  .sw-row input:checked + .sw { background: rgba(3,169,244,.5); }
+  .sw-row input:checked + .sw::after { left: 18px; background: var(--primary-color, #03a9f4); }
+
+  /* Beschriftung + Info-Knopf */
+  .lbl { display: flex; align-items: center; gap: 6px; font-size: 14px; margin: 12px 2px 8px; }
+  .info { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--secondary-text-color, #727272);
+    color: var(--secondary-text-color, #727272); background: none; font: 600 11px Georgia, serif; cursor: pointer; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center; }
+  .info.on { background: var(--primary-color, #03a9f4); border-color: var(--primary-color, #03a9f4); color: #fff; }
+  .hint { display: none; background: var(--secondary-background-color, rgba(127,127,127,.12)); border-radius: 10px;
+    padding: 9px 12px; font-size: 12.5px; line-height: 1.45; color: var(--secondary-text-color, #727272); margin: -2px 2px 10px; }
+  .hint.on { display: block; }
+
+  /* Segment-Knöpfe */
+  .seg { display: flex; border: 1px solid var(--outline-color, rgba(127,127,127,.6)); border-radius: 20px; overflow: hidden; }
+  .seg button { flex: 1; background: none; border: none; border-left: 1px solid var(--outline-color, rgba(127,127,127,.6));
+    color: inherit; font: inherit; font-size: 13px; padding: 9px 4px; cursor: pointer; }
+  .seg button:first-child { border-left: none; }
+  .seg button.on { background: rgba(3,169,244,.15); color: var(--primary-color, #03a9f4); font-weight: 600; }
+  .seg button.on::before { content: "✓ "; }
+
+  /* Textfelder */
+  .field { width: 100%; box-sizing: border-box; padding: 12px; font: inherit; font-size: 15px; color: inherit;
+    background: var(--secondary-background-color, rgba(127,127,127,.12)); border: none;
+    border-bottom: 1px solid var(--outline-color, rgba(127,127,127,.6)); border-radius: 4px 4px 0 0; }
+  .field:focus { outline: none; border-bottom: 2px solid var(--primary-color, #03a9f4); }
+  input[type=color].field { height: 44px; padding: 4px; cursor: pointer; }
+  .picker-slot { margin-bottom: 4px; }
+
+  /* Personen-Knöpfe */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: flex; align-items: center; gap: 6px; border: 1px solid var(--outline-color, rgba(127,127,127,.6));
+    border-radius: 16px; padding: 4px 12px 4px 4px; font: inherit; font-size: 13px; background: none; color: inherit; cursor: pointer; }
+  .chip .av { width: 24px; height: 24px; border-radius: 50%; background: #8a9bb0; color: #fff; font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; background-size: cover; background-position: center; }
+  .chip.on { border-color: var(--primary-color, #03a9f4); background: rgba(3,169,244,.15); }
+  .chip.on::after { content: "✓"; color: var(--primary-color, #03a9f4); }
+`;
+
 class AmbientOverlayCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._open = null;         // welche Bereiche aufgeklappt sind
+    this._hintsOpen = new Set(); // welche ⓘ-Hinweise offen sind
+  }
+
   setConfig(config) {
+    // Frisch hinzugefügte Karte erkennen (nur die Standardwerte aus
+    // getStubConfig) - dann ist die Effekt-Auswahl gleich aufgeklappt.
+    if (this._open === null) {
+      const stub = AmbientOverlayCard.getStubConfig();
+      const keys = Object.keys(config || {}).filter((k) => k !== "type");
+      const fresh = keys.every((k) => stub[k] === config[k]);
+      this._open = {
+        effekt: fresh || !config?.event || config.event === "off",
+        teile: true,
+        aussehen: true,
+        einstellungen: true,
+        ueber: false,
+      };
+    }
     this._config = {
       event: "off",
       count_preset: "medium",
@@ -3356,30 +3516,24 @@ class AmbientOverlayCardEditor extends HTMLElement {
   }
 
   set hass(hass) {
-    const oldKey = this._weatherEntityListKey || "";
-    const newEntities = hass && hass.states
-      ? Object.keys(hass.states).filter((eid) => eid.startsWith("weather."))
-      : [];
-    const newKey = newEntities.sort().join(",");
+    const first = !this._hass;
     this._hass = hass;
-
-    if (newKey !== oldKey) {
-      this._weatherEntityListKey = newKey;
+    if (first) {
       this._render();
-    } else {
-      this.querySelectorAll(".aoc-entity-picker > ha-selector, .aoc-entity-picker > ha-entity-picker")
-        .forEach((el) => { el.hass = hass; });
+      return;
     }
+    // Offene Suchfelder aktuell halten, ohne alles neu aufzubauen
+    this.shadowRoot.querySelectorAll(".picker-slot > ha-selector, .picker-slot > ha-entity-picker")
+      .forEach((el) => { el.hass = hass; });
   }
+
   connectedCallback() {
     this._render();
     this._loadHaPickers();
   }
 
-  // Platzhalter für ein Suchfeld - wird nach dem Aufbau durch das
-  // Original-Suchfeld von Home Assistant ersetzt (siehe _mountPickers).
-  _pickerRow(label, key, domains, hint, placeholder) {
-    return this._row(label, `<div class="aoc-entity-picker" data-key="${key}" data-domains="${domains.join(",")}" data-placeholder="${escapeHtml(placeholder)}"></div>`, hint);
+  disconnectedCallback() {
+    if (this._resizeObs) this._resizeObs.disconnect();
   }
 
   // Home Assistant lädt sein Suchfeld erst, wenn es irgendwo gebraucht wird.
@@ -3396,12 +3550,241 @@ class AmbientOverlayCardEditor extends HTMLElement {
     if (customElements.get("ha-selector") || customElements.get("ha-entity-picker")) this._render();
   }
 
+  /* ---------- kleine Bausteine ---------- */
+
+  _panel(id, icon, title, summary, body, warn = false) {
+    const open = this._open[id];
+    return `
+      <div class="panel ${open ? "open" : ""}" data-panel="${id}">
+        <button class="head" type="button" data-toggle="${id}">
+          <span class="ic">${icon}</span>${title}
+          <span class="sum ${warn ? "warn" : ""}">${summary}</span>
+          <span class="chev">▾</span>
+        </button>
+        <div class="body">${body}</div>
+      </div>`;
+  }
+
+  _label(text, hintId, hintText) {
+    if (!hintText) return `<div class="lbl">${text}</div>`;
+    const on = this._hintsOpen.has(hintId);
+    return `
+      <div class="lbl">${text}<button class="info ${on ? "on" : ""}" type="button" data-hint="${hintId}" aria-label="Erklärung">i</button></div>
+      <div class="hint ${on ? "on" : ""}" data-hint-text="${hintId}">${hintText}</div>`;
+  }
+
+  _seg(key, options, value) {
+    return `<div class="seg">${options.map(([val, label]) =>
+      `<button type="button" class="${value === val ? "on" : ""}" data-seg="${key}" data-val="${val}">${label}</button>`).join("")}</div>`;
+  }
+
+  _picker(label, key, domains, hint, placeholder) {
+    return `${this._label(label, key, hint)}
+      <div class="picker-slot" data-key="${key}" data-domains="${domains.join(",")}" data-placeholder="${escapeHtml(placeholder)}"></div>`;
+  }
+
+  _friendly(eid) {
+    return this._hass?.states?.[eid]?.attributes?.friendly_name || eid;
+  }
+
+  /* ---------- Aufbau ---------- */
+
+  _render() {
+    if (!this._config || !this._open) return;
+    const c = this._config;
+    const ev = c.event || "off";
+    const caps = EVENT_CAPABILITIES[ev] || { count: false, opacity: false, color: false };
+    const tile = EFFECT_TILES.find((t) => t[0] === ev) || EFFECT_TILES[EFFECT_TILES.length - 1];
+    const colorMode = c.color_mode || (c.color === "auto" ? "auto" : "custom");
+
+    // 1) Effekt
+    const effektBody = `<div class="tiles">${EFFECT_TILES.map(([key, em, short]) =>
+      `<button type="button" class="tile ${key === ev ? "sel" : ""}" data-event="${key}"><span class="em">${em}</span>${short}</button>`).join("")}</div>`;
+    let html = this._panel("effekt", "✨", "Effekt", `${tile[1]} ${tile[3]}`, effektBody);
+
+    // 2) Teile (Geburtstag, Nachthimmel, Halloween)
+    const parts = EFFECT_PARTS[ev];
+    if (parts) {
+      const onCount = parts.filter(([k]) => c[k] !== false).length;
+      let teileBody = parts.map(([key, em, name, sub]) => `
+        <label class="sw-row"><span class="em">${em}</span><span class="txt">${name}<small>${sub}</small></span>
+          <input type="checkbox" data-part="${key}" ${c[key] !== false ? "checked" : ""}/><span class="sw"></span></label>`).join("");
+      if (onCount === 0) teileBody += `<div class="hint on">Alles ausgeschaltet - dann bleibt der Bildschirm leer.</div>`;
+      if (ev === "birthday") {
+        teileBody += this._label("Text auf der Wimpelkette", "birthday_text", "Zum Beispiel „Happy Birthday, Max!“ für eine persönliche Note.")
+          + `<input class="field" data-text="birthday_text" type="text" placeholder="Happy Birthday!" value="${escapeHtml(c.birthday_text || "")}"/>`;
+      }
+      html += this._panel("teile", "🧩", "Was soll gezeigt werden?", `${onCount} von ${parts.length}`, teileBody, onCount === 0);
+    }
+
+    // 3) Aussehen
+    if (caps.count || caps.opacity || caps.color) {
+      const countLabels = { low: "Wenig", medium: "Mittel", high: "Viel" };
+      const opLabels = { low: "Zart", medium: "Dezent", high: "Kräftig" };
+      let body = "";
+      const sum = [];
+      if (caps.count) {
+        const hint = ev === "weather_auto"
+          ? "Ein Wert für ALLE automatisch erkannten Wetter-Effekte gemeinsam."
+          : (COUNT_IS_INTERVAL_TEXT[ev] || "Wie viele Teile gleichzeitig zu sehen sind.");
+        body += this._label("Anzahl / Häufigkeit", "count", hint) + this._seg("count_preset", [["low", "Wenig"], ["medium", "Mittel"], ["high", "Viel"]], c.count_preset || "medium");
+        sum.push(countLabels[c.count_preset || "medium"]);
+      }
+      if (caps.opacity) {
+        body += this._label("Deckkraft", "opacity", "Zart = 30 %, Dezent = 60 %, Kräftig = 100 % (dann wird jeder Effekt spürbar kräftiger).")
+          + this._seg("opacity_preset", [["low", "Zart"], ["medium", "Dezent"], ["high", "Kräftig"]], c.opacity_preset || "medium");
+        sum.push(opLabels[c.opacity_preset || "medium"]);
+      }
+      if (caps.color) {
+        const hint = ev === "weather_auto"
+          ? "Gilt für Regen, Schnee, Hagel, Nebel und Sturm (Blitz bleibt immer weiß). Automatisch = passend zu Hell/Dunkel."
+          : "Automatisch = passend zu Hell/Dunkel. Oder du suchst dir selbst eine Farbe aus.";
+        body += this._label("Farbe", "color", hint) + this._seg("color_mode", [["auto", "Automatisch"], ["custom", "Eigene Farbe"]], colorMode);
+        if (colorMode === "custom") {
+          body += `<div style="margin-top:10px;"><input class="field" data-color type="color" value="${c.color === "auto" ? "#ffffff" : escapeHtml(c.color)}"/></div>`;
+        }
+        if (colorMode === "custom") sum.push("eigene Farbe");
+      }
+      html += this._panel("aussehen", "🎨", "Aussehen", sum.join(" · "), body);
+    }
+
+    // 4) Einstellungen (Sensoren, Schalter, Personen, Gäste)
+    const B = ["input_boolean", "binary_sensor", "switch"];
+    let set = "";
+    const sum = [];
+    let warn = false;
+    if (ev === "weather_auto") {
+      set += this._picker("🌦️ Wetter-Sensor", "weather_entity", ["weather"], "Diese Wetter-Entity bestimmt, welcher Effekt gerade läuft (regnet, schneit, …).", "Wetter suchen, z. B. weather.home");
+      if (c.weather_entity) sum.push(this._friendly(c.weather_entity)); else { sum.push("Wetter fehlt!"); warn = true; }
+    }
+    if (ev === "dog") {
+      set += this._picker("🌦️ Wetter-Sensor (optional)", "weather_entity", ["weather"], "Meldet diese Wetter-Entity gerade Regen, schüttelt sich der Hund kurz.", "Wetter suchen, z. B. weather.home");
+      if (c.weather_entity) sum.push("Wetter");
+    }
+    if (ev === "train") {
+      set += this._picker("🎅 Weihnachts-Schalter", "santa_sensor", B, "Ist er 'an', werden die Waggons festlich beladen: Schneemann, Weihnachtsmann, Geschenke und ein Geschenke-Sack.", "Schalter suchen, z. B. Weihnachten");
+      set += this._picker("🍽️ Abendessen-Schalter", "dinner_sensor", B, "Ist er 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang.", "Schalter suchen, z. B. Abendessen");
+      if (c.santa_sensor) sum.push("Weihnachten");
+      if (c.dinner_sensor) sum.push("Abendessen");
+    }
+    if (HALLOWEEN_HINTS[ev]) {
+      set += this._picker("🎃 Halloween-Schalter", "halloween_sensor", B, HALLOWEEN_HINTS[ev], "Schalter suchen, z. B. Halloween");
+      if (c.halloween_sensor) sum.push("Halloween");
+    }
+    if (ev === "train") {
+      const people = this._hass?.states ? Object.keys(this._hass.states).filter((e) => e.startsWith("person.")).sort() : [];
+      const chosen = (c.person_entities || "").split(",").map((s) => s.trim()).filter(Boolean);
+      set += this._label("👥 Wer zuhause ist, fährt mit", "persons", "Für jede ausgewählte Person, die gerade zuhause ist, hängt hinten ein Waggon mit Profilbild (oder Anfangsbuchstabe). Reihenfolge = Reihenfolge beim Antippen.");
+      if (people.length) {
+        set += `<div class="chips">${people.map((eid) => {
+          const st = this._hass.states[eid];
+          const name = st?.attributes?.friendly_name || eid;
+          const pic = st?.attributes?.entity_picture;
+          const av = pic ? `<span class="av" style="background-image:url('${escapeHtml(pic)}')"></span>` : `<span class="av">${escapeHtml(name.trim().charAt(0).toUpperCase())}</span>`;
+          return `<button type="button" class="chip ${chosen.includes(eid) ? "on" : ""}" data-person="${eid}">${av}${escapeHtml(name)}</button>`;
+        }).join("")}</div>`;
+      } else {
+        set += `<input class="field" data-text="person_entities" type="text" placeholder="person.anna, person.ben" value="${escapeHtml(c.person_entities || "")}"/>`;
+      }
+      if (chosen.length) sum.push(`${chosen.length} ${chosen.length === 1 ? "Person" : "Personen"}`);
+      set += this._picker("🎟️ Gäste-Sensor", "custom_wagon_entity", ["input_text", "input_select", "sensor"], "Ein Sensor mit Namen und Komma (z. B. „Oma, Opa“) - pro Name ein Waggon. Hat Vorrang vor dem Text darunter.", "Sensor suchen, z. B. Gäste");
+      set += this._label("✏️ Gäste als Text", "guest_text", "Fester Text, falls kein Gäste-Sensor gewählt ist. Mehrere Namen mit Komma trennen.")
+        + `<input class="field" data-text="custom_wagon_text" type="text" maxlength="60" placeholder="z. B. Oma, Opa" value="${escapeHtml(c.custom_wagon_text || "")}"/>`;
+      if (c.custom_wagon_entity || c.custom_wagon_text) sum.push("Gäste");
+    }
+    if (set) {
+      if (warn) this._open.einstellungen = true;
+      html += this._panel("einstellungen", "⚙️", "Einstellungen", sum.join(" · ") || "nichts eingestellt", set, warn);
+    }
+
+    // 5) Über die Karte
+    html += this._panel("ueber", "💙", "Über die Karte", `v${CARD_VERSION} · Mister-M`, creditsHtml());
+
+    this.shadowRoot.innerHTML = `
+      <style>${EDITOR_CSS}</style>
+      <div class="wrap">
+        <div class="pv">
+          <div class="pv-stage"></div>
+          <div class="pv-msg"></div>
+          <span class="pv-tag">Live-Vorschau</span>
+          <button class="play" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><span>${PREVIEW_PLAY_TEXT[ev] || "Jetzt vorbeifliegen lassen"}</span></button>
+        </div>
+        ${html}
+      </div>`;
+
+    this._wire();
+    this._mountPickers();
+    this._updatePreview();
+  }
+
+  /* ---------- Bedienung ---------- */
+
+  _wire() {
+    const root = this.shadowRoot;
+    root.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => {
+      const id = b.dataset.toggle;
+      this._open[id] = !this._open[id];
+      b.closest(".panel").classList.toggle("open", this._open[id]);
+    }));
+    root.querySelectorAll("[data-hint]").forEach((b) => b.addEventListener("click", () => {
+      const id = b.dataset.hint;
+      const on = !this._hintsOpen.has(id);
+      if (on) this._hintsOpen.add(id); else this._hintsOpen.delete(id);
+      b.classList.toggle("on", on);
+      root.querySelector(`[data-hint-text="${id}"]`)?.classList.toggle("on", on);
+    }));
+    root.querySelectorAll("[data-event]").forEach((b) => b.addEventListener("click", () => {
+      this._open.effekt = false;  // nach der Auswahl zuklappen
+      if (b.dataset.event !== this._config.event) this._update("event", b.dataset.event, true);
+      else this._render();
+    }));
+    root.querySelectorAll("[data-part]").forEach((box) => box.addEventListener("change", () => {
+      this._update(box.dataset.part, box.checked, true);
+    }));
+    root.querySelectorAll("[data-seg]").forEach((b) => b.addEventListener("click", () => {
+      const key = b.dataset.seg;
+      const val = b.dataset.val;
+      if (key === "color_mode") {
+        this._updateConfig(val === "auto" ? { color_mode: "auto", color: "auto" } : { color_mode: "custom", color: "#ffffff" }, true);
+      } else {
+        this._update(key, val, true);
+      }
+    }));
+    root.querySelectorAll("[data-text]").forEach((inp) => {
+      const key = inp.dataset.text;
+      const handler = () => this._update(key, key === "birthday_text" ? inp.value : inp.value.trim(), false);
+      inp.addEventListener("change", handler);
+      if (key === "birthday_text") inp.addEventListener("input", handler);
+    });
+    const color = root.querySelector("[data-color]");
+    if (color) {
+      color.addEventListener("input", (e) => this._update("color", e.target.value, false));
+      color.addEventListener("change", (e) => this._update("color", e.target.value, false));
+    }
+    root.querySelectorAll("[data-person]").forEach((b) => b.addEventListener("click", () => {
+      const current = (this._config.person_entities || "").split(",").map((s) => s.trim()).filter(Boolean);
+      const eid = b.dataset.person;
+      const idx = current.indexOf(eid);
+      if (idx === -1) current.push(eid); else current.splice(idx, 1);
+      this._update("person_entities", current.join(", "), true);
+    }));
+    root.querySelector(".play").addEventListener("click", () => this._playPreview());
+
+    // Vorschau an die Breite anpassen (auch wenn sich das Fenster ändert)
+    const pv = root.querySelector(".pv");
+    if (this._resizeObs) this._resizeObs.disconnect();
+    if (window.ResizeObserver) {
+      this._resizeObs = new ResizeObserver(() => this._fitPreview());
+      this._resizeObs.observe(pv);
+    }
+  }
+
   _mountPickers() {
-    this.querySelectorAll(".aoc-entity-picker").forEach((slot) => {
+    this.shadowRoot.querySelectorAll(".picker-slot").forEach((slot) => {
       const key = slot.dataset.key;
       const domains = slot.dataset.domains.split(",");
       const value = this._config[key] || "";
-      const onValue = (v) => this._update(key, (v || "").trim(), false);
+      const onValue = (v) => this._update(key, (v || "").trim(), true);
 
       // 1. Wahl: Original-Suchfeld von Home Assistant (mit Symbol + Name)
       if (customElements.get("ha-selector") && this._hass) {
@@ -3433,10 +3816,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
         ? Object.keys(this._hass.states).filter((eid) => domains.some((d) => eid.startsWith(d + "."))).sort()
         : [];
       slot.innerHTML = `
-        <input type="search" list="${listId}" value="${escapeHtml(value)}" placeholder="${slot.dataset.placeholder}"
-               style="width:100%; padding:6px; box-sizing:border-box;" autocomplete="off" />
+        <input class="field" type="search" list="${listId}" value="${escapeHtml(value)}" placeholder="${slot.dataset.placeholder}" autocomplete="off"/>
         <datalist id="${listId}">
-          ${matches.map((eid) => `<option value="${escapeHtml(eid)}">${escapeHtml(this._hass.states[eid]?.attributes?.friendly_name || eid)}</option>`).join("")}
+          ${matches.map((eid) => `<option value="${escapeHtml(eid)}">${escapeHtml(this._friendly(eid))}</option>`).join("")}
         </datalist>`;
       const input = slot.querySelector("input");
       input.addEventListener("change", (e) => onValue(e.target.value));
@@ -3444,254 +3826,40 @@ class AmbientOverlayCardEditor extends HTMLElement {
     });
   }
 
-  _row(labelText, inputHTML, hint) {
-    const hintHtml = hint
-      ? `<div style="font-size:11px; opacity:0.65; margin-top:3px; line-height:1.4;">${hint}</div>`
-      : "";
-    return `<div style="padding:8px 0;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <label style="flex:1; color:var(--primary-text-color, #222);">${labelText}</label>
-        <div style="flex:1;">${inputHTML}</div>
-      </div>
-      ${hintHtml}
-    </div>`;
-  }
+  /* ---------- Vorschau ---------- */
 
-  _render() {
-    if (!this._config) return;
-    const c = this._config;
-    const colorMode = c.color_mode || (c.color === "auto" ? "auto" : "custom");
-    const caps = EVENT_CAPABILITIES[c.event] || { count: false, opacity: false, color: false };
-    const isWeatherAuto = c.event === "weather_auto";
-    const isBirthday = c.event === "birthday";
-    const isNightSky = c.event === "night_sky";
-    const isTrain = c.event === "train";
-    const isDog = c.event === "dog";
-    const isHalloween = c.event === "halloween";
-    // Halloween-Schalter gibt's überall, wo sich etwas verkleidet
-    // Jeder Effekt erklärt nur, was sich bei IHM verkleidet
-    const HALLOWEEN_HINTS = {
-      train: "Am 31. Oktober tragen vier Waggons automatisch Kürbisse, Hexenkessel, Sarg und Süßigkeiten. Ist dieser Schalter 'an', auch an anderen Tagen. Weihnachten und Abendessen haben Vorrang.",
-      dog: "Am 31. Oktober trägt der Hund automatisch Teufelshörnchen und ein Halstuch. Ist dieser Schalter 'an', auch an anderen Tagen.",
-      owl_birdhouse: "Am 31. Oktober trägt die Eule nachts automatisch einen Hexenhut. Tagsüber steht ein Kürbis vor dem Vogelhäuschen, unterm Dach hängt eine Spinnwebe und der Vogel fliegt mit Hexenhut vorbei. Ist dieser Schalter 'an', auch an anderen Tagen.",
-      weather_auto: "Am 31. Oktober leuchtet der Mond automatisch orange - in seiner echten Mondphase. Ist dieser Schalter 'an', auch an anderen Tagen.",
-    };
-    const halloweenHint = HALLOWEEN_HINTS[c.event];
-    const hasHalloweenLook = !!halloweenHint;
-
-    const personEntitiesAvailable = this._hass && this._hass.states
-      ? Object.keys(this._hass.states).filter((eid) => eid.startsWith("person."))
-      : [];
-
-    this.innerHTML = `
-      <div style="padding:8px 16px;">
-        <div id="live-preview" style="position:relative; width:100%; height:150px; overflow:hidden; border-radius:10px; margin-bottom:10px; background:linear-gradient(180deg, #16202e, #2c3e50); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);">
-          <div id="live-preview-stage" style="position:absolute; top:0; left:0; width:100vw; height:100vh; transform: scale(0.16); transform-origin: top left;"></div>
-          <div id="live-preview-msg" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.55); font-size:12px; text-align:center; padding:0 16px;"></div>
-        </div>
-        ${this._row("Effekt", `
-          <select id="event" style="width:100%; padding:6px;">
-            <option value="off" ${c.event === "off" ? "selected" : ""}>Aus</option>
-            <option value="weather_auto" ${isWeatherAuto ? "selected" : ""}>🌦️ Automatisch (nach Wetter)</option>
-            <option value="night_sky" ${c.event === "night_sky" ? "selected" : ""}>🌠 Nachthimmel</option>
-            <option value="owl_birdhouse" ${c.event === "owl_birdhouse" ? "selected" : ""}>🦉🐦 Eule &amp; Vogelhäuschen</option>
-            <option value="birthday" ${isBirthday ? "selected" : ""}>🎂 Geburtstags-Modus</option>
-            <option value="halloween" ${isHalloween ? "selected" : ""}>🎃 Halloween</option>
-            <option value="leaves" ${c.event === "leaves" ? "selected" : ""}>🍂 Laub</option>
-            <option value="santa" ${c.event === "santa" ? "selected" : ""}>🎅 Weihnachtsmann</option>
-            <option value="train" ${c.event === "train" ? "selected" : ""}>🚂 Dampflok</option>
-            <option value="dog" ${c.event === "dog" ? "selected" : ""}>🐕 Goldener Labrador</option>
-            <option value="spider" ${c.event === "spider" ? "selected" : ""}>🕷️ Spinne mit Netz</option>
-            <option value="bee" ${c.event === "bee" ? "selected" : ""}>🐝 Bienen</option>
-          </select>
-        `, isWeatherAuto
-          ? "Bei 'Automatisch' entscheidet der Zustand deiner Wetter-Entity unten, welcher Effekt läuft."
-          : "Welcher Effekt manuell dauerhaft angezeigt wird."
-        )}
-
-        ${isBirthday ? this._row("Was soll gezeigt werden?", `
-          <div style="border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:8px;">
-            ${[["birthday_balloons","Luftballons"],["birthday_confetti","Konfetti"],["birthday_banner","Schild / Wimpelkette"],["birthday_lights","Lichterkette"]].map(([key,label]) =>
-              `<label style="display:flex; align-items:center; gap:6px; padding:3px 0; cursor:pointer;"><input type="checkbox" class="part-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""} /> ${label}</label>`
-            ).join("")}
-          </div>
-        `, "Einzeln an- und abwählbar. Mindestens eins sollte angehakt sein, sonst bleibt der Bildschirm leer.") : ""}
-
-        ${isNightSky ? this._row("Was soll gezeigt werden?", `
-          <div style="border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:8px;">
-            ${[["night_shooting_stars","Sternschnuppen"],["night_wishstar","Wunschstern-Funkeln"],["night_comet","Komet"]].map(([key,label]) =>
-              `<label style="display:flex; align-items:center; gap:6px; padding:3px 0; cursor:pointer;"><input type="checkbox" class="part-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""} /> ${label}</label>`
-            ).join("")}
-          </div>
-        `, "Einzeln an- und abwählbar. Der Sternenhimmel selbst läuft weiterhin automatisch bei klarer Nacht über die Wetter-Automatik.") : ""}
-
-        ${isHalloween ? this._row("Was soll gezeigt werden?", `
-          <div style="border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:8px;">
-            ${[["halloween_pumpkins","Kürbisse"],["halloween_ghost","Gespenst"],["halloween_witch","Hexe auf dem Besen"],["halloween_webs","Spinnweben"],["halloween_bats","Fledermäuse"]].map(([key,label]) =>
-              `<label style="display:flex; align-items:center; gap:6px; padding:3px 0; cursor:pointer;"><input type="checkbox" class="part-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""} /> ${label}</label>`
-            ).join("")}
-          </div>
-        `, "Einzeln an- und abwählbar. Mindestens eins sollte angehakt sein, sonst bleibt der Bildschirm leer.") : ""}
-
-        ${hasHalloweenLook ? this._pickerRow("Halloween-Schalter (optional)", "halloween_sensor", ["input_boolean","binary_sensor","switch"], halloweenHint, "Schalter suchen, z. B. Halloween") : ""}
-
-        ${isBirthday ? this._row("Banner-Text", `
-          <input id="birthday_text" type="text" value="${c.birthday_text ? c.birthday_text.replace(/"/g, "&quot;") : ""}" placeholder="Happy Birthday!" style="width:100%; padding:6px; box-sizing:border-box;" />
-        `, "Text im Banner oben - z. B. 'Happy Birthday, Max!' für eine persönliche Note.") : ""}
-
-        ${isTrain ? this._pickerRow("Weihnachtsmann-Sensor (optional)", "santa_sensor", ["input_boolean","binary_sensor","switch"], "Optional: ist dieser Schalter/Sensor 'an', werden die Waggons festlich beladen - Schneemann, Weihnachtsmann, Geschenke und ein roter Geschenke-Sack statt Obst, Bauklötzen, Postsäcken und Holzscheiten.", "Schalter suchen, z. B. Weihnachten") : ""}
-
-        ${isTrain ? this._pickerRow("Abendessen-Sensor (optional)", "dinner_sensor", ["input_boolean","binary_sensor","switch"], "Optional: ist dieser Schalter/Sensor 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang, falls beide gleichzeitig an wären.", "Schalter suchen, z. B. Abendessen") : ""}
-
-        ${isTrain ? this._row(
-          "Personen-Waggons (optional)",
-          personEntitiesAvailable.length > 0
-            ? `
-              <div id="person_entities_group" style="border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:8px; max-height:140px; overflow-y:auto;">
-                ${personEntitiesAvailable.map((eid) => {
-                  const friendly = this._hass.states[eid]?.attributes?.friendly_name || eid;
-                  const selected = (c.person_entities || "").split(",").map((s) => s.trim()).includes(eid);
-                  return `<label style="display:flex; align-items:center; gap:6px; padding:3px 0; cursor:pointer;"><input type="checkbox" class="person-entity-checkbox" value="${eid}" ${selected ? "checked" : ""} /> ${friendly}</label>`;
-                }).join("")}
-              </div>
-            `
-            : `<input id="person_entities" type="text" placeholder="person.marco, person.sandra" value="${(c.person_entities || "").replace(/"/g, "&quot;")}" style="width:100%; padding:6px; box-sizing:border-box;" />`,
-          "Optional: für jede angehakte Person, die gerade zuhause ist, wird hinten ein eigener Waggon mit Profilbild (falls vorhanden) oder Namens-Initiale angehängt."
-        ) : ""}
-
-        ${isTrain ? this._pickerRow("Gäste-Waggons aus Sensor (optional)", "custom_wagon_entity", ["input_text","input_select","sensor"], "Optional: ein Sensor (z. B. input_text), in dem komma-getrennte Namen stehen (\"Marcel, Rudolf\"). Für jeden Namen wird hinten ein eigener Waggon angehängt. Hat Vorrang vor dem festen Freitext unten.", "Sensor suchen, z. B. Gäste") : ""}
-
-        ${isTrain ? this._row(
-          "Freitext-Waggon (optional)",
-          `<input id="custom_wagon_text" type="text" placeholder="z. B. Oma" value="${(c.custom_wagon_text || "").replace(/"/g, "&quot;")}" style="width:100%; padding:6px; box-sizing:border-box;" maxlength="60" />`,
-          "Optional: fester Text, falls oben kein Sensor gewählt ist. Mehrere Namen mit Komma trennen ergibt mehrere Waggons. Wird ganz hinten angehängt."
-        ) : ""}
-
-        ${isWeatherAuto ? this._pickerRow("Wetter-Sensor", "weather_entity", ["weather"], "Diese Wetter-Entity liefert den aktuellen Zustand (regnet, schneit, ...), nach dem sich der Effekt richtet.", "Wetter suchen, z. B. weather.home") : ""}
-
-        ${isDog ? this._pickerRow("Wetter-Sensor (optional)", "weather_entity", ["weather"], "Optional: wählst du hier deine echte Wetter-Entity aus, schüttelt sich der Hund kurz, sobald diese aktuell Regen meldet.", "Wetter suchen, z. B. weather.home") : ""}
-
-        ${caps.count ? this._row("Anzahl / Frequenz", `
-          <select id="count_preset" style="width:100%; padding:6px;">
-            <option value="low" ${c.count_preset === "low" ? "selected" : ""}>🔹 Wenig / Selten</option>
-            <option value="medium" ${c.count_preset === "medium" ? "selected" : ""}>🔷 Mittel</option>
-            <option value="high" ${c.count_preset === "high" ? "selected" : ""}>🔷 Viel / Häufig</option>
-          </select>
-        `, isWeatherAuto
-          ? "⚠️ Ein Wert für ALLE automatisch erkannten Effekte gemeinsam (Regen, Schnee, Hagel, Blitz, Nebel, Sturm) - nicht einzeln pro Effekt einstellbar."
-          : (COUNT_IS_INTERVAL_TEXT[c.event] || "Wie viele Partikel gleichzeitig zu sehen sind.")
-        ) : ""}
-
-        ${caps.opacity ? this._row("Deckkraft / Helligkeit", `
-          <select id="opacity_preset" style="width:100%; padding:6px;">
-            <option value="low" ${c.opacity_preset === "low" ? "selected" : ""}>👻 Zart (30%)</option>
-            <option value="medium" ${c.opacity_preset === "medium" ? "selected" : ""}>👁️ Dezent (60%)</option>
-            <option value="high" ${c.opacity_preset === "high" ? "selected" : ""}>✨ Kräftig (100%)</option>
-          </select>
-        `, isWeatherAuto
-          ? "Ebenfalls EIN Wert für ALLE automatisch erkannten Effekte gemeinsam."
-          : "Wie stark/deutlich der Effekt sichtbar ist."
-        ) : ""}
-
-        ${caps.color ? this._row("Farbmodus", `
-          <select id="color_mode" style="width:100%; padding:6px;">
-            <option value="auto" ${colorMode === "auto" ? "selected" : ""}>🌗 Auto (Theme-Abgleich)</option>
-            <option value="custom" ${colorMode === "custom" ? "selected" : ""}>🎨 Manuelle Farbe</option>
-          </select>
-        `, isWeatherAuto
-          ? "Gilt nur, wenn gerade Regen, Schnee, Hagel, Nebel oder Sturm aktiv ist (nicht bei Blitz - der hat immer weißes Licht)."
-          : "Farbe automatisch nach Hell/Dunkel-Modus wählen oder selbst festlegen."
-        ) : ""}
-
-        ${caps.color && colorMode === "custom" ? `
-        <div id="custom_color_picker">
-          ${this._row("Farbe", `<input id="color" type="color" value="${c.color === "auto" ? "#ffffff" : c.color}" style="width:100%; height:36px;" />`)}
-        </div>` : ""}
-
-        ${creditsHtml()}
-      </div>
-    `;
-
-    this.querySelector("#event").addEventListener("change", (e) => this._update("event", e.target.value, true));
-
-    // 🔍 Suchfelder für Schalter und Sensoren einsetzen
-    this._mountPickers();
-
-    // Ankreuzfelder der Sammel-Effekte (Geburtstag, Nachthimmel, Halloween)
-    this.querySelectorAll(".part-toggle").forEach((box) => {
-      box.addEventListener("change", (e) => {
-        this._update(e.target.dataset.key, e.target.checked, false);
-      });
-    });
-
-    const birthdayTextInput = this.querySelector("#birthday_text");
-    if (birthdayTextInput) {
-      birthdayTextInput.addEventListener("input", (e) => this._update("birthday_text", e.target.value, false));
-      birthdayTextInput.addEventListener("change", (e) => this._update("birthday_text", e.target.value, false));
-    }
-
-
-
-
-
-    const personEntitiesInput = this.querySelector("#person_entities");
-    if (personEntitiesInput) {
-      personEntitiesInput.addEventListener("change", (e) => this._update("person_entities", e.target.value.trim(), false));
-    }
-    const personCheckboxes = this.querySelectorAll(".person-entity-checkbox");
-    if (personCheckboxes.length > 0) {
-      personCheckboxes.forEach((box) => {
-        box.addEventListener("change", () => {
-          const current = (this._config.person_entities || "").split(",").map((s) => s.trim()).filter(Boolean);
-          if (box.checked) {
-            if (!current.includes(box.value)) current.push(box.value);
-          } else {
-            const idx = current.indexOf(box.value);
-            if (idx !== -1) current.splice(idx, 1);
-          }
-          this._update("person_entities", current.join(", "), false);
-        });
-      });
-    }
-
-
-    const customWagonInput = this.querySelector("#custom_wagon_text");
-    if (customWagonInput) {
-      customWagonInput.addEventListener("change", (e) => this._update("custom_wagon_text", e.target.value.trim(), false));
-    }
-
-    const countSel = this.querySelector("#count_preset");
-    if (countSel) countSel.addEventListener("change", (e) => this._update("count_preset", e.target.value, true));
-
-    const opacitySel = this.querySelector("#opacity_preset");
-    if (opacitySel) opacitySel.addEventListener("change", (e) => this._update("opacity_preset", e.target.value, true));
-
-    const colorModeSel = this.querySelector("#color_mode");
-    if (colorModeSel) {
-      colorModeSel.addEventListener("change", (e) => {
-        const mode = e.target.value;
-        if (mode === "auto") {
-          this._updateConfig({ color_mode: "auto", color: "auto" }, true);
-        } else {
-          this._updateConfig({ color_mode: "custom", color: "#ffffff" }, true);
-        }
-      });
-    }
-
-    const colorPicker = this.querySelector("#color");
-    if (colorPicker) {
-      colorPicker.addEventListener("change", (e) => this._update("color", e.target.value, true));
-      colorPicker.addEventListener("input", (e) => this._update("color", e.target.value, false));
-    }
-
-    this._updatePreview();
+  // Die Bühne ist so groß wie das echte Fenster und wird passend verkleinert,
+  // damit nichts abgeschnitten wird (z. B. Zug und Kürbisse ganz unten).
+  _fitPreview() {
+    const pv = this.shadowRoot.querySelector(".pv");
+    const stage = this.shadowRoot.querySelector(".pv-stage");
+    if (!pv || !stage) return;
+    const vw = window.innerWidth || 1280;
+    const vh = window.innerHeight || 720;
+    const w = pv.clientWidth;
+    if (!w) return;
+    // Erst nach der Breite verkleinern. Würde die Vorschau dadurch zu hoch
+    // (z. B. Handy im Hochformat), stattdessen nach der Höhe verkleinern und
+    // mittig setzen - so ist immer das GANZE Bild zu sehen, nichts abgeschnitten.
+    const MAX_H = 300;
+    let s = w / vw;
+    if (vh * s > MAX_H) s = MAX_H / vh;
+    const left = Math.max(0, (w - vw * s) / 2);
+    stage.style.width = vw + "px";
+    stage.style.height = vh + "px";
+    stage.style.left = left + "px";
+    stage.style.transform = `scale(${s})`;
+    pv.style.height = Math.round(vh * s) + "px";
   }
 
   _updatePreview() {
-    const stage = this.querySelector("#live-preview-stage");
-    const msg = this.querySelector("#live-preview-msg");
+    const stage = this.shadowRoot.querySelector(".pv-stage");
+    const msg = this.shadowRoot.querySelector(".pv-msg");
+    const play = this.shadowRoot.querySelector(".play");
     if (!stage || !msg) return;
+    this._fitPreview();
     const c = this._config;
+    play.classList.remove("show");
     if (!c || c.event === "off") {
       stage.innerHTML = "";
       msg.textContent = "Kein Effekt ausgewählt.";
@@ -3699,7 +3867,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
     }
     if (c.event === "weather_auto") {
       stage.innerHTML = "";
-      msg.textContent = "Vorschau nicht verfügbar bei 'Automatisch' - hängt vom aktuellen Live-Wetter ab.";
+      msg.textContent = "Keine Vorschau bei der Wetter-Automatik - der Effekt hängt vom echten Wetter ab.";
       return;
     }
     const renderer = RENDERERS[c.event];
@@ -3709,20 +3877,38 @@ class AmbientOverlayCardEditor extends HTMLElement {
       return;
     }
     msg.textContent = "";
-    // Verbesserung (Bugfix): bei "Auto"-Farbmodus würde der Effekt sonst
-    // die Farbe des ECHTEN Home-Assistant-Editor-Fensters übernehmen (das
-    // kann hell sein) - unsere Vorschau-Box hat aber immer einen dunklen
-    // Hintergrund. Ohne diese Korrektur wären z. B. schwarze Regentropfen
-    // auf dunklem Grund unsichtbar. Die Vorschau erzwingt deshalb eine
-    // helle Farbe, unabhängig vom echten Dashboard-Theme.
+    // Die Vorschau hat immer einen dunklen Hintergrund. Bei "automatischer"
+    // Farbe würde der Effekt sonst die Farbe des (evtl. hellen) Editor-
+    // Fensters übernehmen und wäre unsichtbar - deshalb hier immer hell.
     const caps = EVENT_CAPABILITIES[c.event] || {};
-    // Halloween hat zwar keinen Farbmodus, Spinnweben und Fledermäuse
-    // richten sich aber trotzdem nach Hell/Dunkel - also auch hier hell.
     const previewCfg = ((caps.color || c.event === "halloween") && (c.color_mode || "auto") === "auto")
       ? { ...c, color: "#ffffff" }
       : c;
     const { css, html } = renderer(previewCfg, this._hass, this);
     stage.innerHTML = `<style>${css}</style>${html}`;
+    // Start-Knopf nur, wenn es Figuren gibt, die selten vorbeikommen
+    const hasPeriodic = this._periodicAnims().length > 0;
+    play.classList.toggle("show", hasPeriodic);
+  }
+
+  // Alle "seltenen" Animationen der Vorschau (Zyklus ab 25 Sekunden)
+  _periodicAnims() {
+    const stage = this.shadowRoot.querySelector(".pv-stage");
+    if (!stage || !stage.getAnimations) return [];
+    return stage.getAnimations({ subtree: true }).filter((a) => {
+      const d = a.effect?.getTiming?.().duration;
+      return typeof d === "number" && d >= 25000;
+    });
+  }
+
+  // ▶ Spult alle seltenen Figuren an den Anfang ihres Durchlaufs - sie
+  // kommen dann sofort ins Bild statt erst in ein paar Minuten.
+  _playPreview() {
+    for (const a of this._periodicAnims()) {
+      const t = a.effect.getTiming();
+      a.currentTime = (((t.delay || 0) % t.duration) + t.duration) % t.duration;
+      a.play();
+    }
   }
 
   _update(key, value, rerender) {
