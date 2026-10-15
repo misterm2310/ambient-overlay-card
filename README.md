@@ -26,8 +26,10 @@
 | 🦉🐦 **Eule & Vogelhäuschen** | Oben links: tagsüber das Vogelhäuschen mit Besuch, nachts die Eule, die blinzelt und den Kopf dreht. Umgeschaltet wird über `sun.sun`. |
 | 🌠 **Nachthimmel** | Sternschnuppen, Wunschstern und ein seltener Komet – jedes Teil einzeln an- und abwählbar. |
 | 🎂 **Geburtstags-Modus** | Luftballons, Konfetti, Wimpelkette mit eigenem Text und Lichterkette – jedes Teil einzeln an- und abwählbar. |
+| 🎃 **Halloween** | Flackernde Kürbis-Laternen, ein Gespenst, das „Buh!“ ruft, eine Hexe auf dem Besen (verliert ab und zu den Hut), Spinnweben und Fledermäuse – jedes Teil einzeln an- und abwählbar. |
+| 👻 **Halloween-Look** | Am 31. Oktober ganz von selbst (oder per Schalter): Zug mit Kürbissen, Hexenkessel, Sarg und Süßigkeiten, Labrador mit Teufelshörnchen, Eule mit Hexenhut, Vogelhäuschen mit Kürbis und Spinnwebe (der Vogel trägt einen Mini-Hexenhut) und ein oranger Mond (in seiner echten Mondphase). |
 | 🎅 **Weihnachtsmann** | Fliegt mit Schlitten und Rentieren vorbei und verliert ab und zu ein Geschenk. |
-| 🕷️🦇🐝🍂 **Noch mehr Tiere & Deko** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen), Fledermäuse, Bienenschwarm und Herbstlaub. |
+| 🕷️🐝🍂 **Noch mehr Tiere & Deko** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen), Bienenschwarm und Herbstlaub. |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
 | 🌫️ **Sanft statt hart** | Wechselt das Wetter von selbst, blendet der alte Effekt weich aus. |
 | 👁️ **Live-Vorschau** | Der Editor zeigt oben eine kleine Vorschau und blendet nur die Regler ein, die beim gewählten Effekt etwas tun. |
@@ -97,15 +99,18 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor:
 3. Je nach Effekt erscheinen passende Felder:
    * **Automatisch:** deine `weather.*`-Entity auswählen.
    * **🎂 Geburtstag:** den Text für die Wimpelkette.
+   * **🎃 Halloween:** Häkchen für Kürbisse, Gespenst, Hexe, Spinnweben und Fledermäuse.
    * **🐕 Labrador:** optional die Wetter-Entity fürs Schütteln bei Regen.
-   * **🚂 Dampflok:** Weihnachts-Schalter, Abendessen-Schalter (Weihnachten hat Vorrang), Personen zum Anhaken, Gäste-Sensor oder fester Gäste-Text.
+   * **🚂 Dampflok:** Weihnachts-Schalter, Abendessen-Schalter, Halloween-Schalter, Personen zum Anhaken, Gäste-Sensor oder fester Gäste-Text. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
+   * **Halloween-Schalter** gibt's bei Dampflok, Labrador, Eule & Vogelhäuschen und der Wetter-Automatik (für den Mond). Ohne Schalter kommt der Halloween-Look nur am 31. Oktober.
 4. **Anzahl / Frequenz** und **Deckkraft** nach Geschmack, bei manchen Effekten noch der **Farbmodus**.
 
 Gut zu wissen:
 * Bei **Weihnachtsmann, Hund, Dampflok, Vogelhäuschen, Komet und Laub** heißt „Anzahl“ nicht *wie viele*, sondern *wie oft* etwas vorbeikommt.
-* Bei **Fledermäusen, Bienen, Wolken und Geburtstag** ist „Anzahl“ eine ganz normale Menge.
+* Bei **Halloween** steuert „Anzahl“ beides: wie viele Kürbisse und Fledermäuse, und wie oft Hexe und Gespenst vorbeikommen.
+* Bei **Bienen, Wolken und Geburtstag** ist „Anzahl“ eine ganz normale Menge.
 * Die **Spinne** gibt es nur einmal, da gibt's keinen Anzahl-Regler.
-* **Weihnachtsmann, Hund, Dampflok, Eule & Vogelhäuschen, Laub, Bienen und Geburtstag** haben feste Farben, also keinen Farbmodus.
+* **Weihnachtsmann, Hund, Dampflok, Eule & Vogelhäuschen, Laub, Bienen, Geburtstag und Halloween** haben feste Farben, also keinen Farbmodus.
 
 ### 🚃 Reihenfolge der Waggons
 
@@ -143,12 +148,12 @@ Anzahl, Deckkraft und Farbmodus gelten bei der Automatik für **alle** Wetter-Ef
 | `night_sky` | 🌠 Sternschnuppen, Wunschstern und Komet |
 | `owl_birdhouse` | 🦉🐦 Tags Vogelhäuschen, nachts Eule |
 | `birthday` | 🎂 Ballons, Konfetti, Wimpelkette mit Text, Lichterkette |
+| `halloween` | 🎃 Kürbisse, Gespenst, Hexe, Spinnweben, Fledermäuse |
 | `leaves` | 🍂 Herbstwind-Stoß mit 3-Farben-Verlauf |
 | `santa` | 🎅 Weihnachtsmann mit Schlitten, verliert mal ein Geschenk |
 | `train` | 🚂 Dampflok mit Waggons, Familie, Gästen und Schlusswagen |
 | `dog` | 🐕 Goldener Labrador (optional Schütteln bei Regen) |
 | `spider` | 🕷️ Spinne im Netz mit roten Augen |
-| `bats` | 🦇 Fledermausschwarm, passend zum Theme eingefärbt |
 | `bee` | 🐝 Bienenschwarm im Zickzack |
 
 <details><summary>📋 YAML-Beispiele</summary>
@@ -195,6 +200,22 @@ birthday_text: "Happy Birthday, Max!"
 opacity_preset: high
 ```
 
+**Halloween ohne Fledermäuse**
+```yaml
+type: custom:ambient-overlay-card
+event: halloween
+count_preset: medium
+opacity_preset: high
+halloween_bats: false
+```
+
+**Halloween-Zug schon ab Mitte Oktober (per Schalter)**
+```yaml
+type: custom:ambient-overlay-card
+event: train
+halloween_sensor: input_boolean.halloween
+```
+
 **Nachthimmel – nur der Komet**
 ```yaml
 type: custom:ambient-overlay-card
@@ -211,13 +232,6 @@ night_comet: true
 type: custom:ambient-overlay-card
 event: spider
 color_mode: auto
-```
-
-**Fledermäuse**
-```yaml
-type: custom:ambient-overlay-card
-event: bats
-opacity_preset: high
 ```
 
 **Bienen**
@@ -249,13 +263,15 @@ Alles geht im visuellen Editor. Für YAML-Fans:
 | `count_preset` | `medium` | `low`, `medium` oder `high` – wie viele bzw. wie oft |
 | `opacity_preset` | `medium` | `low`, `medium` oder `high` – wie kräftig. Bei `high` wird jeder Effekt spürbar kräftiger |
 | `color_mode` | `auto` | `auto` = passend zum Theme, `custom` = feste Farbe |
-| `color` | `auto` | eigene Farbe (Hex) für Nachthimmel, Fledermäuse, Spinnennetz und die Wetter-Effekte |
+| `color` | `auto` | eigene Farbe (Hex) für Nachthimmel, Spinnennetz und die Wetter-Effekte |
 | `weather_entity` | – | `weather.*`-Entity für die Automatik, beim Hund fürs Schütteln |
 | `birthday_text` | `Happy Birthday!` | Text auf der Wimpelkette (wird gegen Schadcode abgesichert) |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Teile des Geburtstags-Modus einzeln an/aus |
 | `night_shooting_stars` / `night_wishstar` / `night_comet` | `true` | Teile des Nachthimmels einzeln an/aus |
 | `santa_sensor` | – | Schalter (`input_boolean`/`binary_sensor`): an = Weihnachts-Ladung im Zug |
 | `dinner_sensor` | – | Schalter: an = Abendessen-Ladung im Zug (Weihnachten hat Vorrang) |
+| `halloween_pumpkins` / `halloween_ghost` / `halloween_witch` / `halloween_webs` / `halloween_bats` | `true` | Teile des Halloween-Modus einzeln an/aus |
+| `halloween_sensor` | – | Schalter: an = Halloween-Look bei Zug, Hund, Eule und Mond. Am 31. Oktober kommt der Look auch ohne Schalter |
 | `person_entities` | – | `person.`-Entities mit Komma – wer zuhause ist, fährt mit (im Editor zum Anhaken) |
 | `custom_wagon_entity` | – | Sensor mit Namen und Komma, z. B. `input_text.gaeste` – pro Name ein Waggon. Leer, `unknown` oder `unavailable` = keine Gäste-Waggons. Hat Vorrang vor dem festen Text |
 | `custom_wagon_text` | – | fester Text für Gäste-Waggons, z. B. `Oma, Opa` |
@@ -265,6 +281,8 @@ Alles geht im visuellen Editor. Für YAML-Fans:
 ---
 
 ## ❓ Häufige Fragen
+
+**Kann ich den Halloween-Look am 31. Oktober abschalten?** Im Moment nicht – an dem Tag kommt er automatisch. Den Halloween-Modus selbst (`event: halloween`) gibt's dagegen nur, wenn du ihn auswählst.
 
 **Kann ich mehrere Effekte gleichzeitig haben?** Ja. Pro Effekt eine Karte anlegen – z. B. Wetter-Automatik, Dampflok und Eule auf derselben Seite.
 
