@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.12-beta.5";
+const CARD_VERSION = "1.0.12-beta.6";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1874,10 +1874,10 @@ function renderMoon(cfg, hass, hostEl) {
   const isHigh = (cfg.opacity_preset || "medium") === "high";
   const finalOpacity = isHigh ? 1 : opacity;
 
-  // 🎃 An Halloween: oranger Vollmond, egal welche Phase gerade ist.
+  // 🎃 An Halloween: der Mond behält seine echte Phase, wird aber orange.
   const halloweenMoon = isHalloweenTime(cfg, hass);
   const phase = getMoonPhase(new Date());
-  const lightPath = halloweenMoon ? "full" : moonPhasePath(29, 39, 24, phase);
+  const lightPath = moonPhasePath(29, 39, 24, phase);
   const litFill = halloweenMoon ? "#f5a142" : "#f0e6c8";
 
   // Der unbeleuchtete Mondteil braucht auf hellem und dunklem Hintergrund
@@ -1938,7 +1938,7 @@ function renderMoon(cfg, hass, hostEl) {
         </clipPath>
       </defs>
       <circle cx="29" cy="39" r="24" fill="${unlitFill}" stroke="${unlitStroke}" stroke-width="1"/>
-      <path d="${lightPath}" fill="#f0e6c8"/>
+      <path d="${lightPath}" fill="${litFill}"/>
       <g clip-path="url(#moon-light-clip)">
         ${cratersSvg}
       </g>
@@ -3474,7 +3474,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       train: "Am 31. Oktober tragen vier Waggons automatisch Kürbisse, Hexenkessel, Sarg und Süßigkeiten. Ist dieser Schalter 'an', auch an anderen Tagen. Weihnachten und Abendessen haben Vorrang.",
       dog: "Am 31. Oktober trägt der Hund automatisch Teufelshörnchen und ein Halstuch. Ist dieser Schalter 'an', auch an anderen Tagen.",
       owl_birdhouse: "Am 31. Oktober trägt die Eule nachts automatisch einen Hexenhut. Tagsüber steht ein Kürbis vor dem Vogelhäuschen, unterm Dach hängt eine Spinnwebe und der Vogel fliegt mit Hexenhut vorbei. Ist dieser Schalter 'an', auch an anderen Tagen.",
-      weather_auto: "Am 31. Oktober wird der Mond automatisch zum orangen Vollmond. Ist dieser Schalter 'an', auch an anderen Tagen.",
+      weather_auto: "Am 31. Oktober leuchtet der Mond automatisch orange - in seiner echten Mondphase. Ist dieser Schalter 'an', auch an anderen Tagen.",
     };
     const halloweenHint = HALLOWEEN_HINTS[c.event];
     const hasHalloweenLook = !!halloweenHint;
