@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.12-beta.4";
+const CARD_VERSION = "1.0.12-beta.5";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3533,15 +3533,15 @@ class AmbientOverlayCardEditor extends HTMLElement {
           </div>
         `, "Einzeln an- und abwählbar. Mindestens eins sollte angehakt sein, sonst bleibt der Bildschirm leer.") : ""}
 
-        ${hasHalloweenLook ? this._pickerRow("Halloween-Schalter (optional)", "halloween_sensor", ["input_boolean","binary_sensor"], halloweenHint, "Schalter suchen, z. B. Halloween") : ""}
+        ${hasHalloweenLook ? this._pickerRow("Halloween-Schalter (optional)", "halloween_sensor", ["input_boolean","binary_sensor","switch"], halloweenHint, "Schalter suchen, z. B. Halloween") : ""}
 
         ${isBirthday ? this._row("Banner-Text", `
           <input id="birthday_text" type="text" value="${c.birthday_text ? c.birthday_text.replace(/"/g, "&quot;") : ""}" placeholder="Happy Birthday!" style="width:100%; padding:6px; box-sizing:border-box;" />
         `, "Text im Banner oben - z. B. 'Happy Birthday, Max!' für eine persönliche Note.") : ""}
 
-        ${isTrain ? this._pickerRow("Weihnachtsmann-Sensor (optional)", "santa_sensor", ["input_boolean","binary_sensor"], "Optional: ist dieser Schalter/Sensor 'an', werden die Waggons festlich beladen - Schneemann, Weihnachtsmann, Geschenke und ein roter Geschenke-Sack statt Obst, Bauklötzen, Postsäcken und Holzscheiten.", "Schalter suchen, z. B. Weihnachten") : ""}
+        ${isTrain ? this._pickerRow("Weihnachtsmann-Sensor (optional)", "santa_sensor", ["input_boolean","binary_sensor","switch"], "Optional: ist dieser Schalter/Sensor 'an', werden die Waggons festlich beladen - Schneemann, Weihnachtsmann, Geschenke und ein roter Geschenke-Sack statt Obst, Bauklötzen, Postsäcken und Holzscheiten.", "Schalter suchen, z. B. Weihnachten") : ""}
 
-        ${isTrain ? this._pickerRow("Abendessen-Sensor (optional)", "dinner_sensor", ["input_boolean","binary_sensor"], "Optional: ist dieser Schalter/Sensor 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang, falls beide gleichzeitig an wären.", "Schalter suchen, z. B. Abendessen") : ""}
+        ${isTrain ? this._pickerRow("Abendessen-Sensor (optional)", "dinner_sensor", ["input_boolean","binary_sensor","switch"], "Optional: ist dieser Schalter/Sensor 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang, falls beide gleichzeitig an wären.", "Schalter suchen, z. B. Abendessen") : ""}
 
         ${isTrain ? this._row(
           "Personen-Waggons (optional)",
