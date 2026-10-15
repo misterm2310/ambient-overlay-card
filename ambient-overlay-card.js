@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.11";
+const CARD_VERSION = "1.0.12-beta.1";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -354,6 +354,8 @@ const PERIODIC_PHASE = {
   dog: 2 / 3,
   santa: 0.5,
   birdhouse: 0.25,
+  witch: 1 / 6,
+  ghost: 0,
 };
 
 // Wie lange eine Figur tatsaechlich sichtbar unterwegs ist (in Sekunden).
@@ -365,6 +367,8 @@ const PERIODIC_FLIGHT_SEC = {
   santa: 18,
   birdhouse: 9,
   comet: 3.5,
+  witch: 16,
+  ghost: 22,
 };
 
 // Zeitpunkt, an dem die Karte geladen wurde (also praktisch der Moment des
@@ -407,6 +411,26 @@ function periodicDelaySec(interval, key) {
   return (-((Date.now() / 1000 + offset + _bootSkip[memo]) % interval)).toFixed(2);
 }
 
+// Nummer des gerade laufenden Durchlaufs - passend zur Startzeit aus
+// periodicDelaySec (gleicher Versatz, gleicher Neustart-Schub). Damit
+// bleiben Gags wie "Hexe verliert den Hut" während eines Durchlaufs
+// stabil, auch wenn mittendrin neu gerendert wird.
+// Muss NACH periodicDelaySec aufgerufen werden (braucht dessen Merker).
+function periodicCycle(interval, key) {
+  const offset = (PERIODIC_PHASE[key] || 0) * interval;
+  const skip = _bootSkip[key + ":" + interval] || 0;
+  return Math.floor((Date.now() / 1000 + offset + skip) / interval);
+}
+
+// 🎃 Ist gerade Halloween? Ja, wenn der (optionale) Halloween-Schalter
+// "an" ist - oder automatisch am 31. Oktober (ganzer Tag, Ortszeit).
+function isHalloweenTime(cfg, hass) {
+  const sensor = cfg && cfg.halloween_sensor;
+  if (sensor && hass?.states?.[sensor]?.state === "on") return true;
+  const now = new Date();
+  return now.getMonth() === 9 && now.getDate() === 31;
+}
+
 const WEATHER_STATE_MAP = {
   "rainy": ["rain"],
   "pouring": ["rain"],
@@ -435,6 +459,7 @@ const COUNT_IS_INTERVAL_TEXT = {
 
   night_sky: "Wie oft der Komet vorbeizieht: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. Steuert gleichzeitig die Anzahl der Sternschnuppen (3 / 5 / 8).",
   owl_birdhouse: "Wie oft tagsüber ein Vogel am Häuschen vorbeifliegt: Wenig ≈ alle 100 Sek., Mittel ≈ alle 60 Sek., Viel ≈ alle 30 Sek. (nachts sitzt dort die Eule, dann ohne Wirkung).",
+  halloween: "Wenig = 3 Kürbisse, Hexe ≈ alle 5-6 Min., Gespenst ≈ alle 3 Min. · Mittel = 5 Kürbisse, Hexe ≈ alle 3-4 Min., Gespenst ≈ alle 2 Min. · Viel = 7 Kürbisse, Hexe ≈ alle 1-2 Min., Gespenst ≈ jede Minute. Steuert auch die Anzahl der Fledermäuse.",
 };
 
 const EVENT_CAPABILITIES = {
@@ -450,6 +475,7 @@ const EVENT_CAPABILITIES = {
   owl_birdhouse: { count: true, opacity: true, color: false },
   bee: { count: true, opacity: true, color: false },
   birthday: { count: true, opacity: true, color: false },
+  halloween: { count: true, opacity: true, color: false },
 };
 
 const BALLOON_COLORS = ["#FF4B4B", "#FF851B", "#FFDC00", "#2ECC40", "#0074D9", "#B10DC9", "#F012BE"];
@@ -1043,10 +1069,14 @@ function renderTrain(cfg, hass, hostEl) {
   // normalen Ladung, wenn der konfigurierte Abendessen-Sensor an ist.
   // Weihnachten hat Vorrang, falls beide Sensoren zufällig gleichzeitig an wären.
   const dinnerActive = !santaActive && cfg.dinner_sensor && hass?.states?.[cfg.dinner_sensor]?.state === "on";
-  const cargo0 = santaActive ? "snowman" : dinnerActive ? "plates" : "food";
-  const cargo1 = santaActive ? "santa" : dinnerActive ? "roast" : "toys";
-  const cargo2 = santaActive ? "presents" : dinnerActive ? "dessert" : "mailbags";
-  const cargo3 = santaActive ? "santa_sack" : dinnerActive ? "drinks" : "wood";
+  // 🎃 Halloween-Ladung: am 31. Oktober automatisch oder per Halloween-
+  // Schalter. Weihnachten und Abendessen haben Vorrang (das sind bewusst
+  // eingeschaltete Schalter, Halloween kommt sonst ja auch vom Kalender).
+  const halloweenActive = !santaActive && !dinnerActive && isHalloweenTime(cfg, hass);
+  const cargo0 = santaActive ? "snowman" : dinnerActive ? "plates" : halloweenActive ? "hw_pumpkins" : "food";
+  const cargo1 = santaActive ? "santa" : dinnerActive ? "roast" : halloweenActive ? "hw_cauldron" : "toys";
+  const cargo2 = santaActive ? "presents" : dinnerActive ? "dessert" : halloweenActive ? "hw_coffin" : "mailbags";
+  const cargo3 = santaActive ? "santa_sack" : dinnerActive ? "drinks" : halloweenActive ? "hw_candy" : "wood";
 
   // Gelegentliche Gags, deterministisch nach Durchfahrt-Nummer bestimmt
   // (kein Zufall bei jedem Rendern, damit ein Neu-Rendern mitten in der
@@ -1323,6 +1353,36 @@ function renderTrain(cfg, hass, hostEl) {
       <circle cx="62.5" cy="1" r="9" fill="#f0a0b8" stroke="#1a1a1a" stroke-width="1.5"/>
       <circle cx="62.5" cy="-10" r="6.5" fill="#fff0c0" stroke="#1a1a1a" stroke-width="1.5"/>
     `,
+    // 🎃 Halloween-Ladungen
+    hw_pumpkins: `
+      <g transform="translate(2,-1) scale(0.6)">${pumpkinShapes(true)}</g>
+      <g transform="translate(40,-6) scale(0.68)">${pumpkinShapes(true)}</g>
+    `,
+    hw_cauldron: `
+      <path d="M14,8 Q10,32 24,32 L63,32 Q77,32 73,8 Z" fill="#1f1f24" stroke="#000" stroke-width="2"/>
+      <ellipse cx="43.5" cy="8" rx="31" ry="6" fill="#2b2b33" stroke="#000" stroke-width="2"/>
+      <ellipse cx="43.5" cy="8" rx="26" ry="4" fill="#6fdc3c"/>
+      <circle cx="34" cy="2" r="4.5" fill="#8cf05a" stroke="#3f9a1a" stroke-width="1"/>
+      <circle cx="50" cy="-3" r="3.5" fill="#8cf05a" stroke="#3f9a1a" stroke-width="1"/>
+      <circle cx="58" cy="-11" r="2.5" fill="#8cf05a" stroke="#3f9a1a" stroke-width="1"/>
+      <path d="M58,8 L68,-14" stroke="#7a4a22" stroke-width="3" stroke-linecap="round"/>
+    `,
+    hw_coffin: `
+      <path d="M16,32 L8,14 L18,-4 L44,-10 L58,-4 L70,14 L62,32 Z" fill="#6b3f22" stroke="#2a160a" stroke-width="2"/>
+      <path d="M22,26 L16,14 L23,2 L44,-3 L54,2 L62,14 L56,26 Z" fill="#7d4a28" stroke="#2a160a" stroke-width="1"/>
+      <path d="M39,0 L39,22 M31,7 L47,7" stroke="#d9c9a8" stroke-width="3.4" stroke-linecap="round"/>
+    `,
+    hw_candy: `
+      <path d="M6,22 L12,16 L12,30 Z M32,22 L26,16 L26,30 Z" fill="#ff5fa2" stroke="#1a1a1a" stroke-width="1.3"/>
+      <ellipse cx="19" cy="23" rx="8" ry="7" fill="#ff5fa2" stroke="#1a1a1a" stroke-width="1.5"/>
+      <path d="M15,20 L23,26 M15,26 L23,20" stroke="#ffffff" stroke-width="1.4"/>
+      <path d="M54,32 L54,6" stroke="#f2f2f2" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="54" cy="-2" r="12" fill="#f28c28" stroke="#1a1a1a" stroke-width="1.6"/>
+      <path d="M54,-2 m-8,0 a8,8 0 1,0 16,0 a6,6 0 1,0 -12,0 a4,4 0 1,0 8,0" fill="none" stroke="#1f1a2a" stroke-width="1.8"/>
+      <path d="M66,32 L70,20 L74,32 Z" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.2"/>
+      <path d="M67.5,28 L72.5,28 M68.8,24 L71.2,24" stroke="#f28c28" stroke-width="2.2"/>
+      <path d="M66,32 L74,32 L73,29 L67,29 Z" fill="#ffd23f"/>
+    `,
   };
 
   // Gesamte Waggon-Inhalts-Liste: vier feste + Personen + optional
@@ -1447,6 +1507,8 @@ function renderDog(cfg, hass, hostEl) {
   // können sich sonst nicht gegenseitig "sehen".
   const rainStates = ["rainy", "pouring", "lightning-rainy", "snowy-rainy"];
   const isRaining = cfg.weather_entity && rainStates.includes(hass?.states?.[cfg.weather_entity]?.state);
+  // 🎃 An Halloween im Kostüm: Teufelshörnchen und oranges Halstuch.
+  const inCostume = isHalloweenTime(cfg, hass);
 
   const css = `
     .dog-container {
@@ -1565,6 +1627,10 @@ function renderDog(cfg, hass, hostEl) {
                 <path d="M24,22 Q4,8 -14,14 Q-8,24 2,26 Q10,28 24,24 Z" fill="#d4a25c"/>
               </g>
               <ellipse cx="55" cy="25" rx="35" ry="14" fill="#d4a25c"/>
+              ${inCostume ? `
+              <path d="M80,12 Q86,16 92,23" stroke="#f28c28" stroke-width="5" fill="none" stroke-linecap="round"/>
+              <path d="M80,15 L91,23 L82,35 Z" fill="#f28c28" stroke="#a84a0c" stroke-width="1.2" stroke-linejoin="round"/>
+              <circle cx="84" cy="23" r="1.5" fill="#1f1a2a"/><circle cx="83" cy="29" r="1.2" fill="#1f1a2a"/><circle cx="87" cy="25" r="1.1" fill="#1f1a2a"/>` : ""}
               <g class="dog-sniff-pose">
                 <g class="dog-head-bounce">
                   <ellipse cx="95" cy="18" rx="13" ry="11" fill="#d4a25c"/>
@@ -1575,6 +1641,9 @@ function renderDog(cfg, hass, hostEl) {
                   <circle cx="112" cy="23" r="2" fill="#2a1a10"/>
                   <circle cx="97" cy="15" r="1.6" fill="#2a1a10"/>
                   <path class="dog-tongue" d="M105,27 Q107,33 109,27 Q107,29.5 105,27 Z" fill="#e8879a"/>
+                  ${inCostume ? `
+                  <path d="M88,10 Q84,1 88,-3 Q88,4 93,8 Z" fill="#d81f26" stroke="#7a0f12" stroke-width="1"/>
+                  <path d="M98,8 Q98,-1 103,-3 Q101,3 103,9 Z" fill="#d81f26" stroke="#7a0f12" stroke-width="1"/>` : ""}
                 </g>
               </g>
             </g>
@@ -1786,8 +1855,11 @@ function renderMoon(cfg, hass, hostEl) {
   const isHigh = (cfg.opacity_preset || "medium") === "high";
   const finalOpacity = isHigh ? 1 : opacity;
 
+  // 🎃 An Halloween: oranger Vollmond, egal welche Phase gerade ist.
+  const halloweenMoon = isHalloweenTime(cfg, hass);
   const phase = getMoonPhase(new Date());
-  const lightPath = moonPhasePath(29, 39, 24, phase);
+  const lightPath = halloweenMoon ? "full" : moonPhasePath(29, 39, 24, phase);
+  const litFill = halloweenMoon ? "#f5a142" : "#f0e6c8";
 
   // Der unbeleuchtete Mondteil braucht auf hellem und dunklem Hintergrund
   // unterschiedliche Farben: auf Dunkel darf er kräftig dunkel sein (wirkt
@@ -1816,7 +1888,9 @@ function renderMoon(cfg, hass, hostEl) {
   // clipPath auf den jeweils beleuchteten Bereich begrenzt, damit sie
   // bei jeder Phase (nicht nur Vollmond) nur dort auftauchen, wo gerade
   // wirklich Licht drauf fällt.
-  const craterStyle = `fill="#cfbf8c" stroke="#b09d68" stroke-width="0.7"`;
+  const craterStyle = halloweenMoon
+    ? `fill="#d9822b" stroke="#b8651a" stroke-width="0.7"`
+    : `fill="#cfbf8c" stroke="#b09d68" stroke-width="0.7"`;
   const cratersSvg = `
     <circle cx="20" cy="29" r="4" ${craterStyle}/>
     <circle cx="37" cy="44" r="3" ${craterStyle}/>
@@ -1833,7 +1907,8 @@ function renderMoon(cfg, hass, hostEl) {
     moonSvg = `<circle cx="29" cy="39" r="24" fill="${unlitFill}" stroke="${unlitStroke}" stroke-width="1"/>`;
   } else if (lightPath === "full") {
     moonSvg = `
-      <circle cx="29" cy="39" r="24" fill="#f0e6c8" stroke="${unlitStroke}" stroke-width="1"/>
+      ${halloweenMoon ? `<circle cx="29" cy="39" r="31" fill="#ff8a1e" opacity="0.18"/><circle cx="29" cy="39" r="27.5" fill="#ff8a1e" opacity="0.22"/>` : ""}
+      <circle cx="29" cy="39" r="24" fill="${litFill}" stroke="${halloweenMoon ? "#c96a1a" : unlitStroke}" stroke-width="1"/>
       ${cratersSvg}
     `;
   } else {
@@ -1924,6 +1999,8 @@ function renderOwl(cfg, hass, hostEl) {
   const opacity = getOpacityValue(cfg.opacity_preset || "medium");
   const isHigh = (cfg.opacity_preset || "medium") === "high";
   const finalOpacity = isHigh ? 1 : opacity;
+  // 🎃 An Halloween trägt die Eule einen Hexenhut (dreht sich mit dem Kopf).
+  const witchHat = isHalloweenTime(cfg, hass);
 
   const css = `
     .owl-container {
@@ -1970,7 +2047,7 @@ function renderOwl(cfg, hass, hostEl) {
   `;
   const html = `
     <div class="owl-container" style="opacity:${finalOpacity};" aria-hidden="true">
-      <svg viewBox="0 0 58 78" style="width:100%; height:100%;">
+      <svg viewBox="0 0 58 78" style="width:100%; height:100%; overflow:visible;">
         <g transform="translate(1,2.133) scale(0.4667)">
         <path d="M92,10 A14,14 0 1,0 92,38 A11,11 0 1,1 92,10 Z" fill="#f4ecd8" opacity="0.8"/>
         <path d="M0,112 Q60,102 120,112 L120,120 Q60,110 0,120 Z" fill="#5a3d24"/>
@@ -2001,6 +2078,11 @@ function renderOwl(cfg, hass, hostEl) {
           <circle class="owl-eye-lid left" cx="48" cy="46" r="13" fill="#8a6238"/>
           <circle class="owl-eye-lid right" cx="72" cy="46" r="13" fill="#8a6238"/>
           <path d="M54,56 L66,56 L60,66 Z" fill="#e8952a"/>
+          ${witchHat ? `
+          <path d="M40,22 L56,-22 Q60,-30 74,-26 Q62,-22 66,-12 L80,22 Z" fill="#1f1a2a" stroke="#000" stroke-width="2"/>
+          <path d="M43,15 L77,15 L79,21 L41,21 Z" fill="#8a2a8a"/>
+          <rect x="56" y="14" width="8" height="8" fill="#ffd23f" stroke="#a87a10" stroke-width="1"/>
+          <ellipse cx="60" cy="22" rx="32" ry="6" fill="#1f1a2a" stroke="#000" stroke-width="2"/>` : ""}
         </g>
         </g>
       </svg>
@@ -2372,6 +2454,316 @@ function renderBirthday(cfg, hass, hostEl) {
   return { css: css + (lightsPart ? "\n" + lightsPart.css : ""), html };
 }
 
+/* ============================== HALLOWEEN ============================== */
+
+// 🎃 Kürbisse mit flackerndem Kerzenlicht. Stehen fest unten in den Ecken
+// (links und rechts), damit sie nicht mitten im Bild stören. Das Flackern
+// läuft endlos und unregelmäßig - pro Kürbis mit eigener Dauer, damit
+// nicht alle im Gleichtakt zucken.
+const PUMPKIN_SPOTS = [
+  { side: "left", pos: 1, size: 66, flicker: 1.9, delay: -0.3 },
+  { side: "right", pos: 1, size: 70, flicker: 2.3, delay: -1.1 },
+  { side: "right", pos: 7, size: 50, flicker: 1.6, delay: -0.7 },
+  { side: "left", pos: 6.5, size: 48, flicker: 2.1, delay: -1.6 },
+  { side: "right", pos: 12, size: 40, flicker: 1.8, delay: -0.2 },
+  { side: "left", pos: 11, size: 38, flicker: 2.5, delay: -0.9 },
+  { side: "right", pos: 16, size: 34, flicker: 2.0, delay: -1.3 },
+];
+
+// Gesicht: große Dreiecks-Augen, Nase, breiter Mund mit zwei Zähnen.
+// Wird zweimal gezeichnet - dunkel mit dickem Rand, darüber gelb leuchtend.
+const PUMPKIN_FACE = `
+  <path d="M13,27 L26,27 L19.5,14 Z"/>
+  <path d="M38,27 L51,27 L44.5,14 Z"/>
+  <path d="M29,34 L35,34 L32,29 Z"/>
+  <path d="M10,36 Q32,60 54,36 Q47,41 43,39 L41,45 L37,40.5 Q32,41.5 27,40.5 L23,45 L21,39 Q17,41 10,36 Z"/>
+`;
+
+// Nur die Zeichnung (ohne <svg>-Rahmen) - so passt sie auch in den Zug-Waggon.
+function pumpkinShapes(face = true) {
+  return `
+      <path d="M30,10 Q29,2 35,0 L37,3 Q33,5 34,10 Z" fill="#4a6b22" stroke="#2e4515" stroke-width="1.2"/>
+      <path d="M36,4 Q44,0 47,6 Q41,5 37,8" fill="#5f8a2a"/>
+      <ellipse cx="18" cy="33" rx="15" ry="20" fill="#e8741c" stroke="#a84a0c" stroke-width="1.6"/>
+      <ellipse cx="46" cy="33" rx="15" ry="20" fill="#e8741c" stroke="#a84a0c" stroke-width="1.6"/>
+      <ellipse cx="32" cy="33" rx="15" ry="22" fill="#f28c28" stroke="#a84a0c" stroke-width="1.6"/>
+      ${face ? `
+      <g class="pk-face-dark" fill="#2a0e00" stroke="#2a0e00" stroke-width="3" stroke-linejoin="round">${PUMPKIN_FACE}</g>
+      <g class="pk-face-glow" fill="#ffd23f">${PUMPKIN_FACE}</g>` : ""}`;
+}
+
+function pumpkinSvg(face = true) {
+  return `<svg viewBox="0 0 64 56" style="width:100%; height:100%; overflow:visible;">${pumpkinShapes(face)}</svg>`;
+}
+
+function renderPumpkins(cfg, hass, hostEl, finalOpacity) {
+  const count = { low: 3, medium: 5, high: 7 }[cfg.count_preset || "medium"] || 5;
+  const spots = PUMPKIN_SPOTS.slice(0, count);
+  const css = `
+    .pumpkin-container {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 9999; overflow: hidden;
+    }
+    .pumpkin { position: absolute; bottom: 0.5vh; }
+    .pk-glow {
+      position: absolute; left: 10%; top: 25%; width: 80%; height: 70%;
+      border-radius: 50%;
+      background: radial-gradient(closest-side, rgba(255,200,70,0.35), rgba(255,140,20,0) 100%);
+      animation-name: pk-glow-flicker; animation-iteration-count: infinite; animation-timing-function: steps(1);
+    }
+    .pk-face-glow {
+      animation-name: pk-flicker; animation-iteration-count: infinite; animation-timing-function: steps(1);
+    }
+    @keyframes pk-flicker {
+      0% { opacity: 1; } 11% { opacity: 0.72; } 17% { opacity: 0.95; } 29% { opacity: 0.6; }
+      36% { opacity: 1; } 52% { opacity: 0.82; } 58% { opacity: 0.55; } 64% { opacity: 0.9; }
+      79% { opacity: 0.7; } 86% { opacity: 1; } 93% { opacity: 0.78; } 100% { opacity: 1; }
+    }
+    @keyframes pk-glow-flicker {
+      0% { opacity: 0.9; } 11% { opacity: 0.5; } 17% { opacity: 0.8; } 29% { opacity: 0.35; }
+      36% { opacity: 0.95; } 52% { opacity: 0.6; } 58% { opacity: 0.3; } 64% { opacity: 0.75; }
+      79% { opacity: 0.45; } 86% { opacity: 1; } 93% { opacity: 0.55; } 100% { opacity: 0.9; }
+    }
+  `;
+  const html = `
+    <div class="pumpkin-container" style="opacity:${finalOpacity};" aria-hidden="true">
+      ${spots.map((p) => `
+        <div class="pumpkin" style="${p.side}:${p.pos}vw; width:${p.size}px; height:${Math.round(p.size * 0.875)}px;">
+          <div style="position:absolute; inset:0;">
+            ${pumpkinSvg(true).replace('class="pk-face-glow"', `class="pk-face-glow" style="animation-duration:${p.flicker}s; animation-delay:${p.delay}s;"`)}
+          </div>
+          <div class="pk-glow" style="animation-duration:${p.flicker}s; animation-delay:${p.delay}s;"></div>
+        </div>`).join("")}
+    </div>`;
+  return { css, html };
+}
+
+// 👻 Gespenst: schwebt periodisch von links nach rechts durchs Bild.
+// Etwa in der Mitte bleibt es kurz stehen, dreht sich um und ruft "Buh!".
+// Startzeit wie bei allen Figuren aus der absoluten Uhrzeit (übersteht
+// jedes Neu-Rendern), alle Zwischenschritte als Anteil der Flugdauer.
+function renderGhost(cfg, hass, hostEl, finalOpacity) {
+  const interval = { low: 180, medium: 120, high: 70 }[cfg.count_preset || "medium"] || 120;
+  const f = Math.min(30, (PERIODIC_FLIGHT_SEC.ghost / interval) * 100);
+  const delaySec = periodicDelaySec(interval, "ghost");
+  const at = (frac) => (f * frac).toFixed(3);
+
+  const css = `
+    .ghost-container {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 9999; overflow: hidden;
+    }
+    .ghost-box {
+      position: absolute; top: 34vh; left: -110px; width: 72px; height: 86px;
+      animation: ghost-float ${interval}s linear infinite; animation-delay: ${delaySec}s; will-change: transform;
+    }
+    @keyframes ghost-float {
+      0% { transform: translate(0, 0); }
+      ${at(0.22)}% { transform: translate(calc((100vw + 220px) * 0.22), -5vh); }
+      ${at(0.45)}% { transform: translate(calc((100vw + 220px) * 0.45), 1vh); }
+      ${at(0.62)}% { transform: translate(calc((100vw + 220px) * 0.45), 1vh); }
+      ${at(0.8)}% { transform: translate(calc((100vw + 220px) * 0.75), -4vh); }
+      ${at(1)}% { transform: translate(calc(100vw + 220px), 0); }
+      100% { transform: translate(calc(100vw + 220px), 0); }
+    }
+    .ghost-bob { width: 100%; height: 100%; animation: ghost-bob 2.6s ease-in-out infinite alternate; }
+    @keyframes ghost-bob { 0% { transform: translateY(0); } 100% { transform: translateY(-9px); } }
+    .ghost-turn {
+      width: 100%; height: 100%;
+      animation: ghost-turn ${interval}s linear infinite; animation-delay: ${delaySec}s;
+    }
+    @keyframes ghost-turn {
+      0%, ${at(0.47)}% { transform: scaleX(1); }
+      ${at(0.49)}%, ${at(0.59)}% { transform: scaleX(-1); }
+      ${at(0.61)}%, 100% { transform: scaleX(1); }
+    }
+    .ghost-boo {
+      position: absolute; left: -58px; top: -30px; width: 66px; height: 40px;
+      transform-origin: 85% 100%;
+      animation: ghost-boo ${interval}s linear infinite; animation-delay: ${delaySec}s;
+    }
+    @keyframes ghost-boo {
+      0%, ${at(0.49)}% { opacity: 0; transform: scale(0.3); }
+      ${at(0.51)}% { opacity: 1; transform: scale(1.12); }
+      ${at(0.53)}% { opacity: 1; transform: scale(1); }
+      ${at(0.58)}% { opacity: 1; transform: scale(1); }
+      ${at(0.6)}%, 100% { opacity: 0; transform: scale(0.3); }
+    }
+  `;
+  const html = `
+    <div class="ghost-container" style="opacity:${finalOpacity};" aria-hidden="true">
+      <div class="ghost-box">
+        <div class="ghost-bob">
+          <div class="ghost-turn">
+            <svg viewBox="0 0 60 72" style="width:100%; height:100%; overflow:visible;">
+              <path d="M8,66 L8,30 Q8,4 30,4 Q52,4 52,30 L52,66 Q47,60 42,66 Q37,72 32,66 Q27,60 22,66 Q17,72 12,66 Q10,63 8,66 Z"
+                    fill="#9aa3b5" opacity="0.35" transform="translate(2,3)"/>
+              <path d="M8,66 L8,30 Q8,4 30,4 Q52,4 52,30 L52,66 Q47,60 42,66 Q37,72 32,66 Q27,60 22,66 Q17,72 12,66 Q10,63 8,66 Z"
+                    fill="#f7f8ff" stroke="#9aa3b5" stroke-width="1.6"/>
+              <path d="M8,36 Q0,40 2,48 Q6,44 9,44" fill="#f7f8ff" stroke="#9aa3b5" stroke-width="1.4"/>
+              <path d="M52,36 Q60,38 59,46 Q55,43 51,44" fill="#f7f8ff" stroke="#9aa3b5" stroke-width="1.4"/>
+              <ellipse cx="25" cy="26" rx="4" ry="5.5" fill="#1a1a2a"/>
+              <ellipse cx="38" cy="26" rx="4" ry="5.5" fill="#1a1a2a"/>
+              <circle cx="26.3" cy="24" r="1.3" fill="#ffffff"/>
+              <circle cx="39.3" cy="24" r="1.3" fill="#ffffff"/>
+              <ellipse cx="32" cy="40" rx="4.5" ry="6" fill="#1a1a2a"/>
+              <ellipse cx="18" cy="34" rx="3.5" ry="2" fill="#ffb3c6" opacity="0.7"/>
+              <ellipse cx="45" cy="34" rx="3.5" ry="2" fill="#ffb3c6" opacity="0.7"/>
+            </svg>
+          </div>
+          <div class="ghost-boo">
+            <svg viewBox="0 0 66 40" style="width:100%; height:100%; overflow:visible;">
+              <path d="M6,4 Q2,4 2,8 L2,26 Q2,30 6,30 L44,30 L56,38 L52,30 L60,30 Q64,30 64,26 L64,8 Q64,4 60,4 Z"
+                    fill="#ffffff" stroke="#1a1a2a" stroke-width="1.8"/>
+              <text x="33" y="23" font-size="17" font-family="Georgia, serif" font-weight="bold" fill="#1a1a2a" text-anchor="middle">Buh!</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  return { css, html };
+}
+
+// 🧙 Hexe auf dem Besen: fliegt periodisch von links nach rechts oben
+// durchs Bild (wie der Weihnachtsmann, nur andersrum). Etwa jeder dritte
+// Flug: der Hut weht ihr vom Kopf und trudelt nach unten.
+function renderWitch(cfg, hass, hostEl, finalOpacity) {
+  const interval = { low: 340, medium: 210, high: 100 }[cfg.count_preset || "medium"] || 210;
+  const f = Math.min(30, (PERIODIC_FLIGHT_SEC.witch / interval) * 100);
+  const delaySec = periodicDelaySec(interval, "witch");
+  const losesHat = periodicCycle(interval, "witch") % 3 === 0;
+  const at = (frac) => (f * frac).toFixed(3);
+
+  const css = `
+    .witch-container {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 9999; overflow: hidden;
+    }
+    .witch-box {
+      position: absolute; top: 13vh; left: -200px; width: 170px; height: 90px;
+      animation: witch-fly ${interval}s linear infinite; animation-delay: ${delaySec}s; will-change: transform;
+    }
+    @keyframes witch-fly {
+      0% { transform: translate(0, 4vh) rotate(-4deg); }
+      ${at(0.25)}% { transform: translate(calc((100vw + 380px) * 0.25), -2vh) rotate(-8deg); }
+      ${at(0.5)}% { transform: translate(calc((100vw + 380px) * 0.5), 3vh) rotate(-2deg); }
+      ${at(0.75)}% { transform: translate(calc((100vw + 380px) * 0.75), -3vh) rotate(-9deg); }
+      ${at(1)}% { transform: translate(calc(100vw + 380px), 0) rotate(-5deg); }
+      100% { transform: translate(calc(100vw + 380px), 0) rotate(-5deg); }
+    }
+    .witch-cape { animation: witch-cape 0.5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 100% 0%; }
+    @keyframes witch-cape { 0% { transform: rotate(0deg) scaleX(1); } 100% { transform: rotate(6deg) scaleX(0.9); } }
+    ${losesHat ? `
+    .witch-hat {
+      transform-box: fill-box; transform-origin: center;
+      animation: witch-hat-fall ${interval}s linear infinite; animation-delay: ${delaySec}s;
+    }
+    @keyframes witch-hat-fall {
+      0%, ${at(0.4)}% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+      ${at(0.5)}% { transform: translate(-60px, 10px) rotate(-70deg); opacity: 1; }
+      ${at(0.72)}% { transform: translate(-150px, 120px) rotate(-260deg); opacity: 1; }
+      ${at(0.8)}% { transform: translate(-190px, 170px) rotate(-320deg); opacity: 0; }
+      100% { transform: translate(-190px, 170px) rotate(-320deg); opacity: 0; }
+    }` : ""}
+  `;
+  const html = `
+    <div class="witch-container" style="opacity:${finalOpacity};" aria-hidden="true">
+      <div class="witch-box">
+        <svg viewBox="0 0 170 90" style="width:100%; height:100%; overflow:visible;">
+          <!-- Besen -->
+          <path d="M28,70 L160,52" stroke="#7a4a22" stroke-width="4" stroke-linecap="round"/>
+          <path d="M30,68 Q12,62 0,58 Q4,70 2,82 Q14,78 30,74 Z" fill="#e0b450" stroke="#9a7420" stroke-width="1.5"/>
+          <path d="M28,68 L6,62 M28,71 L4,70 M29,73 L6,78" stroke="#9a7420" stroke-width="1.2"/>
+          <rect x="27" y="66" width="6" height="9" rx="1.5" fill="#8a2a8a" transform="rotate(-8 30 70)"/>
+          <!-- Umhang -->
+          <path class="witch-cape" d="M88,34 Q60,40 46,58 Q62,54 70,60 Q78,52 92,52 Z" fill="#6a2a8a" stroke="#3a1050" stroke-width="1.4"/>
+          <!-- Kleid / Körper -->
+          <path d="M84,30 Q76,48 80,62 L108,60 Q106,44 98,30 Z" fill="#1f1a2a" stroke="#000" stroke-width="1.4"/>
+          <!-- Beine & Stiefel -->
+          <path d="M98,60 L112,70" stroke="#5a2a7a" stroke-width="4" stroke-linecap="round"/>
+          <path d="M110,66 L120,70 L118,74 L108,72 Z" fill="#1a1a1a"/>
+          <!-- Arme zum Besen -->
+          <path d="M96,38 Q110,46 120,58" stroke="#1f1a2a" stroke-width="5" stroke-linecap="round" fill="none"/>
+          <circle cx="121" cy="58" r="3.5" fill="#7cc04a" stroke="#3f7a1f" stroke-width="1"/>
+          <!-- Kopf -->
+          <path d="M84,22 Q78,30 80,40 M86,24 Q82,32 84,40" stroke="#ff8a1e" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+          <circle cx="92" cy="22" r="9.5" fill="#7cc04a" stroke="#3f7a1f" stroke-width="1.4"/>
+          <path d="M100,22 L106,25 L100,26 Z" fill="#7cc04a" stroke="#3f7a1f" stroke-width="1"/>
+          <circle cx="96" cy="20" r="1.5" fill="#1a1a1a"/>
+          <path d="M93,27 Q96,29 99,27" stroke="#1a1a1a" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          <!-- Hut -->
+          <g class="witch-hat">
+            <ellipse cx="91" cy="14" rx="15" ry="3.5" fill="#1f1a2a" stroke="#000" stroke-width="1.2"/>
+            <path d="M82,14 L88,-10 Q90,-16 80,-20 Q94,-18 96,-8 L100,14 Z" fill="#1f1a2a" stroke="#000" stroke-width="1.2"/>
+            <path d="M83.5,10 L99,10 L99.5,13 L83,13 Z" fill="#8a2a8a"/>
+            <rect x="89" y="9.5" width="4" height="4" fill="#ffd23f"/>
+          </g>
+        </svg>
+      </div>
+    </div>`;
+  return { css, html };
+}
+
+// 🕸️ Spinnweben in beiden oberen Ecken, an der linken hängt eine kleine
+// Spinne, die sich gemütlich auf und ab bewegt.
+function renderHalloweenWebs(cfg, hass, hostEl, finalOpacity) {
+  const webColor = resolveDynamicColor(cfg.color, hass, "#000000", "#ffffff", hostEl);
+  const webSvg = buildCornerWebSvg(6, 4);
+  const css = `
+    .hw-web-container {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 9998; overflow: hidden; color: ${webColor};
+    }
+    .hw-web { position: absolute; top: 0; width: 150px; height: 150px; opacity: 0.6; }
+    .hw-web.right { right: 0; }
+    .hw-web.left { left: 0; transform: scaleX(-1); }
+    .hw-spider {
+      position: absolute; top: 0; left: 96px; width: 16px; height: 16px;
+      animation: hw-spider-drop 9s ease-in-out infinite; will-change: transform;
+    }
+    .hw-thread { position: absolute; bottom: 50%; left: 50%; width: 1px; height: 400px; background: ${webColor}; opacity: 0.6; }
+    @keyframes hw-spider-drop {
+      0%, 100% { transform: translateY(40px); }
+      45%, 60% { transform: translateY(120px); }
+    }
+  `;
+  const html = `
+    <div class="hw-web-container" style="opacity:${finalOpacity};" aria-hidden="true">
+      <svg class="hw-web right" viewBox="0 0 100 100">${webSvg}</svg>
+      <svg class="hw-web left" viewBox="0 0 100 100">${webSvg}</svg>
+      <div class="hw-spider">
+        <div class="hw-thread"></div>
+        <svg viewBox="0 0 40 40" style="position:absolute; inset:0; width:100%; height:100%; overflow:visible;">
+          <path d="M14,16 Q6,10 2,4 M14,20 Q5,20 0,18 M14,24 Q6,28 2,34 M26,16 Q34,10 38,4 M26,20 Q35,20 40,18 M26,24 Q34,28 38,34"
+                stroke="#111" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+          <ellipse cx="20" cy="22" rx="8" ry="9" fill="#111"/>
+          <circle cx="20" cy="12" r="5.5" fill="#111"/>
+          <circle cx="18" cy="11" r="1.4" fill="#ff7a1a"/>
+          <circle cx="22" cy="11" r="1.4" fill="#ff7a1a"/>
+        </svg>
+      </div>
+    </div>`;
+  return { css, html };
+}
+
+// 🎃 Sammel-Effekt "Halloween": Kürbisse, Gespenst, Hexe, Spinnweben und
+// Fledermäuse - jeder Teil im Editor einzeln an- und abwählbar.
+function renderHalloween(cfg, hass, hostEl) {
+  const opacity = getOpacityValue(cfg.opacity_preset || "medium");
+  const isHigh = (cfg.opacity_preset || "medium") === "high";
+  const finalOpacity = isHigh ? 1 : opacity;
+  const parts = [];
+  if (cfg.halloween_webs !== false) parts.push(renderHalloweenWebs(cfg, hass, hostEl, finalOpacity));
+  if (cfg.halloween_bats !== false) parts.push(renderBats(cfg, hass, hostEl));
+  if (cfg.halloween_witch !== false) parts.push(renderWitch(cfg, hass, hostEl, finalOpacity));
+  if (cfg.halloween_ghost !== false) parts.push(renderGhost(cfg, hass, hostEl, finalOpacity));
+  if (cfg.halloween_pumpkins !== false) parts.push(renderPumpkins(cfg, hass, hostEl, finalOpacity));
+  return {
+    css: parts.map((p) => p.css).join("\n"),
+    html: parts.map((p) => p.html).join("\n"),
+  };
+}
+
 // Sammel-Effekt "Nachthimmel": bündelt Sternschnuppen, Wunschstern und
 // Komet. Welche Bestandteile laufen, wird im Editor angekreuzt. Der
 // Sternenhimmel selbst gehört bewusst NICHT dazu, der kommt weiterhin
@@ -2418,6 +2810,7 @@ const RENDERERS = {
   bats: renderBats,
   bee: renderBee,
   birthday: renderBirthday,
+  halloween: renderHalloween,
 };
 
 /* ============================== HAUPT-KARTE ============================== */
@@ -2596,6 +2989,12 @@ class AmbientOverlayCard extends HTMLElement {
       night_shooting_stars: true,
       night_wishstar: true,
       night_comet: true,
+      halloween_pumpkins: true,
+      halloween_ghost: true,
+      halloween_witch: true,
+      halloween_webs: true,
+      halloween_bats: true,
+      halloween_sensor: "",
       santa_sensor: "",
       dinner_sensor: "",
       person_entities: "",
@@ -2639,6 +3038,11 @@ class AmbientOverlayCard extends HTMLElement {
     const guestEntity = this._config?.custom_wagon_entity;
     const oldGuestState = guestEntity ? this._hass?.states?.[guestEntity]?.state : undefined;
 
+    // 🎃 Halloween-Look: Schalter UND Datum (31.10.) beobachten. Das Datum
+    // wird bei jedem Update aus Home Assistant neu geprüft - so wechselt
+    // der Look um Mitternacht von selbst, ohne die Seite neu zu laden.
+    const oldHalloween = this._lastHalloween;
+
     this._hass = hass;
     const newWeatherState = weatherEntity ? hass?.states?.[weatherEntity]?.state : undefined;
     const newSantaState = santaEntity ? hass?.states?.[santaEntity]?.state : undefined;
@@ -2647,9 +3051,12 @@ class AmbientOverlayCard extends HTMLElement {
     const newGuestState = guestEntity ? hass?.states?.[guestEntity]?.state : undefined;
     const newPersonStates = personEntitiesForWatch.map((eid) => hass?.states?.[eid]?.state);
     const personsChanged = oldPersonStates.some((s, i) => s !== newPersonStates[i]);
+    const newHalloween = isHalloweenTime(this._config, hass);
+    this._lastHalloween = newHalloween;
+    const halloweenChanged = oldHalloween !== undefined && oldHalloween !== newHalloween;
 
     const weatherChanged = oldWeatherState !== newWeatherState;
-    const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged;
+    const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged || halloweenChanged;
 
     // Sanftes Ausblenden nur bei einer ECHTEN automatischen Wetteränderung
     // (nicht beim allerersten Rendern - da gibt's ja noch nichts, von dem
@@ -2910,6 +3317,12 @@ class AmbientOverlayCardEditor extends HTMLElement {
       night_shooting_stars: true,
       night_wishstar: true,
       night_comet: true,
+      halloween_pumpkins: true,
+      halloween_ghost: true,
+      halloween_witch: true,
+      halloween_webs: true,
+      halloween_bats: true,
+      halloween_sensor: "",
       santa_sensor: "",
       dinner_sensor: "",
       person_entities: "",
@@ -2962,6 +3375,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
     const isNightSky = c.event === "night_sky";
     const isTrain = c.event === "train";
     const isDog = c.event === "dog";
+    const isHalloween = c.event === "halloween";
+    // Halloween-Schalter gibt's überall, wo sich etwas verkleidet
+    const hasHalloweenLook = ["train", "dog", "owl_birdhouse", "weather_auto"].includes(c.event);
 
     const weatherEntities = this._hass && this._hass.states
       ? Object.keys(this._hass.states).filter((eid) => eid.startsWith("weather."))
@@ -2994,6 +3410,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
             <option value="night_sky" ${c.event === "night_sky" ? "selected" : ""}>🌠 Nachthimmel</option>
             <option value="owl_birdhouse" ${c.event === "owl_birdhouse" ? "selected" : ""}>🦉🐦 Eule &amp; Vogelhäuschen</option>
             <option value="birthday" ${isBirthday ? "selected" : ""}>🎂 Geburtstags-Modus</option>
+            <option value="halloween" ${isHalloween ? "selected" : ""}>🎃 Halloween</option>
             <option value="leaves" ${c.event === "leaves" ? "selected" : ""}>🍂 Laub</option>
             <option value="santa" ${c.event === "santa" ? "selected" : ""}>🎅 Weihnachtsmann</option>
             <option value="train" ${c.event === "train" ? "selected" : ""}>🚂 Dampflok</option>
@@ -3022,6 +3439,28 @@ class AmbientOverlayCardEditor extends HTMLElement {
             ).join("")}
           </div>
         `, "Einzeln an- und abwählbar. Der Sternenhimmel selbst läuft weiterhin automatisch bei klarer Nacht über die Wetter-Automatik.") : ""}
+
+        ${isHalloween ? this._row("Was soll gezeigt werden?", `
+          <div style="border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:8px;">
+            ${[["halloween_pumpkins","Kürbisse"],["halloween_ghost","Gespenst"],["halloween_witch","Hexe auf dem Besen"],["halloween_webs","Spinnweben"],["halloween_bats","Fledermäuse"]].map(([key,label]) =>
+              `<label style="display:flex; align-items:center; gap:6px; padding:3px 0; cursor:pointer;"><input type="checkbox" class="part-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""} /> ${label}</label>`
+            ).join("")}
+          </div>
+        `, "Einzeln an- und abwählbar. Mindestens eins sollte angehakt sein, sonst bleibt der Bildschirm leer.") : ""}
+
+        ${hasHalloweenLook ? (
+          booleanEntities.length > 0
+            ? this._row("Halloween-Schalter (optional)", `
+                <select id="halloween_sensor" style="width:100%; padding:6px;">
+                  <option value="" ${!c.halloween_sensor ? "selected" : ""}>-- keiner (nur am 31. Oktober) --</option>
+                  ${booleanEntities.map((eid) => {
+                    const friendly = this._hass.states[eid]?.attributes?.friendly_name || eid;
+                    return `<option value="${eid}" ${c.halloween_sensor === eid ? "selected" : ""}>${friendly}</option>`;
+                  }).join("")}
+                </select>
+              `, "Am 31. Oktober gibt's den Halloween-Look automatisch: Kürbis-Zug, Hund mit Teufelshörnchen, Eule mit Hexenhut, oranger Vollmond. Ist dieser Schalter 'an', auch an anderen Tagen.")
+            : this._row("Halloween-Schalter (optional)", `<input id="halloween_sensor" type="text" placeholder="input_boolean.halloween" value="${c.halloween_sensor || ""}" style="width:100%; padding:6px; box-sizing:border-box;" />`, "Am 31. Oktober gibt's den Halloween-Look automatisch. Ist dieser Schalter 'an', auch an anderen Tagen.")
+        ) : ""}
 
         ${isBirthday ? this._row("Banner-Text", `
           <input id="birthday_text" type="text" value="${c.birthday_text ? c.birthday_text.replace(/"/g, "&quot;") : ""}" placeholder="Happy Birthday!" style="width:100%; padding:6px; box-sizing:border-box;" />
@@ -3162,7 +3601,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
 
     this.querySelector("#event").addEventListener("change", (e) => this._update("event", e.target.value, true));
 
-    // Ankreuzfelder der Sammel-Effekte (Geburtstag, Nachthimmel)
+    // Ankreuzfelder der Sammel-Effekte (Geburtstag, Nachthimmel, Halloween)
     this.querySelectorAll(".part-toggle").forEach((box) => {
       box.addEventListener("change", (e) => {
         this._update(e.target.dataset.key, e.target.checked, false);
@@ -3183,6 +3622,11 @@ class AmbientOverlayCardEditor extends HTMLElement {
     const santaSensorSel = this.querySelector("#santa_sensor");
     if (santaSensorSel) {
       santaSensorSel.addEventListener("change", (e) => this._update("santa_sensor", e.target.value.trim(), false));
+    }
+
+    const halloweenSensorSel = this.querySelector("#halloween_sensor");
+    if (halloweenSensorSel) {
+      halloweenSensorSel.addEventListener("change", (e) => this._update("halloween_sensor", e.target.value.trim(), false));
     }
 
     const dinnerSensorSel = this.querySelector("#dinner_sensor");
@@ -3276,7 +3720,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
     // auf dunklem Grund unsichtbar. Die Vorschau erzwingt deshalb eine
     // helle Farbe, unabhängig vom echten Dashboard-Theme.
     const caps = EVENT_CAPABILITIES[c.event] || {};
-    const previewCfg = (caps.color && (c.color_mode || "auto") === "auto")
+    // Halloween hat zwar keinen Farbmodus, Spinnweben und Fledermäuse
+    // richten sich aber trotzdem nach Hell/Dunkel - also auch hier hell.
+    const previewCfg = ((caps.color || c.event === "halloween") && (c.color_mode || "auto") === "auto")
       ? { ...c, color: "#ffffff" }
       : c;
     const { css, html } = renderer(previewCfg, this._hass, this);
