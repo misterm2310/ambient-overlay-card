@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.12-beta.1";
+const CARD_VERSION = "1.0.12-beta.2";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -471,7 +471,6 @@ const EVENT_CAPABILITIES = {
   spider: { count: false, opacity: true, color: true },
   dog: { count: true, opacity: true, color: false },
   train: { count: true, opacity: true, color: false },
-  bats: { count: true, opacity: true, color: true },
   owl_birdhouse: { count: true, opacity: true, color: false },
   bee: { count: true, opacity: true, color: false },
   birthday: { count: true, opacity: true, color: false },
@@ -2807,7 +2806,6 @@ const RENDERERS = {
   spider: renderSpider,
   dog: renderDog,
   train: renderTrain,
-  bats: renderBats,
   bee: renderBee,
   birthday: renderBirthday,
   halloween: renderHalloween,
@@ -3416,7 +3414,6 @@ class AmbientOverlayCardEditor extends HTMLElement {
             <option value="train" ${c.event === "train" ? "selected" : ""}>🚂 Dampflok</option>
             <option value="dog" ${c.event === "dog" ? "selected" : ""}>🐕 Goldener Labrador</option>
             <option value="spider" ${c.event === "spider" ? "selected" : ""}>🕷️ Spinne mit Netz</option>
-            <option value="bats" ${c.event === "bats" ? "selected" : ""}>🦇 Fledermäuse</option>
             <option value="bee" ${c.event === "bee" ? "selected" : ""}>🐝 Bienen</option>
           </select>
         `, isWeatherAuto

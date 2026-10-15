@@ -29,7 +29,7 @@
 | 🎃 **Halloween** | Flackernde Kürbis-Laternen, ein Gespenst, das „Buh!“ ruft, eine Hexe auf dem Besen (verliert ab und zu den Hut), Spinnweben und Fledermäuse – jedes Teil einzeln an- und abwählbar. |
 | 👻 **Halloween-Look** | Am 31. Oktober ganz von selbst (oder per Schalter): Zug mit Kürbissen, Hexenkessel, Sarg und Süßigkeiten, Labrador mit Teufelshörnchen, Eule mit Hexenhut und ein oranger Vollmond. |
 | 🎅 **Weihnachtsmann** | Fliegt mit Schlitten und Rentieren vorbei und verliert ab und zu ein Geschenk. |
-| 🕷️🦇🐝🍂 **Noch mehr Tiere & Deko** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen), Fledermäuse, Bienenschwarm und Herbstlaub. |
+| 🕷️🐝🍂 **Noch mehr Tiere & Deko** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen), Bienenschwarm und Herbstlaub. |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
 | 🌫️ **Sanft statt hart** | Wechselt das Wetter von selbst, blendet der alte Effekt weich aus. |
 | 👁️ **Live-Vorschau** | Der Editor zeigt oben eine kleine Vorschau und blendet nur die Regler ein, die beim gewählten Effekt etwas tun. |
@@ -37,7 +37,7 @@
 | 🔋 **Akku-schonend** | Fast alles läuft über CSS (Grafikkarte). Ist der Tab im Hintergrund, pausieren die Animationen. |
 | 🎯 **Immer obendrauf** | Die Effekte liegen in einer eigenen Ebene über allem – auch über anderen Karten mit eigenen Animationen. |
 
-**12 Effekte zum Auswählen** plus die Wetter-Automatik mit 10 weiteren (Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne, Sonne, Mond). Pro Effekt eine Karte – du kannst also mehrere Karten gleichzeitig laufen lassen, z. B. Wetter-Automatik **und** Dampflok **und** Eule.
+**11 Effekte zum Auswählen** plus die Wetter-Automatik mit 10 weiteren (Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne, Sonne, Mond). Pro Effekt eine Karte – du kannst also mehrere Karten gleichzeitig laufen lassen, z. B. Wetter-Automatik **und** Dampflok **und** Eule.
 
 ---
 
@@ -108,7 +108,7 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor:
 Gut zu wissen:
 * Bei **Weihnachtsmann, Hund, Dampflok, Vogelhäuschen, Komet und Laub** heißt „Anzahl“ nicht *wie viele*, sondern *wie oft* etwas vorbeikommt.
 * Bei **Halloween** steuert „Anzahl“ beides: wie viele Kürbisse und Fledermäuse, und wie oft Hexe und Gespenst vorbeikommen.
-* Bei **Fledermäusen, Bienen, Wolken und Geburtstag** ist „Anzahl“ eine ganz normale Menge.
+* Bei **Bienen, Wolken und Geburtstag** ist „Anzahl“ eine ganz normale Menge.
 * Die **Spinne** gibt es nur einmal, da gibt's keinen Anzahl-Regler.
 * **Weihnachtsmann, Hund, Dampflok, Eule & Vogelhäuschen, Laub, Bienen, Geburtstag und Halloween** haben feste Farben, also keinen Farbmodus.
 
@@ -154,7 +154,6 @@ Anzahl, Deckkraft und Farbmodus gelten bei der Automatik für **alle** Wetter-Ef
 | `train` | 🚂 Dampflok mit Waggons, Familie, Gästen und Schlusswagen |
 | `dog` | 🐕 Goldener Labrador (optional Schütteln bei Regen) |
 | `spider` | 🕷️ Spinne im Netz mit roten Augen |
-| `bats` | 🦇 Fledermausschwarm, passend zum Theme eingefärbt |
 | `bee` | 🐝 Bienenschwarm im Zickzack |
 
 <details><summary>📋 YAML-Beispiele</summary>
@@ -235,13 +234,6 @@ event: spider
 color_mode: auto
 ```
 
-**Fledermäuse**
-```yaml
-type: custom:ambient-overlay-card
-event: bats
-opacity_preset: high
-```
-
 **Bienen**
 ```yaml
 type: custom:ambient-overlay-card
@@ -271,7 +263,7 @@ Alles geht im visuellen Editor. Für YAML-Fans:
 | `count_preset` | `medium` | `low`, `medium` oder `high` – wie viele bzw. wie oft |
 | `opacity_preset` | `medium` | `low`, `medium` oder `high` – wie kräftig. Bei `high` wird jeder Effekt spürbar kräftiger |
 | `color_mode` | `auto` | `auto` = passend zum Theme, `custom` = feste Farbe |
-| `color` | `auto` | eigene Farbe (Hex) für Nachthimmel, Fledermäuse, Spinnennetz und die Wetter-Effekte |
+| `color` | `auto` | eigene Farbe (Hex) für Nachthimmel, Spinnennetz und die Wetter-Effekte |
 | `weather_entity` | – | `weather.*`-Entity für die Automatik, beim Hund fürs Schütteln |
 | `birthday_text` | `Happy Birthday!` | Text auf der Wimpelkette (wird gegen Schadcode abgesichert) |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Teile des Geburtstags-Modus einzeln an/aus |
