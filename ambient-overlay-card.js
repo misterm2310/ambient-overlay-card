@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.14-beta.1";
+const CARD_VERSION = "1.0.14-beta.2";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -2849,7 +2849,9 @@ const STATE_LABELS = {
   on: "an", off: "aus", home: "zuhause", not_home: "unterwegs",
   above_horizon: "über dem Horizont", below_horizon: "unter dem Horizont",
   unavailable: "nicht verfügbar", unknown: "unbekannt",
-  playing: "spielt", paused: "pausiert", idle: "untätig", standby: "Standby",
+  playing: "spielt", paused: "pausiert", idle: "untätig", standby: "Standby", buffering: "puffert",
+  opening: "öffnet", closing: "schließt", heat: "heizen", cool: "kühlen", jammed: "blockiert",
+  cleaning: "reinigt", docked: "angedockt", returning: "kehrt zurück", error: "Fehler",
   open: "offen", closed: "geschlossen", locked: "verriegelt", unlocked: "entriegelt",
   spring: "Frühling", summer: "Sommer", autumn: "Herbst", winter: "Winter",
   sunny: "sonnig", "clear-night": "klare Nacht", cloudy: "bewölkt", partlycloudy: "teilweise bewölkt",
@@ -3991,7 +3993,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       return;
     }
     // Offene Suchfelder aktuell halten, ohne alles neu aufzubauen
-    this.shadowRoot.querySelectorAll(".picker-slot > ha-selector, .picker-slot > ha-entity-picker")
+    this.shadowRoot.querySelectorAll(".picker-slot > ha-selector, .picker-slot > ha-entity-picker, .state-slot > ha-selector")
       .forEach((el) => { el.hass = hass; });
     this._refreshIfChanged();
   }
@@ -4459,10 +4461,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
         + `<div style="margin-top:8px">${cseg("bool", [["on", "ist an"], ["off", "ist aus"]], isNot ? (cur[0] === "on" ? "off" : "on") : (cur[0] || "on"))}</div>`;
     }
     if (kind === "weather") {
-      const opts = WEATHER_STATE_LIST.map((s) => `<option value="${s}" ${cur.includes(s) ? "selected" : ""}>${escapeHtml(STATE_LABELS[s] || s)}</option>`).join("");
       return picker(["weather"], "Wetter suchen, z. B. weather.home")
         + `<div style="margin-top:8px">${cseg("mode", [["is", "ist"], ["not", "ist nicht"]], isNot ? "not" : "is")}</div>`
-        + `<div style="margin-top:8px"><select class="field" data-c="${key}" data-cf="value"><option value="" ${cur.length ? "" : "selected"}>– bitte wählen –</option>${opts}</select></div>`;
+        + this._stateBox(c, key);
     }
     if (kind === "numeric") {
       return picker(["sensor", "input_number", "number"], "Sensor suchen")
@@ -4470,21 +4471,63 @@ class AmbientOverlayCardEditor extends HTMLElement {
            <span class="rl" style="text-align:center">unter</span><input class="field" type="number" step="any" data-c="${key}" data-cf="below" value="${escapeHtml(c.below ?? "")}"/></div>`;
     }
     if (kind === "custom") {
-      const listId = `aoc-st-${key.replace(/[^a-z0-9]/gi, "_")}`;
       const st = eid ? this._hass?.states?.[eid] : null;
-      const sugg = new Set();
-      if (st) sugg.add(st.state);
-      const dom = eid.split(".")[0];
-      if (BOOL_DOMAINS.includes(dom)) { sugg.add("on"); sugg.add("off"); }
-      (st?.attributes?.options || []).forEach((o) => sugg.add(String(o)));
-      ["unavailable", "unknown"].forEach((s) => sugg.add(s));
       return picker([], "Entität suchen")
         + `<div style="margin-top:8px">${cseg("mode", [["is", "ist"], ["not", "ist nicht"]], isNot ? "not" : "is")}</div>`
-        + `<div style="margin-top:8px"><input class="field" type="text" list="${listId}" data-c="${key}" data-cf="value" placeholder="Zustand, z. B. on (mehrere mit Komma)" value="${escapeHtml(cur.join(", "))}"/>
-           <datalist id="${listId}">${[...sugg].map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(stateLabel(this._hass, eid, s))}</option>`).join("")}</datalist></div>`
-        + (st ? `<div class="note" style="margin-top:6px">Gerade: <b>${escapeHtml(st.state)}</b> (${escapeHtml(stateLabel(this._hass, eid, st.state))})</div>` : "");
+        + this._stateBox(c, key)
+        + (st ? `<div class="note" style="margin-top:6px">Gerade: <b>${escapeHtml(stateLabel(this._hass, eid, st.state))}</b> (${escapeHtml(st.state)})</div>` : "");
     }
     return `<div class="note">Diese Bedingung („${escapeHtml(this._condType(c))}“) wird ausgewertet, kann aber nur im YAML geändert werden.</div>`;
+  }
+
+  // Welche Zustände eine Entität haben kann (für die Knöpfe zum Antippen)
+  _possibleStates(eid) {
+    const dom = (eid || "").split(".")[0];
+    const KNOWN = {
+      media_player: ["off", "on", "playing", "paused", "idle", "standby", "buffering"],
+      person: ["home", "not_home"], device_tracker: ["home", "not_home"],
+      sun: ["above_horizon", "below_horizon"],
+      cover: ["open", "closed", "opening", "closing"],
+      lock: ["locked", "unlocked", "locking", "unlocking", "jammed"],
+      climate: ["off", "heat", "cool", "heat_cool", "auto", "dry", "fan_only"],
+      vacuum: ["cleaning", "docked", "returning", "idle", "paused", "error"],
+      weather: WEATHER_STATE_LIST,
+    };
+    const list = new Set(KNOWN[dom] || (BOOL_DOMAINS.includes(dom) ? ["on", "off"] : []));
+    const st = this._hass?.states?.[eid];
+    (st?.attributes?.options || []).forEach((o) => list.add(String(o)));
+    if (st) list.add(String(st.state));
+    ["unavailable", "unknown"].forEach((x) => list.add(x));
+    return [...list];
+  }
+
+  // Zustände auswählen: Original-Feld von HA (wird nachher eingesetzt),
+  // sonst Knöpfe zum Antippen + Feld für eigene Werte
+  _stateBox(c, key) {
+    const eid = condEntityId(c);
+    if (!eid) return `<div class="note" style="margin-top:8px">Erst oben ein Gerät wählen - dann kommen hier die Zustände zum Antippen.</div>`;
+    const want = asList(c.state), not = asList(c.state_not);
+    const cur = !want.length && not.length ? not : want;
+    const all = this._possibleStates(eid);
+    cur.forEach((v) => { if (!all.includes(v)) all.push(v); });
+    return `
+      <div class="state-slot" data-c="${key}" style="margin-top:8px">
+        <div class="lbl" style="margin-top:0">Zustand <span class="note" style="margin:0">(mehrere = eins davon reicht)</span></div>
+        <div class="chips">${all.map((v) => `<button type="button" class="chip day ${cur.includes(v) ? "on" : ""}" data-c="${key}" data-st="${escapeHtml(v)}">${escapeHtml(stateLabel(this._hass, eid, v))}</button>`).join("")}</div>
+        <input class="field" style="margin-top:8px" type="text" data-c="${key}" data-cf="addstate" placeholder="eigener Wert, z. B. 21 oder Wohnzimmer"/>
+      </div>`;
+  }
+
+  // Zustände speichern - in "state" oder "state_not", je nach ist / ist nicht
+  _setStates(c, list) {
+    const val = list.length > 1 ? list : (list[0] ?? "");
+    if (c.state_not !== undefined && c.state === undefined) c.state_not = val;
+    else { c.state = val; delete c.state_not; }
+  }
+
+  _curStates(c) {
+    const want = asList(c.state), not = asList(c.state_not);
+    return !want.length && not.length ? not : want;
   }
 
   // Neue Bedingung aus einem Baustein
@@ -4714,6 +4757,16 @@ class AmbientOverlayCardEditor extends HTMLElement {
       });
       return;
     }
+    if ((b = el("[data-st]"))) {
+      const v = b.dataset.st;
+      this._editLeaf(b.dataset.c, (c) => {
+        const cur = this._curStates(c);
+        const i = cur.indexOf(v);
+        if (i === -1) cur.push(v); else cur.splice(i, 1);
+        this._setStates(c, cur);
+      });
+      return;
+    }
     if ((b = el("[data-wd]"))) {
       const d = b.dataset.wd;
       this._editLeaf(b.dataset.c, (c) => {
@@ -4844,6 +4897,10 @@ class AmbientOverlayCardEditor extends HTMLElement {
           const max = new Date(2024, p.m, 0).getDate(); // Schaltjahr -> 29.2. möglich
           if (p.d > max) p.d = max;
           c[which] = `${pad(p.m)}-${pad(p.d)}`;
+        } else if (f === "addstate") {
+          const cur = this._curStates(c);
+          v.split(",").map((x) => x.trim()).filter(Boolean).forEach((x) => { if (!cur.includes(x)) cur.push(x); });
+          this._setStates(c, cur);
         } else if (f === "value") {
           const vals = v.split(",").map((s) => s.trim()).filter(Boolean);
           const val = vals.length > 1 ? vals : (vals[0] ?? "");
@@ -4894,6 +4951,31 @@ class AmbientOverlayCardEditor extends HTMLElement {
   }
 
   _mountPickers() {
+    // Zustände: Original-Auswahl von Home Assistant (wie bei der Sichtbarkeit)
+    if (customElements.get("ha-selector") && this._hass) {
+      this.shadowRoot.querySelectorAll(".state-slot").forEach((slot) => {
+        const key = slot.dataset.c;
+        const { scope, idxs } = this._decode(key);
+        const raw = this._raw(scope).conditions;
+        const node = this._nodeAt(JSON.parse(JSON.stringify(Array.isArray(raw) ? raw : [])), idxs);
+        const eid = condEntityId(node);
+        const el = document.createElement("ha-selector");
+        el.hass = this._hass;
+        el.selector = { state: { entity_id: eid, multiple: true } };
+        el.value = this._curStates(node);
+        el.label = "Zustand";
+        el.required = false;
+        el.style.display = "block";
+        el.addEventListener("value-changed", (e) => {
+          e.stopPropagation();
+          const v = e.detail?.value;
+          const list = (Array.isArray(v) ? v : (v ? [v] : [])).map(String);
+          this._editLeaf(key, (c) => this._setStates(c, list));
+        });
+        slot.innerHTML = "";
+        slot.appendChild(el);
+      });
+    }
     this.shadowRoot.querySelectorAll(".picker-slot").forEach((slot) => {
       const domains = slot.dataset.domains ? slot.dataset.domains.split(",").filter(Boolean) : [];
       let value, onValue, listId;
