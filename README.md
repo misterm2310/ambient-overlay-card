@@ -2,6 +2,8 @@
 
 # 🌙 Ambient Overlay Card für Home Assistant
 
+🇬🇧 **English?** → [README in English](README.en.md)
+
 **Stimmung für dein Dashboard.** Die Karte legt kleine Animationen über das ganze Dashboard: echtes Wetter, Mond und Sterne, eine Dampflok mit deiner Familie als Waggons, einen Labrador, eine Eule, Geburtstags-Ballons und vieles mehr. Alles läuft über CSS, schont den Akku und pausiert, wenn das Dashboard im Hintergrund ist.
 
 ![Vorschau – Nacht mit Eule, Mond, Sternen und Dampflok, Tag mit Vogelhäuschen, Sonne, Bienen und Labrador](docs/screenshot.png)
@@ -9,6 +11,13 @@
 <details><summary>🎂 Geburtstags-Modus ansehen</summary>
 
 ![Geburtstags-Modus mit Wimpelkette, Lichterkette, Ballons und Konfetti](docs/screenshot-geburtstag.png)
+
+</details>
+
+<details><summary>🧺 Editor „Alles in einer Karte“ ansehen</summary>
+
+<img src="docs/screenshot-liste.png" width="420" alt="Editor mit Effekt-Liste, grünen und grauen Punkten und „Wann anzeigen?“">
+<img src="docs/screenshot-gruppen.png" width="420" alt="„Wann anzeigen?“ mit ODER-Gruppe">
 
 </details>
 
@@ -52,8 +61,10 @@
 
 ```yaml
 type: custom:ambient-overlay-card
-event: weather_auto
-weather_entity: weather.home
+effects:
+  - event: weather_auto
+    weather_entity: weather.home
+  - event: owl_birdhouse
 ```
 
 > 💡 Sieht nach einem Update alles aus wie vorher? Das ist fast immer der Browser-Zwischenspeicher. In der App einmal nach unten ziehen oder im Browser `Strg` + `Shift` + `R`.
@@ -93,7 +104,7 @@ Alle anderen Optionen (`event`, `count_preset`, `person_entities` …) bleiben g
 
 ## 👆 So wird's eingerichtet
 
-Karte hinzufügen → **Ambient Overlay Card** → im Editor:
+Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte startet mit **einem** Effekt. Willst du mehrere, tipp unten auf **„🔀 In Liste umwandeln“** (siehe [Alles in einer Karte](#-alles-in-einer-karte-liste)).
 
 1. **▶ Vorschau:** Oben siehst du den Effekt live. Kommt eine Figur nur selten vorbei (Hexe, Zug, Hund, Weihnachtsmann …), schick sie mit **„▶ Jetzt vorbeifliegen lassen“** sofort los.
 2. **✨ Effekt:** Kachel antippen – danach klappt die Auswahl von selbst zu. Antippen der Zeile öffnet sie wieder. Die reinen Wetter-Effekte stehen bewusst nicht einzeln da, die macht die **🌦️ Wetter**-Automatik.
@@ -104,7 +115,8 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor:
    * **🐕 Labrador:** optional die Wetter-Entity fürs Schütteln bei Regen.
    * **🚂 Dampflok:** Weihnachts-, Abendessen- und Halloween-Schalter, Personen zum Antippen, Gäste-Sensor oder fester Gäste-Text. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
    * **🎃 Halloween-Schalter** gibt's bei Dampflok, Labrador, Eule & Vogelhäuschen und der Wetter-Automatik (für den Mond). Ohne Schalter kommt der Halloween-Look nur am 31. Oktober. Gefunden werden `input_boolean.`, `binary_sensor.` und `switch.`.
-6. **💙 Über die Karte:** Version, Links und Spenden-Knopf.
+6. **🕒 Wann anzeigen?** Wann der Effekt zu sehen ist (leer = immer) – Bausteine siehe unten.
+7. **💙 Über die Karte:** Version, Links und Spenden-Knopf.
 
 Neben vielen Einstellungen steht ein kleines **ⓘ** – antippen, dann kommt eine kurze Erklärung. Rechts in jeder Zeile siehst du eine Zusammenfassung, auch wenn der Bereich zugeklappt ist.
 
@@ -124,6 +136,7 @@ Statt für jeden Effekt eine eigene Karte mit Sichtbarkeits-Regeln anzulegen, pa
 * **Gruppen:** Mehrere Bedingungen untereinander müssen **alle** stimmen. Für „eins davon reicht“ gibt es die blaue **ODER**-Gruppe, die grüne **UND**-Gruppe für „alles davon“. Gruppen lassen sich ineinander stecken; Antippen von ODER/UND schaltet um.
 * **🔒 Gilt für alle Effekte:** Bedingungen, die für die ganze Karte gelten – z. B. „nur wenn der Fernseher an ist“. Stimmt hier etwas nicht, ist gar nichts zu sehen.
 * **Vorschau:** zeigt alles, was gerade läuft („5 von 11 laufen gerade“) – oder nur den Effekt, den du aufgeklappt hast, auch wenn der gerade wartet.
+* **Zustand wählen:** Bei „Eigene Bedingung“ und „Wetter ist …“ kommt das Auswahlfeld von Home Assistant mit allen Zuständen des Geräts (mehrere = eins davon reicht). Lädt HA es nicht, gibt es die Zustände als Knöpfe zum Antippen.
 * Fehlt eine Entität (umbenannt, gelöscht), pausiert nur dieser Effekt und zeigt rot **„⚠️ … nicht gefunden“**. Der Rest läuft weiter.
 
 Die Bedingungen haben dasselbe Format wie die Sichtbarkeit in Home Assistant (`state`, `numeric_state`, `time`, `screen`, `user`, `and`, `or`) – du kannst also deine alten Sichtbarkeits-Regeln 1:1 reinkopieren. Neu dazu kommt `period` für einen Zeitraum im Jahr.
@@ -185,7 +198,7 @@ Von vorn nach hinten: **Lok** → die **vier festen Waggons** → die **Personen
 
 **Dazu immer:** Ist die Sonne untergegangen (`sun.sun` = `below_horizon`), kommt der 🌙 Mond dazu – egal welches Wetter. Die Sonne verschwindet dann, auch wenn die Wetter-Entity noch „sunny“ meldet (beide sitzen am selben Platz).
 
-Anzahl, Deckkraft und Farbmodus gelten bei der Automatik für **alle** Wetter-Effekte gemeinsam. Tiere und Deko laufen nicht über die Automatik, dafür einfach eine zweite Karte anlegen.
+Anzahl, Deckkraft und Farbmodus gelten bei der Automatik für **alle** Wetter-Effekte gemeinsam. Tiere und Deko laufen nicht über die Automatik – nimm sie einfach als weiteren Effekt in die Liste.
 
 ---
 
