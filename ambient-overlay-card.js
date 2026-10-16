@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.13";
+const CARD_VERSION = "1.0.14";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -2831,6 +2831,319 @@ const RENDERERS = {
   halloween: renderHalloween,
 };
 
+/* ============================== BEDINGUNGEN ============================== */
+// "Wann anzeigen?" - dasselbe Format wie die Sichtbarkeit in Home Assistant
+// (state, numeric_state, time, screen, user, and, or), dazu als Extra
+// "period" = Zeitraum im Jahr (z. B. 17.10. bis 2.11., jedes Jahr).
+// Jede Prüfung liefert nicht nur ja/nein, sondern auch einen kurzen Grund
+// auf Deutsch ("Sonne ist noch oben"), damit man im Editor sieht, WARUM
+// ein Effekt gerade wartet.
+
+const MONTH_NAMES = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const WEEKDAY_NAMES = { mon: "Mo", tue: "Di", wed: "Mi", thu: "Do", fri: "Fr", sat: "Sa", sun: "So" };
+
+// Häufige Zustände auf Deutsch (falls Home Assistant selbst keine
+// Übersetzung liefert)
+const STATE_LABELS = {
+  on: "an", off: "aus", home: "zuhause", not_home: "unterwegs",
+  above_horizon: "über dem Horizont", below_horizon: "unter dem Horizont",
+  unavailable: "nicht verfügbar", unknown: "unbekannt",
+  playing: "spielt", paused: "pausiert", idle: "untätig", standby: "Standby", buffering: "puffert",
+  opening: "öffnet", closing: "schließt", heat: "heizen", cool: "kühlen", jammed: "blockiert",
+  cleaning: "reinigt", docked: "angedockt", returning: "kehrt zurück", error: "Fehler",
+  open: "offen", closed: "geschlossen", locked: "verriegelt", unlocked: "entriegelt",
+  spring: "Frühling", summer: "Sommer", autumn: "Herbst", winter: "Winter",
+  sunny: "sonnig", "clear-night": "klare Nacht", cloudy: "bewölkt", partlycloudy: "teilweise bewölkt",
+  rainy: "Regen", pouring: "Starkregen", snowy: "Schnee", "snowy-rainy": "Schneeregen",
+  hail: "Hagel", lightning: "Gewitter", "lightning-rainy": "Gewitter mit Regen",
+  fog: "Nebel", windy: "windig", "windy-variant": "windig und bewölkt", exceptional: "außergewöhnlich",
+};
+
+const WEATHER_STATE_LIST = ["sunny", "clear-night", "partlycloudy", "cloudy", "rainy", "pouring", "snowy", "snowy-rainy", "hail", "lightning", "lightning-rainy", "fog", "windy", "windy-variant"];
+
+function condEntityId(c) {
+  return c?.entity || c?.entity_id || "";
+}
+
+function entityName(hass, eid) {
+  return hass?.states?.[eid]?.attributes?.friendly_name || eid || "?";
+}
+
+function stateLabel(hass, eid, value) {
+  const st = hass?.states?.[eid];
+  if (st && typeof hass?.formatEntityState === "function") {
+    try {
+      const txt = hass.formatEntityState(st, value);
+      if (txt && txt !== value) return txt;
+    } catch (e) { /* dann eigene Liste */ }
+  }
+  return STATE_LABELS[value] ?? value;
+}
+
+function asList(v) {
+  if (v === undefined || v === null || v === "") return [];
+  return (Array.isArray(v) ? v : [v]).map((x) => String(x));
+}
+
+function parseHM(s) {
+  if (!s) return null;
+  const m = String(s).match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return null;
+  return (+m[1]) * 3600 + (+m[2]) * 60 + (+(m[3] || 0));
+}
+
+function fmtHM(s) {
+  const m = String(s || "").match(/^(\d{1,2}):(\d{2})/);
+  return m ? `${m[1].padStart(2, "0")}:${m[2]}` : "";
+}
+
+// "10-17" -> {m: 10, d: 17}
+function parseMD(s) {
+  const m = String(s || "").match(/^(\d{1,2})-(\d{1,2})$/);
+  if (!m) return null;
+  const mo = +m[1], d = +m[2];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return { m: mo, d };
+}
+
+function fmtMD(s, long = false) {
+  const p = parseMD(s);
+  if (!p) return "?";
+  return long ? `${p.d}. ${MONTH_NAMES[p.m - 1]}` : `${p.d}.${p.m}.`;
+}
+
+// Prüft EINE Bedingung. Rückgabe: { ok, reason, missing }
+function evalCondition(c, hass, now = new Date()) {
+  if (!c || typeof c !== "object") return { ok: true, reason: "" };
+  const type = c.condition || (c.conditions ? "and" : (condEntityId(c) ? "state" : ""));
+
+  if (type === "and" || type === "or") {
+    const kids = Array.isArray(c.conditions) ? c.conditions : [];
+    if (!kids.length) return { ok: true, reason: "" };
+    const results = kids.map((k) => evalCondition(k, hass, now));
+    if (type === "and") {
+      // Fehlende Entitäten zuerst melden - das muss man reparieren
+      const bad = results.find((r) => !r.ok && r.missing) || results.find((r) => !r.ok);
+      return bad ? { ok: false, reason: bad.reason, missing: bad.missing } : { ok: true, reason: "" };
+    }
+    if (results.some((r) => r.ok)) return { ok: true, reason: "" };
+    return { ok: false, reason: "keine der ODER-Möglichkeiten trifft zu", missing: results.some((r) => r.missing) };
+  }
+
+  if (type === "state" || type === "numeric_state") {
+    const eid = condEntityId(c);
+    if (!eid) return { ok: false, reason: "keine Entität gewählt", missing: true };
+    const st = hass?.states?.[eid];
+    if (!st) return { ok: false, reason: `⚠️ ${eid} nicht gefunden`, missing: true };
+    const name = entityName(hass, eid);
+    if (type === "numeric_state") {
+      const v = parseFloat(st.state);
+      if (Number.isNaN(v)) return { ok: false, reason: `${name} ist keine Zahl` };
+      const above = c.above !== undefined && c.above !== "" ? parseFloat(c.above) : null;
+      const below = c.below !== undefined && c.below !== "" ? parseFloat(c.below) : null;
+      if (above !== null && !(v > above)) return { ok: false, reason: `${name} ist ${v} (soll über ${above})` };
+      if (below !== null && !(v < below)) return { ok: false, reason: `${name} ist ${v} (soll unter ${below})` };
+      return { ok: true, reason: "" };
+    }
+    const cur = String(st.state);
+    const want = asList(c.state);
+    const wantNot = asList(c.state_not);
+    if (want.length && !want.includes(cur)) {
+      if (eid === "sun.sun") return { ok: false, reason: cur === "above_horizon" ? "Sonne ist noch oben" : "Sonne ist schon unter" };
+      return { ok: false, reason: `${name} ist ${stateLabel(hass, eid, cur)}` };
+    }
+    if (wantNot.length && wantNot.includes(cur)) {
+      return { ok: false, reason: `${name} ist ${stateLabel(hass, eid, cur)}` };
+    }
+    return { ok: true, reason: "" };
+  }
+
+  if (type === "time") {
+    const sec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const wd = Array.isArray(c.weekdays) ? c.weekdays : (c.weekday ? asList(c.weekday) : []);
+    if (wd.length && !wd.includes(WEEKDAY_KEYS[now.getDay()])) {
+      return { ok: false, reason: `nur ${wd.map((d) => WEEKDAY_NAMES[d] || d).join(", ")}` };
+    }
+    const a = parseHM(c.after), b = parseHM(c.before);
+    let inside = true;
+    if (a !== null && b !== null) inside = a <= b ? (sec >= a && sec < b) : (sec >= a || sec < b);
+    else if (a !== null) inside = sec >= a;
+    else if (b !== null) inside = sec < b;
+    if (inside) return { ok: true, reason: "" };
+    if (a !== null && b !== null) return { ok: false, reason: `nur ${fmtHM(c.after)}–${fmtHM(c.before)} Uhr` };
+    if (a !== null) return { ok: false, reason: `erst ab ${fmtHM(c.after)} Uhr` };
+    return { ok: false, reason: `nur bis ${fmtHM(c.before)} Uhr` };
+  }
+
+  if (type === "period") {
+    const f = parseMD(c.from), t = parseMD(c.to);
+    if (!f || !t) return { ok: false, reason: "Zeitraum unvollständig" };
+    const today = (now.getMonth() + 1) * 100 + now.getDate();
+    const from = f.m * 100 + f.d, to = t.m * 100 + t.d;
+    const inside = from <= to ? (today >= from && today <= to) : (today >= from || today <= to);
+    return inside ? { ok: true, reason: "" } : { ok: false, reason: `erst ab ${fmtMD(c.from, true)}` };
+  }
+
+  if (type === "screen") {
+    try {
+      const ok = c.media_query ? window.matchMedia(c.media_query).matches : true;
+      return ok ? { ok: true, reason: "" } : { ok: false, reason: "falsche Bildschirmgröße" };
+    } catch (e) { return { ok: false, reason: "Bildschirm-Bedingung fehlerhaft" }; }
+  }
+
+  if (type === "user") {
+    const id = hass?.user?.id;
+    const users = asList(c.users);
+    if (!users.length) return { ok: true, reason: "" };
+    return users.includes(id) ? { ok: true, reason: "" } : { ok: false, reason: "anderer Benutzer" };
+  }
+
+  return { ok: false, reason: `unbekannte Bedingung „${type || "?"}“` };
+}
+
+// Eine Liste = alle müssen stimmen (wie bei HA)
+function evalConditions(list, hass, now = new Date()) {
+  if (!Array.isArray(list) || !list.length) return { ok: true, reason: "" };
+  return evalCondition({ condition: "and", conditions: list }, hass, now);
+}
+
+// Alle Entitäten, die in Bedingungen vorkommen (damit die Karte genau
+// diese beobachtet und sonst nichts)
+function collectConditionEntities(list, out = new Set()) {
+  for (const c of Array.isArray(list) ? list : []) {
+    if (!c || typeof c !== "object") continue;
+    const eid = condEntityId(c);
+    if (eid) out.add(eid);
+    if (Array.isArray(c.conditions)) collectConditionEntities(c.conditions, out);
+  }
+  return out;
+}
+
+// Enthält die Liste Bedingungen, die von der Uhrzeit abhängen?
+function hasTimeConditions(list) {
+  for (const c of Array.isArray(list) ? list : []) {
+    if (!c) continue;
+    if (c.condition === "time" || c.condition === "period") return true;
+    if (Array.isArray(c.conditions) && hasTimeConditions(c.conditions)) return true;
+  }
+  return false;
+}
+
+// Kurze Beschreibung einer Bedingung für Zusammenfassungen
+function describeCondition(c, hass) {
+  if (!c) return "";
+  const type = c.condition || "state";
+  if (type === "and") return "UND-Regel";
+  if (type === "or") return "ODER-Regel";
+  if (type === "period") return `${fmtMD(c.from)}–${fmtMD(c.to)}`;
+  if (type === "time") {
+    const wd = Array.isArray(c.weekdays) && c.weekdays.length ? ` (${c.weekdays.map((d) => WEEKDAY_NAMES[d] || d).join(",")})` : "";
+    if (c.after && c.before) return `${fmtHM(c.after)}–${fmtHM(c.before)}${wd}`;
+    if (c.after) return `ab ${fmtHM(c.after)}${wd}`;
+    if (c.before) return `bis ${fmtHM(c.before)}${wd}`;
+    return `Uhrzeit${wd}`;
+  }
+  if (type === "screen") return "Bildschirm";
+  if (type === "user") return "Benutzer";
+  const eid = condEntityId(c);
+  if (!eid) return "Bedingung";
+  if (eid === "sun.sun") {
+    const w = asList(c.state)[0] || "";
+    return w === "below_horizon" ? "nur nachts" : w === "above_horizon" ? "nur tagsüber" : "Sonne";
+  }
+  const name = entityName(hass, eid);
+  if (type === "numeric_state") {
+    const parts = [];
+    if (c.above !== undefined && c.above !== "") parts.push(`> ${c.above}`);
+    if (c.below !== undefined && c.below !== "") parts.push(`< ${c.below}`);
+    return `${name} ${parts.join(" und ")}`;
+  }
+  const want = asList(c.state), not = asList(c.state_not);
+  if (want.length) return `${name} ${want.map((v) => stateLabel(hass, eid, v)).join("/")}`;
+  if (not.length) return `${name} nicht ${not.map((v) => stateLabel(hass, eid, v)).join("/")}`;
+  return name;
+}
+
+function describeConditions(list, hass) {
+  if (!Array.isArray(list) || !list.length) return "immer";
+  return list.map((c) => describeCondition(c, hass)).join(" · ");
+}
+
+// Welche Einzel-Effekte ein Effekt-Eintrag gerade zeigt (die Wetter-
+// Automatik wird dabei in Regen/Schnee/Mond/... übersetzt)
+function eventsForConfig(cfg, hass) {
+  if (!cfg) return [];
+  if (cfg.event === "weather_auto") {
+    let events;
+    if (cfg.weather_entity && hass) {
+      const entityState = hass.states?.[cfg.weather_entity];
+      events = entityState ? mapWeatherStateToEvents(entityState.state) : ["off"];
+    } else {
+      events = ["off"];
+    }
+    if (hass?.states?.["sun.sun"]?.state === "below_horizon") {
+      events = events.filter((e) => e !== "off" && e !== "sun");
+      if (!events.includes("moon")) events.push("moon");
+    }
+    return events.filter((e) => e !== "off");
+  }
+  return cfg.event && cfg.event !== "off" ? [cfg.event] : [];
+}
+
+// Standardwerte eines Effekts (gleich wie bei der Einzel-Karte)
+const EFFECT_DEFAULTS = {
+  event: "off",
+  count_preset: "medium",
+  opacity_preset: "medium",
+  color: "auto",
+  color_mode: "auto",
+  leaf_colors: ["#c9a227", "#a83232", "#d9812c"],
+  weather_entity: "",
+  birthday_text: "Happy Birthday!",
+  birthday_balloons: true,
+  birthday_confetti: true,
+  birthday_banner: true,
+  birthday_lights: true,
+  night_shooting_stars: true,
+  night_wishstar: true,
+  night_comet: true,
+  halloween_pumpkins: true,
+  halloween_ghost: true,
+  halloween_witch: true,
+  halloween_webs: true,
+  halloween_bats: true,
+  halloween_sensor: "",
+  santa_sensor: "",
+  dinner_sensor: "",
+  person_entities: "",
+  custom_wagon_text: "",
+  custom_wagon_entity: "",
+};
+
+// Alle Entitäten, die ein Effekt-Eintrag selbst benutzt (Wetter, Schalter,
+// Personen, Gäste) - auch diese muss die Karte beobachten
+function entryEntities(cfg, out = new Set()) {
+  for (const k of ["weather_entity", "santa_sensor", "dinner_sensor", "halloween_sensor", "custom_wagon_entity"]) {
+    if (cfg?.[k]) out.add(cfg[k]);
+  }
+  if (typeof cfg?.person_entities === "string") {
+    cfg.person_entities.split(",").map((s) => s.trim()).filter(Boolean).forEach((e) => out.add(e));
+  }
+  return out;
+}
+
+// Status eines Effekts in der Liste: läuft er gerade, und wenn nicht, warum?
+function entryStatus(entry, rootConditions, hass, now = new Date()) {
+  if (!entry || entry.enabled === false) return { on: false, reason: "ausgeschaltet", off: true };
+  const g = evalConditions(rootConditions, hass, now);
+  if (!g.ok) return { on: false, reason: g.reason, missing: g.missing, global: true };
+  const e = evalConditions(entry.conditions, hass, now);
+  if (!e.ok) return { on: false, reason: e.reason, missing: e.missing };
+  if (entry.event === "weather_auto" && !entry.weather_entity) return { on: false, reason: "Wetter fehlt!", missing: true };
+  return { on: true, reason: "" };
+}
+
 /* ============================== HAUPT-KARTE ============================== */
 
 class AmbientOverlayCard extends HTMLElement {
@@ -2884,7 +3197,8 @@ class AmbientOverlayCard extends HTMLElement {
   // damals stehen und die Lok läge plötzlich hinter einem anderen Effekt.
   _applyPortalZIndex() {
     if (!this._portalHost) return;
-    this._portalHost.style.zIndex = this._config?.event === "train" ? "2147483647" : "2147483646";
+    const hasTrain = this._config?.event === "train" || Object.keys(this._layerCfg || {}).some((k) => k.split("#")[0] === "train");
+    this._portalHost.style.zIndex = hasTrain ? "2147483647" : "2147483646";
   }
 
   _syncPortalVisibility() {
@@ -2938,6 +3252,7 @@ class AmbientOverlayCard extends HTMLElement {
     this._ensurePortal();
     this._syncPortalVisibility();
     this._visibilityPollTimer = setInterval(() => this._syncPortalVisibility(), 700);
+    this._condTimer = setInterval(() => this._tickConditions(), 30000);
     this._render();
   }
 
@@ -2966,6 +3281,10 @@ class AmbientOverlayCard extends HTMLElement {
       clearInterval(this._visibilityPollTimer);
       this._visibilityPollTimer = null;
     }
+    if (this._condTimer) {
+      clearInterval(this._condTimer);
+      this._condTimer = null;
+    }
     if (this._portalHost && this._portalHost.parentNode) {
       this._portalHost.parentNode.removeChild(this._portalHost);
     }
@@ -2991,39 +3310,94 @@ class AmbientOverlayCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = {
-      event: "off",
-      count_preset: "medium",
-      opacity_preset: "medium",
-      color: "auto",
-      color_mode: "auto",
-      leaf_colors: ["#c9a227", "#a83232", "#d9812c"],
-      weather_entity: "",
-      birthday_text: "Happy Birthday!",
-      birthday_balloons: true,
-      birthday_confetti: true,
-      birthday_banner: true,
-      birthday_lights: true,
-      night_shooting_stars: true,
-      night_wishstar: true,
-      night_comet: true,
-      halloween_pumpkins: true,
-      halloween_ghost: true,
-      halloween_witch: true,
-      halloween_webs: true,
-      halloween_bats: true,
-      halloween_sensor: "",
-      santa_sensor: "",
-      dinner_sensor: "",
-      person_entities: "",
-      custom_wagon_text: "",
-      custom_wagon_entity: "",
-      ...config,
-    };
+    // 🎛️ Zwei Arten, die Karte zu benutzen:
+    // - Einzel-Karte: "event: ..." (wie immer, ein Effekt pro Karte)
+    // - Alles in einer Karte: "effects: [...]" (Liste mit eigenen Bedingungen)
+    // Beides ist dieselbe Karte - sie schaut nur nach, was eingestellt ist.
+    this._listMode = Array.isArray(config?.effects);
+    if (this._listMode) {
+      this._config = { ...config };
+      this._entries = config.effects.map((e) => ({ ...EFFECT_DEFAULTS, ...(e || {}) }));
+    } else {
+      this._entries = null;
+      this._config = {
+        ...EFFECT_DEFAULTS,
+        ...config,
+      };
+    }
+    this._layerCfg = {};
+    this._lastSig = undefined;
     this._render();
   }
 
+  // Nutzt die Karte "Wann anzeigen?"-Bedingungen (Liste oder "Gilt für alle")?
+  _usesConditions() {
+    return this._listMode || (Array.isArray(this._config?.conditions) && this._config.conditions.length > 0);
+  }
+
+  // Einstellungen eines bestimmten Effekt-Layers (in der Liste hat jeder
+  // Effekt seine eigenen, sonst gilt die normale Karten-Einstellung)
+  _cfgFor(key) {
+    return this._layerCfg?.[key] || this._config;
+  }
+
+  // "Fingerabdruck": Ändert er sich, wird neu gezeichnet - sonst nicht.
+  // Darin steckt nur, was das BILD verändert: ob ein Effekt gerade läuft
+  // (Ergebnis der Bedingungen, nicht jeder einzelne Zustand - ein Fire TV,
+  // der von "spielt" auf "pausiert" geht, ist weiterhin "nicht aus") und
+  // die Dinge, die ein Effekt selbst zeigt (Wetter, Personen, Schalter …).
+  _signature() {
+    const entries = this._listMode ? (this._entries || []) : [this._config];
+    const now = new Date();
+    const glob = evalConditions(this._config?.conditions, this._hass, now).ok ? 1 : 0;
+    const per = entries.map((e) => {
+      const on = e.enabled === false ? 0 : (evalConditions(e.conditions, this._hass, now).ok ? 1 : 0);
+      return `${on}:${this._layerInputs(e)}`;
+    }).join("|");
+    return `${glob}#${per}`;
+  }
+
+  // Alles aus Home Assistant, was ein Effekt beim Zeichnen benutzt
+  _layerInputs(cfg) {
+    const ents = entryEntities(cfg);
+    ents.add("sun.sun");
+    const st = this._hass?.states || {};
+    const parts = [...ents].sort().map((eid) => {
+      const o = st[eid];
+      if (!o) return `${eid}=-`;
+      // Personen: auch Name und Bild (für den Waggon)
+      return eid.startsWith("person.")
+        ? `${eid}=${o.state}/${o.attributes?.friendly_name || ""}/${o.attributes?.entity_picture || ""}`
+        : `${eid}=${o.state}`;
+    });
+    parts.push(`hw=${isHalloweenTime(cfg, this._hass) ? 1 : 0}`);
+    return parts.join(",");
+  }
+
+  // Läuft alle 30 Sekunden: Uhrzeit- und Zeitraum-Bedingungen ändern sich
+  // ja ohne dass Home Assistant etwas meldet.
+  _tickConditions() {
+    if (!this._usesConditions() || !this._hasRenderedOnce) return;
+    const sig = this._signature();
+    if (sig !== this._lastSig) {
+      this._lastSig = sig;
+      this._render(true);
+    }
+  }
+
   set hass(hass) {
+    if (this._usesConditions()) {
+      const first = !this._hasRenderedOnce;
+      this._hass = hass;
+      const sig = this._signature();
+      if (first || sig !== this._lastSig) {
+        this._lastSig = sig;
+        this._render(!first);
+        this._hasRenderedOnce = true;
+      }
+      this._syncPortalVisibility();
+      return;
+    }
     const weatherEntity = this._config?.weather_entity;
     const oldWeatherState = weatherEntity ? this._hass?.states?.[weatherEntity]?.state : undefined;
 
@@ -3089,7 +3463,27 @@ class AmbientOverlayCard extends HTMLElement {
   }
 
   _resolveEvents() {
+    this._layerCfg = {};
     const cfg = this._config || {};
+    const now = new Date();
+    // "Gilt für alle Effekte" - stimmt das nicht, läuft gar nichts
+    if (Array.isArray(cfg.conditions) && cfg.conditions.length && !evalConditions(cfg.conditions, this._hass, now).ok) {
+      return [];
+    }
+    if (this._listMode) {
+      const keys = [];
+      (this._entries || []).forEach((entry, i) => {
+        if (entry.enabled === false) return;
+        if (!evalConditions(entry.conditions, this._hass, now).ok) return;
+        for (const ev of eventsForConfig(entry, this._hass)) {
+          // Kommt ein Effekt doppelt vor, bekommt der zweite einen eigenen Namen
+          const key = keys.includes(ev) ? `${ev}#${i}` : ev;
+          keys.push(key);
+          this._layerCfg[key] = entry;
+        }
+      });
+      return keys;
+    }
     if (cfg.event === "weather_auto") {
       let events;
       if (cfg.weather_entity && this._hass) {
@@ -3152,10 +3546,10 @@ class AmbientOverlayCard extends HTMLElement {
   _updateWishstar(events) {
     // Der Wunschstern steckt jetzt im Sammel-Effekt "Nachthimmel" und
     // läuft nur, wenn er dort auch angehakt ist.
-    const wishstarActive = events.includes("night_sky") && this._config?.night_wishstar !== false;
+    const wishstarActive = events.includes("night_sky") && this._cfgFor("night_sky")?.night_wishstar !== false;
     if (wishstarActive) {
       if (!this._wishstarTimer) {
-        const cycle = { low: 12000, medium: 8000, high: 5000 }[this._config?.opacity_preset || "medium"] || 8000;
+        const cycle = { low: 12000, medium: 8000, high: 5000 }[this._cfgFor("night_sky")?.opacity_preset || "medium"] || 8000;
         const regen = () => {
           this._wishstarPos = {
             top: Math.random() * 60 + 8,
@@ -3185,8 +3579,9 @@ class AmbientOverlayCard extends HTMLElement {
     if (events.includes("stars")) {
       if (!this._starsReshuffleTimer) {
         this._starsReshuffleTimer = setInterval(() => {
-          const count = getParticleCount(this._config?.count_preset || "medium", "stars");
+          const count = getParticleCount(this._cfgFor("stars")?.count_preset || "medium", "stars");
           _randomCache.delete(`stars:${count}`);
+          this._starsGen = (this._starsGen || 0) + 1;
           this._render();
         }, 240000);
       }
@@ -3245,9 +3640,9 @@ class AmbientOverlayCard extends HTMLElement {
   _render(allowFade = false) {
     if (!this._config) return;
     if (!this._portalShadow) return;
-    this._applyPortalZIndex();
 
     const events = this._resolveEvents();
+    this._applyPortalZIndex();
     this._updateSnowAccumulation(events);
 
     this._updateWishstar(events);
@@ -3264,27 +3659,37 @@ class AmbientOverlayCard extends HTMLElement {
       if (!this._effectLayers.has(key)) delete this._periodicStartTimes[key];
     }
 
-    let combinedCss = `
-      @keyframes fx-fade-out { from { opacity: 1; } to { opacity: 0; } }
-    `;
-    let combinedHtml = "";
+    // Jeder Effekt bekommt seine eigene Ebene. Neu gezeichnet wird eine
+    // Ebene NUR, wenn sich bei ihr etwas geändert hat - alle anderen laufen
+    // einfach weiter (sonst springen Wolken, Regen, Ballons … jedes Mal an
+    // ihren Anfang zurück, sobald sich irgendwo im Haus etwas ändert).
+    const root = this._portalShadow;
+    if (this._layerRoot !== root || !this._layerEls) {
+      root.innerHTML = `<style>@keyframes fx-fade-out { from { opacity: 1; } to { opacity: 0; } }</style>`;
+      this._layerEls = new Map();
+      this._layerRoot = root;
+    }
+    const dark = isDarkModeActive(this._hass, this) ? 1 : 0;
+    const day = new Date().toDateString(); // z. B. Mondphase wechselt täglich
+    const seen = new Set();
     for (const [event, state] of this._effectLayers.entries()) {
-      const renderer = RENDERERS[event];
+      const base = event.split("#")[0];
+      const renderer = RENDERERS[base];
       if (!renderer) continue;
-      let cfgForRender = this._config;
-      if (event === "snow") {
-        cfgForRender = { ...this._config, _snowLevel: this._snowLevel };
-      } else if (event === "night_sky") {
+      // Ausblendende Layer behalten ihre letzten Einstellungen
+      if (this._layerCfg?.[event]) state.cfg = this._layerCfg[event];
+      const layerCfg = state.cfg || this._config;
+      let cfgForRender = layerCfg;
+      if (base === "snow") {
+        cfgForRender = { ...layerCfg, _snowLevel: this._snowLevel };
+      } else if (base === "night_sky") {
         // Der Wunschstern steckt im Sammel-Effekt "Nachthimmel" - die
         // zufällige Position muss also unter DIESEM Namen durchgereicht
         // werden, sonst landet der Stern immer auf dem Standardwert.
-        cfgForRender = { ...this._config, _wishstarPos: this._wishstarPos };
-      } else if (event === "dog") {
+        cfgForRender = { ...layerCfg, _wishstarPos: this._wishstarPos };
+      } else if (base === "dog") {
         if (!this._periodicStartTimes[event]) {
-          const ranges = {
-            dog: [10, 80],
-          };
-          const [min, max] = ranges[event] || [10, 80];
+          const [min, max] = [10, 80];
           this._periodicStartTimes[event] = {
             startHeight: Math.random() * (max - min) + min,
             drift: Math.random() * 16 - 8,
@@ -3292,25 +3697,40 @@ class AmbientOverlayCard extends HTMLElement {
         }
         const pState = this._periodicStartTimes[event];
         cfgForRender = {
-          ...this._config,
+          ...layerCfg,
           _startHeight: pState.startHeight,
           _drift: pState.drift,
         };
       }
-      const { css, html } = renderer(cfgForRender, this._hass, this);
-      combinedCss += css;
-      // Fading-Layer bekommen eine "resume mid-animation"-Verzögerung wie
-      // bei santa/dog/comet: negativer animation-delay aus der bereits
-      // verstrichenen Ausblend-Zeit, damit ein Neu-Rendern während des
-      // Verblassens (z. B. durch andere laufende Timer) den Fade nicht
-      // wieder von vorne beginnen lässt.
+      const sig = JSON.stringify([event, cfgForRender, this._layerInputs(layerCfg), dark, day,
+        base === "stars" ? (this._starsGen || 0) : 0]);
+      let L = this._layerEls.get(event);
+      if (!L) {
+        L = { style: document.createElement("style"), div: document.createElement("div"), sig: null };
+        root.appendChild(L.style);
+        root.appendChild(L.div);
+        this._layerEls.set(event, L);
+      }
+      if (L.sig !== sig) {
+        const { css, html } = renderer(cfgForRender, this._hass, this);
+        L.style.textContent = css;
+        L.div.innerHTML = html;
+        L.sig = sig;
+      }
+      // Ausblenden: nur die Hülle bekommt die Blende, der Inhalt läuft weiter
       const layerStyle = state.fadeStartedAt !== null
-        ? `animation: fx-fade-out ${(FADE_DURATION_MS / 1000).toFixed(2)}s linear forwards; animation-delay: -${((Date.now() - state.fadeStartedAt) / 1000).toFixed(2)}s;`
+        ? `animation: fx-fade-out ${(FADE_DURATION_MS / 1000).toFixed(2)}s linear forwards;`
         : "opacity: 1;";
-      combinedHtml += `<div style="${layerStyle}">${html}</div>`;
+      if (L.div.getAttribute("style") !== layerStyle) L.div.setAttribute("style", layerStyle);
+      seen.add(event);
+    }
+    for (const [key, L] of this._layerEls) {
+      if (seen.has(key)) continue;
+      L.style.remove();
+      L.div.remove();
+      this._layerEls.delete(key);
     }
 
-    this._portalShadow.innerHTML = `<style>${combinedCss}</style>${combinedHtml}`;
     this._onVisibilityChange();
   }
 }
@@ -3369,6 +3789,26 @@ const HALLOWEEN_HINTS = {
   weather_auto: "Am 31. Oktober leuchtet der Mond automatisch orange - in seiner echten Mondphase. Ist dieser Schalter 'an', auch an anderen Tagen.",
 };
 
+// Schalter-artige Entitäten (an/aus)
+const BOOL_DOMAINS = ["input_boolean", "binary_sensor", "switch", "automation", "light", "fan"];
+
+// Fertige Bausteine für "Wann anzeigen?": [Art, Symbol, Name, Erklärung]
+const COND_BLOCKS = [
+  ["night", "🌙", "Nur nachts", "wenn die Sonne untergegangen ist"],
+  ["day", "☀️", "Nur tagsüber", "wenn die Sonne oben ist"],
+  ["period", "📅", "Zeitraum im Jahr", "z. B. 17.10. – 2.11., jedes Jahr"],
+  ["time", "🕒", "Uhrzeit von – bis", "z. B. 12:00 – 20:00, auch nur an bestimmten Tagen"],
+  ["switch", "🔘", "Schalter ist an", "ein Schalter / Helfer aus Home Assistant"],
+  ["person", "🏠", "Person ist zuhause", "oder unterwegs"],
+  ["weather", "🌦️", "Wetter ist …", "z. B. sonnig oder Regen"],
+  ["custom", "🧰", "Eigene Bedingung", "beliebige Entität: ist / ist nicht"],
+];
+
+const GROUP_TEXT = {
+  or: ["ODER", "mindestens eins davon muss stimmen"],
+  and: ["UND", "alles davon muss stimmen"],
+};
+
 const EDITOR_CSS = `
   :host { display: block; }
   .wrap { padding: 4px 0 8px; color: var(--primary-text-color, #212121); font-family: inherit; }
@@ -3393,12 +3833,18 @@ const EDITOR_CSS = `
     color: inherit; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; text-align: left; }
   .head .ic { width: 24px; text-align: center; font-size: 18px; }
   .head .sum { margin-left: auto; color: var(--secondary-text-color, #727272); font-weight: 400; font-size: 13px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; display: flex; align-items: center; gap: 7px; }
   .head .sum.warn { color: var(--error-color, #db4437); font-weight: 500; }
   .head .chev { color: var(--secondary-text-color, #727272); transition: transform .2s; font-size: 14px; width: 16px; text-align: center; }
-  .panel.open .chev { transform: rotate(180deg); }
+  .panel.open > .head .chev { transform: rotate(180deg); }
   .body { display: none; padding: 0 4px 14px; }
-  .panel.open .body { display: block; }
+  .panel.open > .body { display: block; }
+
+  /* Unter-Bereiche in einem Effekt der Liste */
+  .panel.sub { border: none; background: var(--card-background-color, var(--ha-card-background, #fff)); border-radius: 12px; margin: 6px 0; }
+  .panel.sub > .head { font-size: 14.5px; padding: 11px 12px; }
+  .panel.sub > .head .ic { font-size: 16px; width: 20px; }
+  .panel.sub > .body { padding: 0 12px 12px; }
 
   /* Effekt-Kacheln */
   .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
@@ -3409,16 +3855,16 @@ const EDITOR_CSS = `
   @media (max-width: 420px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
 
   /* Schalter-Zeilen */
-  .sw-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; cursor: pointer; }
+  .sw-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; cursor: pointer; position: relative; }
   .sw-row .em { font-size: 20px; width: 26px; text-align: center; }
   .sw-row .txt { flex: 1; font-size: 15px; }
   .sw-row .txt small { display: block; color: var(--secondary-text-color, #727272); font-size: 12px; margin-top: 1px; }
-  .sw-row input { position: absolute; opacity: 0; pointer-events: none; }
+  .sw-row input, .en input { position: absolute; opacity: 0; pointer-events: none; }
   .sw { width: 36px; height: 14px; border-radius: 7px; background: var(--switch-unchecked-track-color, #9e9e9e); position: relative; flex: none; transition: background .15s; }
   .sw::after { content: ""; position: absolute; top: -3px; left: -2px; width: 20px; height: 20px; border-radius: 50%;
     background: var(--switch-unchecked-button-color, #fafafa); box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: left .15s, background .15s; }
-  .sw-row input:checked + .sw { background: rgba(3,169,244,.5); }
-  .sw-row input:checked + .sw::after { left: 18px; background: var(--primary-color, #03a9f4); }
+  .sw-row input:checked + .sw, .en input:checked + .sw { background: rgba(3,169,244,.5); }
+  .sw-row input:checked + .sw::after, .en input:checked + .sw::after { left: 18px; background: var(--primary-color, #03a9f4); }
 
   /* Beschriftung + Info-Knopf */
   .lbl { display: flex; align-items: center; gap: 6px; font-size: 14px; margin: 12px 2px 8px; }
@@ -3429,6 +3875,7 @@ const EDITOR_CSS = `
   .hint { display: none; background: var(--secondary-background-color, rgba(127,127,127,.12)); border-radius: 10px;
     padding: 9px 12px; font-size: 12.5px; line-height: 1.45; color: var(--secondary-text-color, #727272); margin: -2px 2px 10px; }
   .hint.on { display: block; }
+  .note { font-size: 12.5px; line-height: 1.45; color: var(--secondary-text-color, #727272); margin: 2px 2px 8px; }
 
   /* Segment-Knöpfe */
   .seg { display: flex; border: 1px solid var(--outline-color, rgba(127,127,127,.6)); border-radius: 20px; overflow: hidden; }
@@ -3443,8 +3890,12 @@ const EDITOR_CSS = `
     background: var(--secondary-background-color, rgba(127,127,127,.12)); border: none;
     border-bottom: 1px solid var(--outline-color, rgba(127,127,127,.6)); border-radius: 4px 4px 0 0; }
   .field:focus { outline: none; border-bottom: 2px solid var(--primary-color, #03a9f4); }
+  select.field { padding: 10px 8px; }
   input[type=color].field { height: 44px; padding: 4px; cursor: pointer; }
   .picker-slot { margin-bottom: 4px; }
+  .row2 { display: flex; gap: 8px; align-items: center; }
+  .row2 > * { flex: 1; min-width: 0; }
+  .row2 > .rl { flex: none; width: 34px; font-size: 13px; color: var(--secondary-text-color, #727272); }
 
   /* Personen-Knöpfe */
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -3454,60 +3905,116 @@ const EDITOR_CSS = `
     display: flex; align-items: center; justify-content: center; background-size: cover; background-position: center; }
   .chip.on { border-color: var(--primary-color, #03a9f4); background: rgba(3,169,244,.15); }
   .chip.on::after { content: "✓"; color: var(--primary-color, #03a9f4); }
+  .chip.day { padding: 6px 11px; }
+
+  /* Status-Punkte */
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--disabled-text-color, #9e9e9e); flex: none; display: inline-block; }
+  .dot.ok { background: #4caf50; box-shadow: 0 0 0 3px rgba(76,175,80,.22); }
+  .dot.err { background: var(--error-color, #ef5350); box-shadow: 0 0 0 3px rgba(239,83,80,.22); }
+  .dot.sm { width: 8px; height: 8px; }
+  .dot.sm.ok, .dot.sm.err { box-shadow: none; }
+
+  /* Effekt-Liste */
+  .fx { border-radius: 14px; margin: 4px 0; }
+  .fx + .fx { margin-top: 2px; }
+  .fx.open { background: rgba(3,169,244,.12); padding: 0 8px 8px; margin: 8px 0; }
+  .fx-row { display: flex; align-items: center; gap: 12px; padding: 10px 6px; cursor: pointer; border-radius: 12px; }
+  .fx.open .fx-row { padding: 10px 0 6px; }
+  .fx.off .fx-row .em, .fx.off .fx-row .nm { opacity: .5; }
+  .fx-row .em { font-size: 22px; width: 30px; text-align: center; flex: none; }
+  .fx-row .nm { flex: 1; font-size: 15px; min-width: 0; }
+  .fx-row .nm small { display: block; font-size: 12px; color: var(--secondary-text-color, #727272); margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fx-row .nm small.err { color: var(--error-color, #db4437); }
+  .fx-row .chev { color: var(--secondary-text-color, #727272); font-size: 13px; width: 14px; text-align: center; transition: transform .2s; }
+  .fx.open .fx-row .chev { transform: rotate(180deg); }
+  .en { display: flex; align-items: center; padding: 6px 2px; cursor: pointer; position: relative; }
+  .fx-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .btn { background: none; border: 1px solid var(--outline-color, rgba(127,127,127,.6)); color: inherit; border-radius: 18px;
+    padding: 7px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.danger { color: var(--error-color, #db4437); border-color: var(--error-color, #db4437); }
+  .btn.danger.solid { background: var(--error-color, #db4437); color: #fff; }
+  .btn.prim { color: var(--primary-color, #03a9f4); border-color: var(--primary-color, #03a9f4); font-weight: 500; }
+  .addfx { display: block; width: 100%; margin: 10px 0 4px; border: 1.5px dashed var(--outline-color, rgba(127,127,127,.6)); border-radius: 12px;
+    padding: 11px; text-align: center; color: var(--primary-color, #03a9f4); font: inherit; font-weight: 500; font-size: 14px; background: none; cursor: pointer; }
+  .addgrid { margin: 6px 0 10px; }
+  .empty { text-align: center; color: var(--secondary-text-color, #727272); font-size: 13px; padding: 10px 0; }
+  .convert { display: flex; align-items: center; gap: 12px; padding: 12px 4px; }
+  .convert .txt { flex: 1; font-size: 13px; color: var(--secondary-text-color, #727272); line-height: 1.4; }
+  .convert .txt b { color: var(--primary-text-color, #212121); font-weight: 500; font-size: 14.5px; display: block; }
+
+  /* Bedingungen */
+  .cond { background: var(--secondary-background-color, rgba(127,127,127,.12)); border-radius: 12px; margin: 6px 0; }
+  .cond-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; cursor: pointer; }
+  .cond-row .ci { font-size: 18px; width: 24px; text-align: center; flex: none; }
+  .cond-row .ct { flex: 1; font-size: 14px; min-width: 0; }
+  .cond-row .ct small { display: block; color: var(--secondary-text-color, #727272); font-size: 12px; margin-top: 1px; }
+  .cond-row .ct small.err { color: var(--error-color, #db4437); }
+  .x { background: none; border: none; color: var(--secondary-text-color, #727272); font-size: 15px; cursor: pointer; padding: 4px 6px; border-radius: 8px; font-family: inherit; }
+  .x.ask { color: #fff; background: var(--error-color, #db4437); font-size: 12px; }
+  .cond-form { padding: 0 10px 12px; }
+  .cond-form .lbl { margin: 8px 2px 6px; font-size: 13px; }
+  .grp { border-radius: 12px; margin: 8px 0; padding: 0 8px 6px; border: 1.5px solid; }
+  .grp.or { border-color: rgba(33,150,243,.65); background: rgba(33,150,243,.06); }
+  .grp.and { border-color: rgba(76,175,80,.65); background: rgba(76,175,80,.06); }
+  .grp-head { display: flex; align-items: center; gap: 8px; padding: 8px 2px 2px; }
+  .badge { border: none; border-radius: 8px; padding: 3px 9px; font: inherit; font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; letter-spacing: .5px; }
+  .grp.or > .grp-head .badge { background: #2196f3; }
+  .grp.and > .grp-head .badge { background: #43a047; }
+  .grp-head .gt { flex: 1; font-size: 12px; color: var(--secondary-text-color, #727272); }
+  .addc { display: inline-flex; align-items: center; gap: 6px; color: var(--primary-color, #03a9f4); font: inherit; font-weight: 500; font-size: 13.5px;
+    padding: 7px 4px; background: none; border: none; cursor: pointer; }
+  .menu { background: var(--card-background-color, var(--ha-card-background, #fff)); border: 1px solid var(--divider-color, rgba(127,127,127,.25));
+    border-radius: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.25); padding: 6px; margin: 2px 0 8px; }
+  .menu .it { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; font: inherit; font-size: 14px;
+    width: 100%; background: none; border: none; color: inherit; cursor: pointer; text-align: left; }
+  .menu .it:hover { background: rgba(3,169,244,.12); }
+  .menu .it .ci { font-size: 18px; width: 24px; text-align: center; flex: none; }
+  .menu .it small { display: block; color: var(--secondary-text-color, #727272); font-size: 12px; }
+  .menu .sep { height: 1px; background: var(--divider-color, rgba(127,127,127,.25)); margin: 4px 8px; }
+  .menu .it.or .ci { color: #2196f3; } .menu .it.and .ci { color: #43a047; }
 `;
 
 class AmbientOverlayCardEditor extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._open = null;         // welche Bereiche aufgeklappt sind
+    this._open = null;           // welche Bereiche aufgeklappt sind
     this._hintsOpen = new Set(); // welche ⓘ-Hinweise offen sind
+    this._openEntry = null;      // welcher Effekt der Liste aufgeklappt ist
+    this._editing = new Set();   // welche Bedingungen gerade bearbeitet werden
+    this._menu = null;           // wo das "+ Bedingung"-Menü offen ist
+    this._askDel = null;         // Sicherheitsfrage beim Löschen
+    this._kind = {};             // gewählter Baustein für noch leere Bedingungen
+    this._addOpen = false;       // Kacheln für "+ Effekt hinzufügen"
+    this.shadowRoot.addEventListener("click", (e) => this._onClick(e));
   }
 
+  get _list() { return Array.isArray(this._config?.effects); }
+
   setConfig(config) {
+    const isList = Array.isArray(config?.effects);
     // Frisch hinzugefügte Karte erkennen (nur die Standardwerte aus
     // getStubConfig) - dann ist die Effekt-Auswahl gleich aufgeklappt.
     if (this._open === null) {
       const stub = AmbientOverlayCard.getStubConfig();
       const keys = Object.keys(config || {}).filter((k) => k !== "type");
-      const fresh = keys.every((k) => stub[k] === config[k]);
+      const fresh = !isList && keys.every((k) => stub[k] === config[k]);
       this._open = {
-        effekt: fresh || !config?.event || config.event === "off",
+        effekt: !isList && (fresh || !config?.event || config.event === "off"),
         teile: true,
         aussehen: true,
         einstellungen: true,
+        wann: false,
+        alle: false,
+        effekte: true,
         ueber: false,
       };
     }
-    this._config = {
-      event: "off",
-      count_preset: "medium",
-      opacity_preset: "medium",
-      color: "auto",
-      color_mode: "auto",
-      leaf_colors: ["#c9a227", "#a83232", "#d9812c"],
-      weather_entity: "",
-      birthday_text: "Happy Birthday!",
-      birthday_balloons: true,
-      birthday_confetti: true,
-      birthday_banner: true,
-      birthday_lights: true,
-      night_shooting_stars: true,
-      night_wishstar: true,
-      night_comet: true,
-      halloween_pumpkins: true,
-      halloween_ghost: true,
-      halloween_witch: true,
-      halloween_webs: true,
-      halloween_bats: true,
-      halloween_sensor: "",
-      santa_sensor: "",
-      dinner_sensor: "",
-      person_entities: "",
-      custom_wagon_text: "",
-      custom_wagon_entity: "",
-      ...config,
-    };
+    // Liste: oben stehen nur die gemeinsamen Dinge, die Effekte bringen ihre
+    // Standardwerte selbst mit (sonst würde das YAML unnötig lang).
+    this._config = isList ? { ...config } : { ...EFFECT_DEFAULTS, ...config };
     if (this._suppressNextRender) {
       this._suppressNextRender = false;
       return;
@@ -3523,17 +4030,53 @@ class AmbientOverlayCardEditor extends HTMLElement {
       return;
     }
     // Offene Suchfelder aktuell halten, ohne alles neu aufzubauen
-    this.shadowRoot.querySelectorAll(".picker-slot > ha-selector, .picker-slot > ha-entity-picker")
+    this.shadowRoot.querySelectorAll(".picker-slot > ha-selector, .picker-slot > ha-entity-picker, .state-slot > ha-selector")
       .forEach((el) => { el.hass = hass; });
+    this._refreshIfChanged();
   }
 
   connectedCallback() {
     this._render();
     this._loadHaPickers();
+    // Uhrzeit/Zeitraum ändern sich ohne Zustandsänderung - alle 30 s prüfen
+    if (!this._tick) this._tick = setInterval(() => this._refreshIfChanged(), 30000);
   }
 
   disconnectedCallback() {
     if (this._resizeObs) this._resizeObs.disconnect();
+    if (this._tick) { clearInterval(this._tick); this._tick = null; }
+  }
+
+  // Punkte und Gründe neu zeichnen - aber nur, wenn sich wirklich etwas
+  // geändert hat und gerade niemand in einem Feld tippt.
+  _refreshIfChanged() {
+    if (!this._config || !this._hass) return;
+    const sig = this._statusSig();
+    if (sig === this._lastSig) return;
+    if (this.shadowRoot.activeElement) return;
+    this._render();
+  }
+
+  _statusSig() {
+    const c = this._config;
+    const parts = [];
+    const walk = (list) => (Array.isArray(list) ? list : []).forEach((x) => {
+      parts.push(evalCondition(x, this._hass).ok ? 1 : 0);
+      if (Array.isArray(x?.conditions)) walk(x.conditions);
+    });
+    walk(c.conditions);
+    if (this._list) {
+      c.effects.forEach((e) => {
+        const s = entryStatus(e, c.conditions, this._hass);
+        parts.push(s.on ? 1 : 0, s.reason);
+        walk(e?.conditions);
+      });
+    }
+    const w = c.weather_entity;
+    if (w) parts.push(this._hass?.states?.[w]?.state);
+    if (this._list) c.effects.forEach((e) => e?.weather_entity && parts.push(this._hass?.states?.[e.weather_entity]?.state));
+    parts.push(this._hass?.states?.["sun.sun"]?.state);
+    return JSON.stringify(parts);
   }
 
   // Home Assistant lädt sein Suchfeld erst, wenn es irgendwo gebraucht wird.
@@ -3550,12 +4093,91 @@ class AmbientOverlayCardEditor extends HTMLElement {
     if (customElements.get("ha-selector") || customElements.get("ha-entity-picker")) this._render();
   }
 
+  /* ---------- Daten lesen und schreiben ---------- */
+
+  // "root" = die Karte selbst, "e3" = der 4. Effekt der Liste
+  _raw(scope) {
+    if (scope === "root") return this._config;
+    return this._config.effects?.[+scope.slice(1)] || {};
+  }
+
+  _cfg(scope) {
+    if (scope === "root") return this._config;
+    return { ...EFFECT_DEFAULTS, ...this._raw(scope) };
+  }
+
+  _commit(config, rerender) {
+    this._suppressNextRender = true;
+    this._config = config;
+    fireEvent(this, "config-changed", { config: this._config });
+    if (rerender) this._render();
+    else this._updatePreview();
+  }
+
+  _set(scope, patch, rerender = true) {
+    const clean = (obj) => {
+      for (const k of Object.keys(patch)) if (patch[k] === undefined) delete obj[k];
+      return obj;
+    };
+    if (scope === "root") {
+      this._commit(clean({ ...this._config, ...patch }), rerender);
+      return;
+    }
+    const i = +scope.slice(1);
+    const effects = this._config.effects.slice();
+    effects[i] = clean({ ...effects[i], ...patch });
+    this._commit({ ...this._config, effects }, rerender);
+  }
+
+  // Für die alten Tests/Aufrufe: ändert die Karte (Einzel) bzw. nichts
+  _update(key, value, rerender) { this._set("root", { [key]: value }, rerender); }
+  _updateConfig(values, rerender) { this._set("root", values, rerender); }
+
+  // Pfad einer Bedingung: "e2~1.0" = Effekt 3, Bedingung 2, darin Bedingung 1
+  _decode(key) {
+    const [scope, rest = ""] = String(key).split("~");
+    return { scope, idxs: rest === "" ? [] : rest.split(".").map(Number) };
+  }
+
+  _listAt(list, idxs) {
+    let l = list;
+    for (const i of idxs) {
+      if (!Array.isArray(l[i].conditions)) l[i].conditions = [];
+      l = l[i].conditions;
+    }
+    return l;
+  }
+
+  _nodeAt(list, idxs) {
+    return this._listAt(list, idxs.slice(0, -1))[idxs[idxs.length - 1]];
+  }
+
+  _editConds(scope, fn) {
+    const raw = this._raw(scope).conditions;
+    const list = Array.isArray(raw) ? JSON.parse(JSON.stringify(raw)) : [];
+    fn(list);
+    this._set(scope, { conditions: list.length ? list : undefined }, true);
+  }
+
+  _editLeaf(key, fn) {
+    const { scope, idxs } = this._decode(key);
+    this._editConds(scope, (list) => fn(this._nodeAt(list, idxs)));
+  }
+
+  // Nach Verschieben/Löschen stimmen gemerkte Pfade nicht mehr
+  _forgetPaths() {
+    this._editing.clear();
+    this._menu = null;
+    this._askDel = null;
+    this._kind = {};
+  }
+
   /* ---------- kleine Bausteine ---------- */
 
-  _panel(id, icon, title, summary, body, warn = false) {
+  _panel(id, icon, title, summary, body, warn = false, sub = false) {
     const open = this._open[id];
     return `
-      <div class="panel ${open ? "open" : ""}" data-panel="${id}">
+      <div class="panel ${sub ? "sub" : ""} ${open ? "open" : ""}" data-panel="${id}">
         <button class="head" type="button" data-toggle="${id}">
           <span class="ic">${icon}</span>${title}
           <span class="sum ${warn ? "warn" : ""}">${summary}</span>
@@ -3567,54 +4189,68 @@ class AmbientOverlayCardEditor extends HTMLElement {
 
   _label(text, hintId, hintText) {
     if (!hintText) return `<div class="lbl">${text}</div>`;
+    hintId = String(hintId).replace(/^root:/, "");
     const on = this._hintsOpen.has(hintId);
     return `
       <div class="lbl">${text}<button class="info ${on ? "on" : ""}" type="button" data-hint="${hintId}" aria-label="Erklärung">i</button></div>
       <div class="hint ${on ? "on" : ""}" data-hint-text="${hintId}">${hintText}</div>`;
   }
 
-  _seg(key, options, value) {
+  _seg(scope, key, options, value) {
     return `<div class="seg">${options.map(([val, label]) =>
-      `<button type="button" class="${value === val ? "on" : ""}" data-seg="${key}" data-val="${val}">${label}</button>`).join("")}</div>`;
+      `<button type="button" class="${value === val ? "on" : ""}" data-scope="${scope}" data-seg="${key}" data-val="${val}">${label}</button>`).join("")}</div>`;
   }
 
-  _picker(label, key, domains, hint, placeholder) {
-    return `${this._label(label, key, hint)}
-      <div class="picker-slot" data-key="${key}" data-domains="${domains.join(",")}" data-placeholder="${escapeHtml(placeholder)}"></div>`;
+  _picker(scope, label, key, domains, hint, placeholder) {
+    return `${this._label(label, `${scope}:${key}`, hint)}
+      <div class="picker-slot" data-scope="${scope}" data-key="${key}" data-domains="${domains.join(",")}" data-placeholder="${escapeHtml(placeholder)}"></div>`;
   }
 
   _friendly(eid) {
     return this._hass?.states?.[eid]?.attributes?.friendly_name || eid;
   }
 
-  /* ---------- Aufbau ---------- */
+  _tile(ev) {
+    return EFFECT_TILES.find((t) => t[0] === ev) || EFFECT_TILES[EFFECT_TILES.length - 1];
+  }
 
-  _render() {
-    if (!this._config || !this._open) return;
-    const c = this._config;
+  _dotClass(r) {
+    return r.ok ? "ok" : (r.missing ? "err" : "");
+  }
+
+  /* ---------- Effekt-Einstellungen (Einzel-Karte UND jeder Listen-Eintrag) ---------- */
+
+  _effectPanels(scope, withTiles) {
+    const c = this._cfg(scope);
     const ev = c.event || "off";
+    const sub = scope !== "root";
+    const pid = (id) => (sub ? `${scope}:${id}` : id);
     const caps = EVENT_CAPABILITIES[ev] || { count: false, opacity: false, color: false };
-    const tile = EFFECT_TILES.find((t) => t[0] === ev) || EFFECT_TILES[EFFECT_TILES.length - 1];
+    const tile = this._tile(ev);
     const colorMode = c.color_mode || (c.color === "auto" ? "auto" : "custom");
+    let html = "";
 
     // 1) Effekt
-    const effektBody = `<div class="tiles">${EFFECT_TILES.map(([key, em, short]) =>
-      `<button type="button" class="tile ${key === ev ? "sel" : ""}" data-event="${key}"><span class="em">${em}</span>${short}</button>`).join("")}</div>`;
-    let html = this._panel("effekt", "✨", "Effekt", `${tile[1]} ${tile[3]}`, effektBody);
+    if (withTiles) {
+      const tiles = sub ? EFFECT_TILES.filter((t) => t[0] !== "off") : EFFECT_TILES;
+      const body = `<div class="tiles">${tiles.map(([key, em, short]) =>
+        `<button type="button" class="tile ${key === ev ? "sel" : ""}" data-scope="${scope}" data-event="${key}"><span class="em">${em}</span>${short}</button>`).join("")}</div>`;
+      html += this._panel(pid("effekt"), "✨", sub ? "Effekt ändern" : "Effekt", `${tile[1]} ${tile[3]}`, body, false, sub);
+    }
 
     // 2) Teile (Geburtstag, Nachthimmel, Halloween)
     const parts = EFFECT_PARTS[ev];
     if (parts) {
       const onCount = parts.filter(([k]) => c[k] !== false).length;
-      let teileBody = parts.map(([key, em, name, sub]) => `
-        <label class="sw-row"><span class="em">${em}</span><span class="txt">${name}<small>${sub}</small></span>
-          <input type="checkbox" data-part="${key}" ${c[key] !== false ? "checked" : ""}/><span class="sw"></span></label>`).join("");
-      if (onCount === 0) teileBody += `<div class="hint on">Alles ausgeschaltet - dann bleibt der Bildschirm leer.</div>`;
+      let body = parts.map(([key, em, name, small]) => `
+        <label class="sw-row"><span class="em">${em}</span><span class="txt">${name}<small>${small}</small></span>
+          <input type="checkbox" data-scope="${scope}" data-part="${key}" ${c[key] !== false ? "checked" : ""}/><span class="sw"></span></label>`).join("");
+      if (onCount === 0) body += `<div class="hint on">Alles ausgeschaltet - dann bleibt der Bildschirm leer.</div>`;
       if (ev === "birthday") {
-        teileBody += this._label("Text auf der Wimpelkette", "birthday_text", "Zum Beispiel „Happy Birthday, Max!“ für eine persönliche Note.")
-          + `<input class="field" data-text="birthday_text" type="text" placeholder="Happy Birthday!" value="${escapeHtml(c.birthday_text || "")}"/>`;
+        body += this._label("Text auf der Wimpelkette", `${scope}:birthday_text`, "Zum Beispiel „Happy Birthday, Max!“ für eine persönliche Note.")
+          + `<input class="field" data-scope="${scope}" data-text="birthday_text" type="text" placeholder="Happy Birthday!" value="${escapeHtml(c.birthday_text || "")}"/>`;
       }
-      html += this._panel("teile", "🧩", "Was soll gezeigt werden?", `${onCount} von ${parts.length}`, teileBody, onCount === 0);
+      html += this._panel(pid("teile"), "🧩", "Was soll gezeigt werden?", `${onCount} von ${parts.length}`, body, onCount === 0, sub);
     }
 
     // 3) Aussehen
@@ -3627,25 +4263,25 @@ class AmbientOverlayCardEditor extends HTMLElement {
         const hint = ev === "weather_auto"
           ? "Ein Wert für ALLE automatisch erkannten Wetter-Effekte gemeinsam."
           : (COUNT_IS_INTERVAL_TEXT[ev] || "Wie viele Teile gleichzeitig zu sehen sind.");
-        body += this._label("Anzahl / Häufigkeit", "count", hint) + this._seg("count_preset", [["low", "Wenig"], ["medium", "Mittel"], ["high", "Viel"]], c.count_preset || "medium");
+        body += this._label("Anzahl / Häufigkeit", `${scope}:count`, hint) + this._seg(scope, "count_preset", [["low", "Wenig"], ["medium", "Mittel"], ["high", "Viel"]], c.count_preset || "medium");
         sum.push(countLabels[c.count_preset || "medium"]);
       }
       if (caps.opacity) {
-        body += this._label("Deckkraft", "opacity", "Zart = 30 %, Dezent = 60 %, Kräftig = 100 % (dann wird jeder Effekt spürbar kräftiger).")
-          + this._seg("opacity_preset", [["low", "Zart"], ["medium", "Dezent"], ["high", "Kräftig"]], c.opacity_preset || "medium");
+        body += this._label("Deckkraft", `${scope}:opacity`, "Zart = 30 %, Dezent = 60 %, Kräftig = 100 % (dann wird jeder Effekt spürbar kräftiger).")
+          + this._seg(scope, "opacity_preset", [["low", "Zart"], ["medium", "Dezent"], ["high", "Kräftig"]], c.opacity_preset || "medium");
         sum.push(opLabels[c.opacity_preset || "medium"]);
       }
       if (caps.color) {
         const hint = ev === "weather_auto"
           ? "Gilt für Regen, Schnee, Hagel, Nebel und Sturm (Blitz bleibt immer weiß). Automatisch = passend zu Hell/Dunkel."
           : "Automatisch = passend zu Hell/Dunkel. Oder du suchst dir selbst eine Farbe aus.";
-        body += this._label("Farbe", "color", hint) + this._seg("color_mode", [["auto", "Automatisch"], ["custom", "Eigene Farbe"]], colorMode);
+        body += this._label("Farbe", `${scope}:color`, hint) + this._seg(scope, "color_mode", [["auto", "Automatisch"], ["custom", "Eigene Farbe"]], colorMode);
         if (colorMode === "custom") {
-          body += `<div style="margin-top:10px;"><input class="field" data-color type="color" value="${c.color === "auto" ? "#ffffff" : escapeHtml(c.color)}"/></div>`;
+          body += `<div style="margin-top:10px;"><input class="field" data-scope="${scope}" data-color type="color" value="${c.color === "auto" ? "#ffffff" : escapeHtml(c.color)}"/></div>`;
+          sum.push("eigene Farbe");
         }
-        if (colorMode === "custom") sum.push("eigene Farbe");
       }
-      html += this._panel("aussehen", "🎨", "Aussehen", sum.join(" · "), body);
+      html += this._panel(pid("aussehen"), "🎨", "Aussehen", sum.join(" · "), body, false, sub);
     }
 
     // 4) Einstellungen (Sensoren, Schalter, Personen, Gäste)
@@ -3654,143 +4290,848 @@ class AmbientOverlayCardEditor extends HTMLElement {
     const sum = [];
     let warn = false;
     if (ev === "weather_auto") {
-      set += this._picker("🌦️ Wetter-Sensor", "weather_entity", ["weather"], "Diese Wetter-Entity bestimmt, welcher Effekt gerade läuft (regnet, schneit, …).", "Wetter suchen, z. B. weather.home");
+      set += this._picker(scope, "🌦️ Wetter-Sensor", "weather_entity", ["weather"], "Diese Wetter-Entity bestimmt, welcher Effekt gerade läuft (regnet, schneit, …).", "Wetter suchen, z. B. weather.home");
       if (c.weather_entity) sum.push(this._friendly(c.weather_entity)); else { sum.push("Wetter fehlt!"); warn = true; }
     }
     if (ev === "dog") {
-      set += this._picker("🌦️ Wetter-Sensor (optional)", "weather_entity", ["weather"], "Meldet diese Wetter-Entity gerade Regen, schüttelt sich der Hund kurz.", "Wetter suchen, z. B. weather.home");
+      set += this._picker(scope, "🌦️ Wetter-Sensor (optional)", "weather_entity", ["weather"], "Meldet diese Wetter-Entity gerade Regen, schüttelt sich der Hund kurz.", "Wetter suchen, z. B. weather.home");
       if (c.weather_entity) sum.push("Wetter");
     }
     if (ev === "train") {
-      set += this._picker("🎅 Weihnachts-Schalter", "santa_sensor", B, "Ist er 'an', werden die Waggons festlich beladen: Schneemann, Weihnachtsmann, Geschenke und ein Geschenke-Sack.", "Schalter suchen, z. B. Weihnachten");
-      set += this._picker("🍽️ Abendessen-Schalter", "dinner_sensor", B, "Ist er 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang.", "Schalter suchen, z. B. Abendessen");
+      set += this._picker(scope, "🎅 Weihnachts-Schalter", "santa_sensor", B, "Ist er 'an', werden die Waggons festlich beladen: Schneemann, Weihnachtsmann, Geschenke und ein Geschenke-Sack.", "Schalter suchen, z. B. Weihnachten");
+      set += this._picker(scope, "🍽️ Abendessen-Schalter", "dinner_sensor", B, "Ist er 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang.", "Schalter suchen, z. B. Abendessen");
       if (c.santa_sensor) sum.push("Weihnachten");
       if (c.dinner_sensor) sum.push("Abendessen");
     }
     if (HALLOWEEN_HINTS[ev]) {
-      set += this._picker("🎃 Halloween-Schalter", "halloween_sensor", B, HALLOWEEN_HINTS[ev], "Schalter suchen, z. B. Halloween");
+      set += this._picker(scope, "🎃 Halloween-Schalter", "halloween_sensor", B, HALLOWEEN_HINTS[ev], "Schalter suchen, z. B. Halloween");
       if (c.halloween_sensor) sum.push("Halloween");
     }
     if (ev === "train") {
       const people = this._hass?.states ? Object.keys(this._hass.states).filter((e) => e.startsWith("person.")).sort() : [];
       const chosen = (c.person_entities || "").split(",").map((s) => s.trim()).filter(Boolean);
-      set += this._label("👥 Wer zuhause ist, fährt mit", "persons", "Für jede ausgewählte Person, die gerade zuhause ist, hängt hinten ein Waggon mit Profilbild (oder Anfangsbuchstabe). Reihenfolge = Reihenfolge beim Antippen.");
+      set += this._label("👥 Wer zuhause ist, fährt mit", `${scope}:persons`, "Für jede ausgewählte Person, die gerade zuhause ist, hängt hinten ein Waggon mit Profilbild (oder Anfangsbuchstabe). Reihenfolge = Reihenfolge beim Antippen.");
       if (people.length) {
         set += `<div class="chips">${people.map((eid) => {
           const st = this._hass.states[eid];
           const name = st?.attributes?.friendly_name || eid;
           const pic = st?.attributes?.entity_picture;
           const av = pic ? `<span class="av" style="background-image:url('${escapeHtml(pic)}')"></span>` : `<span class="av">${escapeHtml(name.trim().charAt(0).toUpperCase())}</span>`;
-          return `<button type="button" class="chip ${chosen.includes(eid) ? "on" : ""}" data-person="${eid}">${av}${escapeHtml(name)}</button>`;
+          return `<button type="button" class="chip ${chosen.includes(eid) ? "on" : ""}" data-scope="${scope}" data-person="${eid}">${av}${escapeHtml(name)}</button>`;
         }).join("")}</div>`;
       } else {
-        set += `<input class="field" data-text="person_entities" type="text" placeholder="person.anna, person.ben" value="${escapeHtml(c.person_entities || "")}"/>`;
+        set += `<input class="field" data-scope="${scope}" data-text="person_entities" type="text" placeholder="person.anna, person.ben" value="${escapeHtml(c.person_entities || "")}"/>`;
       }
       if (chosen.length) sum.push(`${chosen.length} ${chosen.length === 1 ? "Person" : "Personen"}`);
-      set += this._picker("🎟️ Gäste-Sensor", "custom_wagon_entity", ["input_text", "input_select", "sensor"], "Ein Sensor mit Namen und Komma (z. B. „Oma, Opa“) - pro Name ein Waggon. Hat Vorrang vor dem Text darunter.", "Sensor suchen, z. B. Gäste");
-      set += this._label("✏️ Gäste als Text", "guest_text", "Fester Text, falls kein Gäste-Sensor gewählt ist. Mehrere Namen mit Komma trennen.")
-        + `<input class="field" data-text="custom_wagon_text" type="text" maxlength="60" placeholder="z. B. Oma, Opa" value="${escapeHtml(c.custom_wagon_text || "")}"/>`;
+      set += this._picker(scope, "🎟️ Gäste-Sensor", "custom_wagon_entity", ["input_text", "input_select", "sensor"], "Ein Sensor mit Namen und Komma (z. B. „Oma, Opa“) - pro Name ein Waggon. Hat Vorrang vor dem Text darunter.", "Sensor suchen, z. B. Gäste");
+      set += this._label("✏️ Gäste als Text", `${scope}:guest_text`, "Fester Text, falls kein Gäste-Sensor gewählt ist. Mehrere Namen mit Komma trennen.")
+        + `<input class="field" data-scope="${scope}" data-text="custom_wagon_text" type="text" maxlength="60" placeholder="z. B. Oma, Opa" value="${escapeHtml(c.custom_wagon_text || "")}"/>`;
       if (c.custom_wagon_entity || c.custom_wagon_text) sum.push("Gäste");
     }
     if (set) {
-      if (warn) this._open.einstellungen = true;
-      html += this._panel("einstellungen", "⚙️", "Einstellungen", sum.join(" · ") || "nichts eingestellt", set, warn);
+      if (warn) this._open[pid("einstellungen")] = true;
+      html += this._panel(pid("einstellungen"), "⚙️", "Einstellungen", sum.join(" · ") || "nichts eingestellt", set, warn, sub);
     }
 
-    // 5) Über die Karte
+    // 5) Wann anzeigen?
+    html += this._wannPanel(scope, pid("wann"), sub);
+    return html;
+  }
+
+  /* ---------- "Wann anzeigen?" ---------- */
+
+  _wannPanel(scope, id, sub) {
+    const conds = this._raw(scope).conditions;
+    const list = Array.isArray(conds) ? conds : [];
+    const r = evalConditions(list, this._hass);
+    const summary = `${escapeHtml(describeConditions(list, this._hass))}${list.length ? ` <span class="dot sm ${this._dotClass(r)}"></span>` : ""}`;
+    const isAll = scope === "root" && this._list;
+    const note = isAll
+      ? "Diese Bedingungen gelten für <b>alle</b> Effekte. Stimmt hier etwas nicht, ist gar nichts zu sehen. Leer = immer."
+      : "Leer = immer anzeigen. Stehen hier mehrere Bedingungen, müssen <b>alle</b> stimmen. Für „eins davon reicht“ nimm eine ODER-Gruppe.";
+    const body = `<div class="note">${note}</div>${this._condList(scope, [], list)}`;
+    if (isAll) return this._panel(id, "🔒", "Gilt für alle Effekte", summary, body, r.missing);
+    return this._panel(id, "🕒", "Wann anzeigen?", summary, body, r.missing, sub);
+  }
+
+  // Eine Liste von Bedingungen (oberste Ebene oder Inhalt einer Gruppe)
+  _condList(scope, idxs, list) {
+    const listKey = `${scope}~${idxs.join(".")}`;
+    let html = list.map((c, i) => this._condNode(scope, idxs.concat(i), c)).join("");
+    html += `<button type="button" class="addc" data-addmenu="${listKey}">＋ Bedingung</button>`;
+    if (this._menu === listKey) html += this._condMenu(listKey);
+    return html;
+  }
+
+  _condMenu(listKey) {
+    const items = COND_BLOCKS.map(([kind, icon, name, small]) =>
+      `<button type="button" class="it" data-addcond="${listKey}" data-kind="${kind}"><span class="ci">${icon}</span><span>${name}<small>${small}</small></span></button>`);
+    items.splice(2, 0, `<div class="sep"></div>`);
+    items.splice(9, 0, `<div class="sep"></div>`);
+    items.push(`<div class="sep"></div>`);
+    items.push(`<button type="button" class="it or" data-addcond="${listKey}" data-kind="or"><span class="ci">🔀</span><span>ODER-Gruppe<small>mindestens eins davon muss stimmen</small></span></button>`);
+    items.push(`<button type="button" class="it and" data-addcond="${listKey}" data-kind="and"><span class="ci">🔗</span><span>UND-Gruppe<small>alles davon muss stimmen</small></span></button>`);
+    return `<div class="menu">${items.join("")}</div>`;
+  }
+
+  _condType(c) {
+    return c?.condition || (Array.isArray(c?.conditions) ? "and" : "state");
+  }
+
+  _condKind(c, key) {
+    const type = this._condType(c);
+    if (type === "and" || type === "or") return type;
+    if (type === "numeric_state") return "numeric";
+    if (type === "time" || type === "period") return type;
+    if (type !== "state") return "other";
+    const eid = condEntityId(c);
+    if (!eid) return this._kind[key] || "custom";
+    if (eid === "sun.sun") return asList(c.state)[0] === "above_horizon" ? "day" : "night";
+    const dom = eid.split(".")[0];
+    if (dom === "person") return "person";
+    if (dom === "weather") return "weather";
+    if (BOOL_DOMAINS.includes(dom) && this._kind[key] !== "custom") return "switch";
+    return "custom";
+  }
+
+  _condNode(scope, idxs, c) {
+    const key = `${scope}~${idxs.join(".")}`;
+    const r = evalCondition(c, this._hass);
+    const kind = this._condKind(c, key);
+    const ask = this._askDel === key;
+    const del = `<button type="button" class="x ${ask ? "ask" : ""}" data-cdel="${key}" title="Entfernen">${ask ? "Wirklich?" : "✕"}</button>`;
+
+    if (kind === "and" || kind === "or") {
+      const [name, small] = GROUP_TEXT[kind];
+      const kids = Array.isArray(c.conditions) ? c.conditions : [];
+      return `
+        <div class="grp ${kind}">
+          <div class="grp-head">
+            <button type="button" class="badge" data-gtoggle="${key}" title="Antippen = ${kind === "or" ? "UND" : "ODER"} daraus machen">${name}</button>
+            <span class="gt">${small}</span>
+            <span class="dot sm ${this._dotClass(r)}"></span>${del}
+          </div>
+          ${kids.length ? "" : `<div class="note">Noch leer - leere Gruppen zählen als „stimmt“.</div>`}
+          ${this._condList(scope, idxs, kids)}
+        </div>`;
+    }
+
+    const block = COND_BLOCKS.find((b) => b[0] === kind);
+    const icon = block ? block[1] : (kind === "numeric" ? "🔢" : "📋");
+    const title = this._condTitle(c, kind);
+    const small = r.ok ? "✓ stimmt gerade" : escapeHtml(r.reason);
+    const editing = this._editing.has(key);
+    return `
+      <div class="cond">
+        <div class="cond-row" data-cedit="${key}">
+          <span class="ci">${icon}</span>
+          <span class="ct">${title}<small class="${r.missing ? "err" : ""}">${small}</small></span>
+          <span class="dot sm ${this._dotClass(r)}"></span>${del}
+        </div>
+        ${editing ? `<div class="cond-form">${this._condForm(c, kind, key)}</div>` : ""}
+      </div>`;
+  }
+
+  _condTitle(c, kind) {
+    const eid = condEntityId(c);
+    const name = eid ? escapeHtml(entityName(this._hass, eid)) : "";
+    const want = asList(c.state), not = asList(c.state_not);
+    const vals = (l) => l.map((v) => escapeHtml(stateLabel(this._hass, eid, v))).join(" / ");
+    switch (kind) {
+      case "night": return "Nur nachts";
+      case "day": return "Nur tagsüber";
+      case "period": return `Zeitraum ${escapeHtml(fmtMD(c.from, true))} – ${escapeHtml(fmtMD(c.to, true))}`;
+      case "time": return `Uhrzeit ${escapeHtml(describeCondition(c, this._hass))}`;
+      case "person":
+        if (!eid) return "Person ist zuhause";
+        return not.includes("home") ? `${name} ist <b>unterwegs</b>` : `${name} ist <b>zuhause</b>`;
+      case "numeric": return eid ? escapeHtml(describeCondition(c, this._hass)) : "Zahlen-Wert";
+      case "other": return escapeHtml(describeCondition(c, this._hass));
+      default: {
+        if (!eid) return { switch: "Schalter ist an", weather: "Wetter ist …" }[kind] || "Eigene Bedingung";
+        if (want.length) return `${name} <b>ist</b> ${vals(want)}`;
+        if (not.length) return `${name} <b>ist nicht</b> ${vals(not)}`;
+        return name;
+      }
+    }
+  }
+
+  // Das Bearbeiten-Feld unter einer Bedingung
+  _condForm(c, kind, key) {
+    const cseg = (field, options, value) => `<div class="seg">${options.map(([val, label]) =>
+      `<button type="button" class="${value === val ? "on" : ""}" data-c="${key}" data-cseg="${field}" data-val="${val}">${label}</button>`).join("")}</div>`;
+    const picker = (domains, placeholder) =>
+      `<div class="picker-slot" data-c="${key}" data-domains="${domains.join(",")}" data-placeholder="${escapeHtml(placeholder)}"></div>`;
+    const eid = condEntityId(c);
+    const want = asList(c.state), not = asList(c.state_not);
+    const isNot = !want.length && not.length > 0;
+    const cur = (isNot ? not : want);
+
+    if (kind === "night" || kind === "day") {
+      return cseg("sun", [["below_horizon", "🌙 Nachts"], ["above_horizon", "☀️ Tagsüber"]], kind === "night" ? "below_horizon" : "above_horizon");
+    }
+    if (kind === "period") {
+      const f = parseMD(c.from) || { m: 1, d: 1 }, t = parseMD(c.to) || { m: 12, d: 31 };
+      const days = (sel) => Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${sel === i + 1 ? "selected" : ""}>${i + 1}.</option>`).join("");
+      const months = (sel) => MONTH_NAMES.map((n, i) => `<option value="${i + 1}" ${sel === i + 1 ? "selected" : ""}>${n}</option>`).join("");
+      return `
+        <div class="row2"><span class="rl">Von</span><select class="field" data-c="${key}" data-cf="from_d">${days(f.d)}</select><select class="field" data-c="${key}" data-cf="from_m">${months(f.m)}</select></div>
+        <div class="row2" style="margin-top:6px"><span class="rl">Bis</span><select class="field" data-c="${key}" data-cf="to_d">${days(t.d)}</select><select class="field" data-c="${key}" data-cf="to_m">${months(t.m)}</select></div>
+        <div class="note" style="margin-top:8px">Wiederholt sich jedes Jahr. Geht auch über Silvester, z. B. 20. Dezember bis 6. Januar.</div>`;
+    }
+    if (kind === "time") {
+      const wd = Array.isArray(c.weekdays) ? c.weekdays : [];
+      const order = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+      return `
+        <div class="row2"><span class="rl">Von</span><input class="field" type="time" data-c="${key}" data-cf="after" value="${fmtHM(c.after)}"/>
+          <span class="rl" style="text-align:center">bis</span><input class="field" type="time" data-c="${key}" data-cf="before" value="${fmtHM(c.before)}"/></div>
+        <div class="lbl">An welchen Tagen? <span class="note" style="margin:0">(keiner gewählt = jeden Tag)</span></div>
+        <div class="chips">${order.map((d) => `<button type="button" class="chip day ${wd.includes(d) ? "on" : ""}" data-c="${key}" data-wd="${d}">${WEEKDAY_NAMES[d]}</button>`).join("")}</div>
+        <div class="note" style="margin-top:8px">Geht auch über Mitternacht, z. B. 22:00 bis 06:00.</div>`;
+    }
+    if (kind === "person") {
+      return picker(["person"], "Person suchen")
+        + `<div style="margin-top:8px">${cseg("person", [["home", "🏠 zuhause"], ["away", "🚗 unterwegs"]], not.includes("home") ? "away" : "home")}</div>`;
+    }
+    if (kind === "switch") {
+      return picker(BOOL_DOMAINS, "Schalter suchen")
+        + `<div style="margin-top:8px">${cseg("bool", [["on", "ist an"], ["off", "ist aus"]], isNot ? (cur[0] === "on" ? "off" : "on") : (cur[0] || "on"))}</div>`;
+    }
+    if (kind === "weather") {
+      return picker(["weather"], "Wetter suchen, z. B. weather.home")
+        + `<div style="margin-top:8px">${cseg("mode", [["is", "ist"], ["not", "ist nicht"]], isNot ? "not" : "is")}</div>`
+        + this._stateBox(c, key);
+    }
+    if (kind === "numeric") {
+      return picker(["sensor", "input_number", "number"], "Sensor suchen")
+        + `<div class="row2" style="margin-top:8px"><span class="rl">über</span><input class="field" type="number" step="any" data-c="${key}" data-cf="above" value="${escapeHtml(c.above ?? "")}"/>
+           <span class="rl" style="text-align:center">unter</span><input class="field" type="number" step="any" data-c="${key}" data-cf="below" value="${escapeHtml(c.below ?? "")}"/></div>`;
+    }
+    if (kind === "custom") {
+      const st = eid ? this._hass?.states?.[eid] : null;
+      return picker([], "Entität suchen")
+        + `<div style="margin-top:8px">${cseg("mode", [["is", "ist"], ["not", "ist nicht"]], isNot ? "not" : "is")}</div>`
+        + this._stateBox(c, key)
+        + (st ? `<div class="note" style="margin-top:6px">Gerade: <b>${escapeHtml(stateLabel(this._hass, eid, st.state))}</b> (${escapeHtml(st.state)})</div>` : "");
+    }
+    return `<div class="note">Diese Bedingung („${escapeHtml(this._condType(c))}“) wird ausgewertet, kann aber nur im YAML geändert werden.</div>`;
+  }
+
+  // Welche Zustände eine Entität haben kann (für die Knöpfe zum Antippen)
+  _possibleStates(eid) {
+    const dom = (eid || "").split(".")[0];
+    const KNOWN = {
+      media_player: ["off", "on", "playing", "paused", "idle", "standby", "buffering"],
+      person: ["home", "not_home"], device_tracker: ["home", "not_home"],
+      sun: ["above_horizon", "below_horizon"],
+      cover: ["open", "closed", "opening", "closing"],
+      lock: ["locked", "unlocked", "locking", "unlocking", "jammed"],
+      climate: ["off", "heat", "cool", "heat_cool", "auto", "dry", "fan_only"],
+      vacuum: ["cleaning", "docked", "returning", "idle", "paused", "error"],
+      weather: WEATHER_STATE_LIST,
+    };
+    const list = new Set(KNOWN[dom] || (BOOL_DOMAINS.includes(dom) ? ["on", "off"] : []));
+    const st = this._hass?.states?.[eid];
+    (st?.attributes?.options || []).forEach((o) => list.add(String(o)));
+    if (st) list.add(String(st.state));
+    ["unavailable", "unknown"].forEach((x) => list.add(x));
+    return [...list];
+  }
+
+  // Zustände auswählen: Original-Feld von HA (wird nachher eingesetzt),
+  // sonst Knöpfe zum Antippen + Feld für eigene Werte
+  _stateBox(c, key) {
+    const eid = condEntityId(c);
+    if (!eid) return `<div class="note" style="margin-top:8px">Erst oben ein Gerät wählen - dann kommen hier die Zustände zum Antippen.</div>`;
+    const want = asList(c.state), not = asList(c.state_not);
+    const cur = !want.length && not.length ? not : want;
+    const all = this._possibleStates(eid);
+    cur.forEach((v) => { if (!all.includes(v)) all.push(v); });
+    return `
+      <div class="state-slot" data-c="${key}" style="margin-top:8px">
+        <div class="lbl" style="margin-top:0">Zustand <span class="note" style="margin:0">(mehrere = eins davon reicht)</span></div>
+        <div class="chips">${all.map((v) => `<button type="button" class="chip day ${cur.includes(v) ? "on" : ""}" data-c="${key}" data-st="${escapeHtml(v)}">${escapeHtml(stateLabel(this._hass, eid, v))}</button>`).join("")}</div>
+        <input class="field" style="margin-top:8px" type="text" data-c="${key}" data-cf="addstate" placeholder="eigener Wert, z. B. 21 oder Wohnzimmer"/>
+      </div>`;
+  }
+
+  // Zustände speichern - in "state" oder "state_not", je nach ist / ist nicht
+  _setStates(c, list) {
+    const val = list.length > 1 ? list : (list[0] ?? "");
+    if (c.state_not !== undefined && c.state === undefined) c.state_not = val;
+    else { c.state = val; delete c.state_not; }
+  }
+
+  _curStates(c) {
+    const want = asList(c.state), not = asList(c.state_not);
+    return !want.length && not.length ? not : want;
+  }
+
+  // Neue Bedingung aus einem Baustein
+  _newCond(kind) {
+    const pad = (n) => String(n).padStart(2, "0");
+    switch (kind) {
+      case "night": return { condition: "state", entity: "sun.sun", state: "below_horizon" };
+      case "day": return { condition: "state", entity: "sun.sun", state: "above_horizon" };
+      case "period": {
+        const a = new Date(), b = new Date(Date.now() + 14 * 86400000);
+        return { condition: "period", from: `${pad(a.getMonth() + 1)}-${pad(a.getDate())}`, to: `${pad(b.getMonth() + 1)}-${pad(b.getDate())}` };
+      }
+      case "time": return { condition: "time", after: "08:00:00", before: "20:00:00" };
+      case "switch": return { condition: "state", entity: "", state: "on" };
+      case "person": return { condition: "state", entity: "", state: "home" };
+      case "weather": return { condition: "state", entity: "", state: "sunny" };
+      case "or": return { condition: "or", conditions: [] };
+      case "and": return { condition: "and", conditions: [] };
+      default: return { condition: "state", entity: "", state: "on" };
+    }
+  }
+
+  /* ---------- Liste der Effekte ---------- */
+
+  _entryRow(i) {
+    const raw = this._config.effects[i] || {};
+    const cfg = this._cfg(`e${i}`);
+    const tile = this._tile(cfg.event);
+    const s = entryStatus(raw, this._config.conditions, this._hass);
+    const open = this._openEntry === i;
+    let small;
+    if (s.off) small = "ausgeschaltet";
+    else if (s.on) small = `läuft · ${escapeHtml(describeConditions(raw.conditions, this._hass))}`;
+    else small = `wartet – ${s.global ? "für alle: " : ""}${escapeHtml(s.reason)}`;
+    const dot = s.on ? "ok" : (s.missing && !s.off ? "err" : "");
+    const n = this._config.effects.length;
+    const ask = this._askDel === `fx${i}`;
+    const body = open ? `
+      ${this._effectPanels(`e${i}`, true)}
+      <div class="fx-actions">
+        <button type="button" class="btn" data-act="up" data-i="${i}" ${i === 0 ? "disabled" : ""}>↑ nach oben</button>
+        <button type="button" class="btn" data-act="down" data-i="${i}" ${i === n - 1 ? "disabled" : ""}>↓ nach unten</button>
+        <button type="button" class="btn" data-act="dup" data-i="${i}">⧉ kopieren</button>
+        ${ask
+          ? `<button type="button" class="btn danger solid" data-act="delyes" data-i="${i}">Ja, entfernen</button><button type="button" class="btn" data-act="delno">Nein</button>`
+          : `<button type="button" class="btn danger" data-act="del" data-i="${i}">🗑️ entfernen</button>`}
+      </div>` : "";
+    return `
+      <div class="fx ${open ? "open" : ""} ${s.off ? "off" : ""}" data-fx="${i}">
+        <div class="fx-row" data-act="entry" data-i="${i}">
+          <span class="em">${tile[1]}</span>
+          <span class="nm">${tile[3]}<small class="${dot === "err" ? "err" : ""}">${small}</small></span>
+          <span class="dot ${dot}"></span>
+          <label class="en" title="Effekt an/aus"><input type="checkbox" data-enable="${i}" ${raw.enabled === false ? "" : "checked"}/><span class="sw"></span></label>
+          <span class="chev">▾</span>
+        </div>
+        ${body}
+      </div>`;
+  }
+
+  _listPanels() {
+    const effects = this._config.effects;
+    let html = this._wannPanel("root", "alle", false);
+    const running = effects.filter((e) => entryStatus(e, this._config.conditions, this._hass).on).length;
+    let body = effects.length
+      ? effects.map((_, i) => this._entryRow(i)).join("")
+      : `<div class="empty">Noch kein Effekt drin - tipp auf „＋ Effekt hinzufügen“.</div>`;
+    const showAdd = this._addOpen || !effects.length;
+    body += `<button type="button" class="addfx" data-act="add">${showAdd && effects.length ? "Abbrechen" : "＋ Effekt hinzufügen"}</button>`;
+    if (showAdd) {
+      body += `<div class="addgrid"><div class="tiles">${EFFECT_TILES.filter((t) => t[0] !== "off").map(([key, em, short]) =>
+        `<button type="button" class="tile" data-addfx="${key}"><span class="em">${em}</span>${short}</button>`).join("")}</div></div>`;
+    }
+    html += this._panel("effekte", "✨", "Meine Effekte", `${running} von ${effects.length} laufen`, body);
+    return html;
+  }
+
+  /* ---------- Aufbau ---------- */
+
+  _render() {
+    if (!this._config || !this._open) return;
+    const c = this._config;
+    let html;
+    let playText = "Jetzt vorbeifliegen lassen";
+
+    if (this._list) {
+      html = this._listPanels();
+      const ent = this._openEntry !== null ? this._config.effects[this._openEntry] : null;
+      if (ent && PREVIEW_PLAY_TEXT[ent.event]) playText = PREVIEW_PLAY_TEXT[ent.event];
+    } else {
+      html = this._effectPanels("root", true);
+      html += `
+        <div class="panel"><div class="convert">
+          <span class="txt"><b>🔀 Mehrere Effekte in einer Karte?</b>Macht aus dieser Karte eine Liste. Dieser Effekt bleibt mit allen Einstellungen drin, weitere kannst du dazunehmen - jeder mit eigenem „Wann anzeigen?“.</span>
+          <button type="button" class="btn prim" data-act="convert">In Liste umwandeln</button>
+        </div></div>`;
+      if (PREVIEW_PLAY_TEXT[c.event]) playText = PREVIEW_PLAY_TEXT[c.event];
+    }
     html += this._panel("ueber", "💙", "Über die Karte", `v${CARD_VERSION} · Mister-M`, creditsHtml());
+
+    // Beim Neuaufbau nicht springen: Höhe kurz festhalten und Scroll-Stelle merken
+    const scroller = this._scroller();
+    const keepTop = scroller ? scroller.scrollTop : null;
+    if (this.isConnected && this.offsetHeight) this.style.minHeight = this.offsetHeight + "px";
 
     this.shadowRoot.innerHTML = `
       <style>${EDITOR_CSS}</style>
       <div class="wrap">
-        <div class="pv">
+        <div class="pv"${this._pvH ? ` style="height:${this._pvH}px"` : ""}>
           <div class="pv-stage"></div>
           <div class="pv-msg"></div>
           <span class="pv-tag">Live-Vorschau</span>
-          <button class="play" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><span>${PREVIEW_PLAY_TEXT[ev] || "Jetzt vorbeifliegen lassen"}</span></button>
+          <button class="play" type="button" data-act="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><span>${playText}</span></button>
         </div>
         ${html}
       </div>`;
 
-    this._wire();
+    this._lastSig = this._hass ? this._statusSig() : null;
+    this._afterRender(scroller, keepTop);
+    this._wireResize();
+    // Felder direkt anschließen (manche Ereignisse "blubbern" nicht hoch)
+    this.shadowRoot.querySelectorAll("input, select").forEach((el) => {
+      el.addEventListener("change", (e) => this._onChange(e));
+      el.addEventListener("input", (e) => this._onInput(e));
+    });
     this._mountPickers();
     this._updatePreview();
   }
 
-  /* ---------- Bedienung ---------- */
+  /* ---------- Nicht springen ---------- */
 
-  _wire() {
+  // Das Fenster, in dem der Editor scrollt. Bei HA liegt es außerhalb der
+  // Karte im Dialog - der Editor steckt dort in einem "Schlitz" (slot),
+  // deshalb über assignedSlot weitergehen statt nur über parentElement.
+  _scroller() {
+    let n = this;
+    for (let i = 0; i < 60 && n; i++) {
+      n = n.assignedSlot || n.parentElement || n.getRootNode?.().host || null;
+      if (!n || n === document.body || n === document.documentElement) break;
+      const st = getComputedStyle(n);
+      if (/(auto|scroll)/.test(st.overflowY) && n.scrollHeight > n.clientHeight) return n;
+    }
+    return document.scrollingElement || null;
+  }
+
+  // Das angetippte Teil merken, damit es danach an derselben Stelle steht.
+  // Gezählt wird innerhalb des eigenen Effekts - klappt woanders etwas zu,
+  // verschiebt das die Zählung nicht.
+  _rememberAnchor(target) {
+    const SEL = ".sw-row, .chip, .seg, .tile, .cond-row, .grp-head, .addc, .btn, .fx-row, .panel[data-panel]";
+    const a = target.closest?.(SEL) || target.closest?.("[data-fx]");
+    if (!a) { this._anchor = null; return; }
+    const fx = a.closest("[data-fx]");
+    const scope = fx || this.shadowRoot;
+    this._anchor = {
+      idx: a.matches(SEL) ? [...scope.querySelectorAll(SEL)].indexOf(a) : -1,
+      fx: fx ? fx.dataset.fx : null,
+      fxSel: fx ? `[data-fx="${fx.dataset.fx}"] .fx-row` : null,
+      top: a.getBoundingClientRect().top,
+      fxTop: fx ? fx.querySelector(".fx-row").getBoundingClientRect().top : null,
+      t: Date.now(),
+    };
+  }
+
+  _findAnchor(a) {
+    if (a.idx < 0) return null;
+    const SEL = ".sw-row, .chip, .seg, .tile, .cond-row, .grp-head, .addc, .btn, .fx-row, .panel[data-panel]";
+    const scope = a.fx !== null && a.fx !== undefined ? this.shadowRoot.querySelector(`[data-fx="${a.fx}"]`) : this.shadowRoot;
+    return scope ? [...scope.querySelectorAll(SEL)][a.idx] || null : null;
+  }
+
+  _fixScroll(scroller, a) {
+    if (!scroller || !a) return;
+    // Erst das angetippte Teil, sonst die Effekt-Zeile drumherum
+    let el = this._findAnchor(a), top = a.top;
+    if (a.fxSel && (!el || !el.isConnected)) { el = this.shadowRoot.querySelector(a.fxSel); top = a.fxTop; }
+    if (!el) return;
+    const diff = el.getBoundingClientRect().top - top;
+    if (Math.abs(diff) > 1) scroller.scrollTop += diff;
+  }
+
+  _afterRender(scroller, keepTop) {
+    const a = this._anchor && Date.now() - this._anchor.t < 1500 ? this._anchor : null;
+    this._anchor = null;
+    if (scroller && keepTop !== null) {
+      scroller.scrollTop = keepTop;
+      this._fixScroll(scroller, a);
+    }
+    // HA baut nach einer Änderung manchmal selbst noch etwas um und springt
+    // dabei - deshalb kurz danach noch einmal geraderücken
+    const later = () => {
+      if (scroller && a) this._fixScroll(scroller, a);
+    };
+    const release = () => { this.style.minHeight = ""; };
+    if (window.requestAnimationFrame) {
+      Promise.resolve().then(later);
+      requestAnimationFrame(() => { later(); requestAnimationFrame(() => { later(); release(); }); });
+    } else release();
+  }
+
+  /* ---------- Bedienung (alles über einen gemeinsamen Klick-Empfänger) ---------- */
+
+  _onClick(e) {
+    const t = e.target;
+    this._rememberAnchor(t);
     const root = this.shadowRoot;
-    root.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => {
+    const el = (sel) => t.closest?.(sel);
+    let b;
+
+    if ((b = el("[data-toggle]"))) {
       const id = b.dataset.toggle;
       this._open[id] = !this._open[id];
       b.closest(".panel").classList.toggle("open", this._open[id]);
-    }));
-    root.querySelectorAll("[data-hint]").forEach((b) => b.addEventListener("click", () => {
+      return;
+    }
+    if ((b = el("[data-hint]"))) {
       const id = b.dataset.hint;
       const on = !this._hintsOpen.has(id);
       if (on) this._hintsOpen.add(id); else this._hintsOpen.delete(id);
       b.classList.toggle("on", on);
-      root.querySelector(`[data-hint-text="${id}"]`)?.classList.toggle("on", on);
-    }));
-    root.querySelectorAll("[data-event]").forEach((b) => b.addEventListener("click", () => {
-      this._open.effekt = false;  // nach der Auswahl zuklappen
-      if (b.dataset.event !== this._config.event) this._update("event", b.dataset.event, true);
-      else this._render();
-    }));
-    root.querySelectorAll("[data-part]").forEach((box) => box.addEventListener("change", () => {
-      this._update(box.dataset.part, box.checked, true);
-    }));
-    root.querySelectorAll("[data-seg]").forEach((b) => b.addEventListener("click", () => {
-      const key = b.dataset.seg;
-      const val = b.dataset.val;
-      if (key === "color_mode") {
-        this._updateConfig(val === "auto" ? { color_mode: "auto", color: "auto" } : { color_mode: "custom", color: "#ffffff" }, true);
-      } else {
-        this._update(key, val, true);
-      }
-    }));
-    root.querySelectorAll("[data-text]").forEach((inp) => {
-      const key = inp.dataset.text;
-      const handler = () => this._update(key, key === "birthday_text" ? inp.value : inp.value.trim(), false);
-      inp.addEventListener("change", handler);
-      if (key === "birthday_text") inp.addEventListener("input", handler);
-    });
-    const color = root.querySelector("[data-color]");
-    if (color) {
-      color.addEventListener("input", (e) => this._update("color", e.target.value, false));
-      color.addEventListener("change", (e) => this._update("color", e.target.value, false));
+      root.querySelector(`[data-hint-text="${CSS.escape(id)}"]`)?.classList.toggle("on", on);
+      return;
     }
-    root.querySelectorAll("[data-person]").forEach((b) => b.addEventListener("click", () => {
-      const current = (this._config.person_entities || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if ((b = el("[data-event]"))) {
+      const scope = b.dataset.scope || "root";
+      const pid = scope === "root" ? "effekt" : `${scope}:effekt`;
+      this._open[pid] = false; // nach der Auswahl zuklappen
+      if (b.dataset.event !== this._cfg(scope).event) this._set(scope, { event: b.dataset.event }, true);
+      else this._render();
+      return;
+    }
+    if ((b = el("[data-seg]"))) {
+      const scope = b.dataset.scope || "root";
+      const key = b.dataset.seg, val = b.dataset.val;
+      if (key === "color_mode") {
+        this._set(scope, val === "auto" ? { color_mode: "auto", color: "auto" } : { color_mode: "custom", color: "#ffffff" }, true);
+      } else {
+        this._set(scope, { [key]: val }, true);
+      }
+      return;
+    }
+    if ((b = el("[data-person]"))) {
+      const scope = b.dataset.scope || "root";
+      const current = (this._cfg(scope).person_entities || "").split(",").map((s) => s.trim()).filter(Boolean);
       const eid = b.dataset.person;
       const idx = current.indexOf(eid);
       if (idx === -1) current.push(eid); else current.splice(idx, 1);
-      this._update("person_entities", current.join(", "), true);
-    }));
-    root.querySelector(".play").addEventListener("click", () => this._playPreview());
+      this._set(scope, { person_entities: current.join(", ") }, true);
+      return;
+    }
 
+    // --- Bedingungen ---
+    if ((b = el("[data-cdel]"))) {
+      e.stopPropagation();
+      const key = b.dataset.cdel;
+      const { scope, idxs } = this._decode(key);
+      const node = this._nodeAt(JSON.parse(JSON.stringify(this._raw(scope).conditions || [])), idxs);
+      const isGroupWithKids = Array.isArray(node?.conditions) && node.conditions.length > 0;
+      if (isGroupWithKids && this._askDel !== key) {
+        this._askDel = key;
+        this._render();
+        return;
+      }
+      this._forgetPaths();
+      this._editConds(scope, (list) => this._listAt(list, idxs.slice(0, -1)).splice(idxs[idxs.length - 1], 1));
+      return;
+    }
+    if ((b = el("[data-gtoggle]"))) {
+      this._editLeaf(b.dataset.gtoggle, (g) => { g.condition = this._condType(g) === "or" ? "and" : "or"; });
+      return;
+    }
+    if ((b = el("[data-addmenu]"))) {
+      const k = b.dataset.addmenu;
+      this._menu = this._menu === k ? null : k;
+      this._render();
+      return;
+    }
+    if ((b = el("[data-addcond]"))) {
+      const listKey = b.dataset.addcond, kind = b.dataset.kind;
+      const { scope, idxs } = this._decode(listKey);
+      const raw = this._raw(scope).conditions;
+      const len = this._listAt(JSON.parse(JSON.stringify(Array.isArray(raw) ? raw : [])), idxs).length;
+      const newKey = `${scope}~${idxs.concat(len).join(".")}`;
+      this._menu = null;
+      this._askDel = null;
+      if (!["night", "day", "or", "and"].includes(kind)) this._editing.add(newKey);
+      if (["switch", "custom", "person", "weather"].includes(kind)) this._kind[newKey] = kind;
+      this._editConds(scope, (list) => this._listAt(list, idxs).push(this._newCond(kind)));
+      return;
+    }
+    if ((b = el("[data-cseg]"))) {
+      const f = b.dataset.cseg, val = b.dataset.val, key = b.dataset.c;
+      this._editLeaf(key, (c) => {
+        if (f === "sun") { c.state = val; delete c.state_not; }
+        if (f === "person") {
+          if (val === "home") { c.state = "home"; delete c.state_not; }
+          else { c.state_not = "home"; delete c.state; }
+        }
+        if (f === "bool") { c.state = val; delete c.state_not; }
+        if (f === "mode") {
+          const cur = c.state !== undefined && asList(c.state).length ? c.state : c.state_not;
+          delete c.state; delete c.state_not;
+          if (val === "not") c.state_not = cur ?? ""; else c.state = cur ?? "";
+        }
+      });
+      return;
+    }
+    if ((b = el("[data-st]"))) {
+      const v = b.dataset.st;
+      this._editLeaf(b.dataset.c, (c) => {
+        const cur = this._curStates(c);
+        const i = cur.indexOf(v);
+        if (i === -1) cur.push(v); else cur.splice(i, 1);
+        this._setStates(c, cur);
+      });
+      return;
+    }
+    if ((b = el("[data-wd]"))) {
+      const d = b.dataset.wd;
+      this._editLeaf(b.dataset.c, (c) => {
+        const order = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+        const set = new Set(Array.isArray(c.weekdays) ? c.weekdays : []);
+        if (set.has(d)) set.delete(d); else set.add(d);
+        if (set.size) c.weekdays = order.filter((x) => set.has(x)); else delete c.weekdays;
+      });
+      return;
+    }
+    if ((b = el("[data-cedit]"))) {
+      if (el(".x")) return;
+      const k = b.dataset.cedit;
+      if (this._editing.has(k)) this._editing.delete(k); else this._editing.add(k);
+      this._render();
+      return;
+    }
+
+    // --- Liste der Effekte ---
+    if ((b = el("[data-addfx]"))) {
+      const effects = this._config.effects.concat([{ event: b.dataset.addfx }]);
+      this._addOpen = false;
+      this._openEntry = effects.length - 1;
+      this._forgetPaths();
+      this._commit({ ...this._config, effects }, true);
+      return;
+    }
+    if (el(".en")) return; // Schalter im Effekt - erledigt "change"
+    if ((b = el("[data-act]"))) {
+      const act = b.dataset.act, i = +b.dataset.i;
+      if (act === "play") { this._playPreview(); return; }
+      if (act === "entry") {
+        this._openEntry = this._openEntry === i ? null : i;
+        this._forgetPaths();
+        this._render();
+        return;
+      }
+      if (act === "add") { this._addOpen = !this._addOpen; this._render(); return; }
+      if (act === "convert") { this._convertToList(); return; }
+      const effects = this._config.effects.slice();
+      if (act === "up" || act === "down") {
+        const j = act === "up" ? i - 1 : i + 1;
+        if (j < 0 || j >= effects.length) return;
+        [effects[i], effects[j]] = [effects[j], effects[i]];
+        this._moveOpenKeys(i, j);
+        this._openEntry = j;
+        // Der verschobene Effekt bleibt unter dem Finger (die Liste rückt nach)
+        const row = this.shadowRoot.querySelector(`[data-fx="${i}"] .fx-row`);
+        if (row) this._anchor = { idx: -1, fxSel: `[data-fx="${j}"] .fx-row`, fxTop: row.getBoundingClientRect().top, t: Date.now() };
+      } else if (act === "dup") {
+        effects.splice(i + 1, 0, JSON.parse(JSON.stringify(effects[i])));
+        this._shiftOpenKeys(i + 1, +1);
+        this._openEntry = i + 1;
+      } else if (act === "del") {
+        this._askDel = `fx${i}`;
+        this._render();
+        return;
+      } else if (act === "delno") {
+        this._askDel = null;
+        this._render();
+        return;
+      } else if (act === "delyes") {
+        effects.splice(i, 1);
+        this._shiftOpenKeys(i, -1);
+        this._openEntry = null;
+      } else {
+        return;
+      }
+      this._forgetPaths();
+      this._commit({ ...this._config, effects }, true);
+    }
+  }
+
+  // Auf-/Zugeklappt-Zustand wandert beim Verschieben mit
+  _moveOpenKeys(i, j) {
+    const a = {}, b = {};
+    for (const k of Object.keys(this._open)) {
+      if (k.startsWith(`e${i}:`)) a[k.slice(`e${i}:`.length)] = this._open[k];
+      if (k.startsWith(`e${j}:`)) b[k.slice(`e${j}:`.length)] = this._open[k];
+    }
+    for (const k of Object.keys(this._open)) if (k.startsWith(`e${i}:`) || k.startsWith(`e${j}:`)) delete this._open[k];
+    for (const [k, v] of Object.entries(a)) this._open[`e${j}:${k}`] = v;
+    for (const [k, v] of Object.entries(b)) this._open[`e${i}:${k}`] = v;
+  }
+
+  // Einfügen (delta +1) oder Löschen (delta -1) an Stelle "from"
+  _shiftOpenKeys(from, delta) {
+    const moved = {};
+    for (const k of Object.keys(this._open)) {
+      const m = k.match(/^e(\d+):(.*)$/);
+      if (!m || +m[1] < from) continue;
+      const n = +m[1];
+      if (!(delta < 0 && n === from)) moved[`e${n + delta}:${m[2]}`] = this._open[k];
+      delete this._open[k];
+    }
+    Object.assign(this._open, moved);
+  }
+
+  _onChange(e) {
+    const t = e.target;
+    if (t.dataset.enable !== undefined) {
+      const i = +t.dataset.enable;
+      this._set(`e${i}`, { enabled: t.checked ? undefined : false }, true);
+      return;
+    }
+    if (t.dataset.part) {
+      this._set(t.dataset.scope || "root", { [t.dataset.part]: t.checked }, true);
+      return;
+    }
+    if (t.dataset.text) {
+      const key = t.dataset.text;
+      this._set(t.dataset.scope || "root", { [key]: key === "birthday_text" ? t.value : t.value.trim() }, false);
+      return;
+    }
+    if (t.dataset.color !== undefined) {
+      this._set(t.dataset.scope || "root", { color: t.value }, false);
+      return;
+    }
+    if (t.dataset.cf) {
+      const f = t.dataset.cf, v = t.value;
+      this._editLeaf(t.dataset.c, (c) => {
+        const pad = (n) => String(n).padStart(2, "0");
+        if (f === "after" || f === "before") {
+          if (v) c[f] = `${v}:00`; else delete c[f];
+        } else if (f === "above" || f === "below") {
+          if (v === "") delete c[f]; else c[f] = Number(v);
+        } else if (/^(from|to)_(d|m)$/.test(f)) {
+          const [which, part] = f.split("_");
+          const p = parseMD(c[which]) || (which === "from" ? { m: 1, d: 1 } : { m: 12, d: 31 });
+          p[part] = +v;
+          const max = new Date(2024, p.m, 0).getDate(); // Schaltjahr -> 29.2. möglich
+          if (p.d > max) p.d = max;
+          c[which] = `${pad(p.m)}-${pad(p.d)}`;
+        } else if (f === "addstate") {
+          const cur = this._curStates(c);
+          v.split(",").map((x) => x.trim()).filter(Boolean).forEach((x) => { if (!cur.includes(x)) cur.push(x); });
+          this._setStates(c, cur);
+        } else if (f === "value") {
+          const vals = v.split(",").map((s) => s.trim()).filter(Boolean);
+          const val = vals.length > 1 ? vals : (vals[0] ?? "");
+          if (c.state_not !== undefined && c.state === undefined) c.state_not = val; else { c.state = val; delete c.state_not; }
+        }
+      });
+    }
+  }
+
+  _onInput(e) {
+    const t = e.target;
+    // Wimpel-Text und Farbe sofort in der Vorschau zeigen
+    if (t.dataset.text === "birthday_text") this._set(t.dataset.scope || "root", { birthday_text: t.value }, false);
+    else if (t.dataset.color !== undefined) this._set(t.dataset.scope || "root", { color: t.value }, false);
+  }
+
+  // Einzel-Karte -> Liste mit genau diesem einen Effekt
+  _convertToList() {
+    const c = this._config;
+    const entry = {};
+    for (const k of Object.keys(EFFECT_DEFAULTS)) {
+      if (c[k] === undefined) continue;
+      if (k !== "event" && JSON.stringify(c[k]) === JSON.stringify(EFFECT_DEFAULTS[k])) continue;
+      entry[k] = c[k];
+    }
+    if (!entry.event) entry.event = c.event || "night_sky";
+    if (Array.isArray(c.conditions) && c.conditions.length) entry.conditions = c.conditions;
+    const root = {};
+    for (const [k, v] of Object.entries(c)) {
+      if (k in EFFECT_DEFAULTS || k === "conditions" || k === "count" || k === "opacity") continue;
+      root[k] = v;
+    }
+    root.effects = entry.event === "off" ? [] : [entry];
+    this._openEntry = root.effects.length ? 0 : null;
+    this._open.effekte = true;
+    this._forgetPaths();
+    this._commit(root, true);
+  }
+
+  _wireResize() {
     // Vorschau an die Breite anpassen (auch wenn sich das Fenster ändert)
-    const pv = root.querySelector(".pv");
+    const pv = this.shadowRoot.querySelector(".pv");
     if (this._resizeObs) this._resizeObs.disconnect();
-    if (window.ResizeObserver) {
+    if (window.ResizeObserver && pv) {
       this._resizeObs = new ResizeObserver(() => this._fitPreview());
       this._resizeObs.observe(pv);
     }
   }
 
   _mountPickers() {
+    // Zustände: Original-Auswahl von Home Assistant (wie bei der Sichtbarkeit)
+    if (customElements.get("ha-selector") && this._hass) {
+      this.shadowRoot.querySelectorAll(".state-slot").forEach((slot) => {
+        const key = slot.dataset.c;
+        const { scope, idxs } = this._decode(key);
+        const raw = this._raw(scope).conditions;
+        const node = this._nodeAt(JSON.parse(JSON.stringify(Array.isArray(raw) ? raw : [])), idxs);
+        const eid = condEntityId(node);
+        const el = document.createElement("ha-selector");
+        el.hass = this._hass;
+        el.selector = { state: { entity_id: eid, multiple: true } };
+        el.value = this._curStates(node);
+        el.label = "Zustand";
+        el.required = false;
+        el.style.display = "block";
+        el.addEventListener("value-changed", (e) => {
+          e.stopPropagation();
+          const v = e.detail?.value;
+          const list = (Array.isArray(v) ? v : (v ? [v] : [])).map(String);
+          this._editLeaf(key, (c) => this._setStates(c, list));
+        });
+        slot.innerHTML = "";
+        slot.appendChild(el);
+      });
+    }
     this.shadowRoot.querySelectorAll(".picker-slot").forEach((slot) => {
-      const key = slot.dataset.key;
-      const domains = slot.dataset.domains.split(",");
-      const value = this._config[key] || "";
-      const onValue = (v) => this._update(key, (v || "").trim(), true);
+      const domains = slot.dataset.domains ? slot.dataset.domains.split(",").filter(Boolean) : [];
+      let value, onValue, listId;
+      if (slot.dataset.c) {
+        // Entität in einer Bedingung
+        const key = slot.dataset.c;
+        const { scope, idxs } = this._decode(key);
+        const raw = this._raw(scope).conditions;
+        const node = this._nodeAt(JSON.parse(JSON.stringify(Array.isArray(raw) ? raw : [])), idxs);
+        value = condEntityId(node);
+        listId = "aoc-c-" + key.replace(/[^a-z0-9]/gi, "_");
+        onValue = (v) => {
+          const eid = (v || "").trim();
+          if (eid === value) return;
+          this._editLeaf(key, (c) => {
+            c.entity = eid;
+            delete c.entity_id;
+            const dom = eid.split(".")[0];
+            // Zur neuen Entität passenden Zustand vorschlagen
+            if (this._condType(c) === "state" && this._kind[key] !== "custom") {
+              if (dom === "person" && !asList(c.state).length && !asList(c.state_not).length) c.state = "home";
+              if (BOOL_DOMAINS.includes(dom) && !["on", "off"].includes(asList(c.state)[0] || asList(c.state_not)[0])) { c.state = "on"; delete c.state_not; }
+            }
+          });
+        };
+      } else {
+        const scope = slot.dataset.scope || "root";
+        const key = slot.dataset.key;
+        value = this._cfg(scope)[key] || "";
+        listId = "aoc-list-" + scope + "-" + key;
+        onValue = (v) => this._set(scope, { [key]: (v || "").trim() }, true);
+      }
 
       // 1. Wahl: Original-Suchfeld von Home Assistant (mit Symbol + Name)
       if (customElements.get("ha-selector") && this._hass) {
         const el = document.createElement("ha-selector");
         el.hass = this._hass;
-        el.selector = { entity: { domain: domains } };
+        el.selector = { entity: domains.length ? { domain: domains } : {} };
         el.value = value;
         el.required = false;
         el.style.display = "block";
@@ -3801,7 +5142,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (customElements.get("ha-entity-picker") && this._hass) {
         const el = document.createElement("ha-entity-picker");
         el.hass = this._hass;
-        el.includeDomains = domains;
+        if (domains.length) el.includeDomains = domains;
         el.value = value;
         el.allowCustomEntity = true;
         el.style.display = "block";
@@ -3811,9 +5152,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
       }
 
       // Sicherung: Textfeld mit Vorschlägen zum Tippen (Browser-Suche)
-      const listId = "aoc-list-" + key;
       const matches = this._hass?.states
-        ? Object.keys(this._hass.states).filter((eid) => domains.some((d) => eid.startsWith(d + "."))).sort()
+        ? Object.keys(this._hass.states).filter((eid) => !domains.length || domains.some((d) => eid.startsWith(d + "."))).sort()
         : [];
       slot.innerHTML = `
         <input class="field" type="search" list="${listId}" value="${escapeHtml(value)}" placeholder="${slot.dataset.placeholder}" autocomplete="off"/>
@@ -3821,7 +5161,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
           ${matches.map((eid) => `<option value="${escapeHtml(eid)}">${escapeHtml(this._friendly(eid))}</option>`).join("")}
         </datalist>`;
       const input = slot.querySelector("input");
-      input.addEventListener("change", (e) => onValue(e.target.value));
+      // eigener Weg, damit der gemeinsame "change"-Empfänger es nicht anfasst
+      input.addEventListener("change", (e) => { e.stopPropagation(); onValue(e.target.value); });
       input.addEventListener("search", (e) => onValue(e.target.value));
     });
   }
@@ -3850,45 +5191,73 @@ class AmbientOverlayCardEditor extends HTMLElement {
     stage.style.left = left + "px";
     stage.style.transform = `scale(${s})`;
     pv.style.height = Math.round(vh * s) + "px";
+    this._pvH = Math.round(vh * s);
+  }
+
+  // Ein Effekt-Eintrag -> CSS + HTML für die Vorschau
+  _previewParts(cfg) {
+    const out = [];
+    for (const ev of eventsForConfig(cfg, this._hass)) {
+      const renderer = RENDERERS[ev];
+      if (!renderer) continue;
+      // Die Vorschau hat immer einen dunklen Hintergrund. Bei "automatischer"
+      // Farbe würde der Effekt sonst die Farbe des (evtl. hellen) Editor-
+      // Fensters übernehmen und wäre unsichtbar - deshalb hier immer hell.
+      const caps = EVENT_CAPABILITIES[cfg.event] || {};
+      const auto = (cfg.color_mode || (cfg.color === "auto" ? "auto" : "custom")) === "auto";
+      const c = ((caps.color || cfg.event === "halloween") && auto) ? { ...cfg, color: "#ffffff" } : cfg;
+      out.push(renderer(c, this._hass, this));
+    }
+    return out;
   }
 
   _updatePreview() {
     const stage = this.shadowRoot.querySelector(".pv-stage");
     const msg = this.shadowRoot.querySelector(".pv-msg");
     const play = this.shadowRoot.querySelector(".play");
+    const tag = this.shadowRoot.querySelector(".pv-tag");
     if (!stage || !msg) return;
     this._fitPreview();
-    const c = this._config;
     play.classList.remove("show");
-    if (!c || c.event === "off") {
-      stage.innerHTML = "";
-      msg.textContent = "Kein Effekt ausgewählt.";
-      return;
+    let parts = [];
+    let empty = "";
+
+    if (this._list) {
+      const effects = this._config.effects;
+      const i = this._openEntry;
+      if (i !== null && effects[i]) {
+        // Aufgeklappter Effekt: immer zeigen, auch wenn er gerade wartet
+        const cfg = this._cfg(`e${i}`);
+        parts = this._previewParts(cfg);
+        tag.textContent = `Live-Vorschau · ${this._tile(cfg.event)[3]}`;
+        if (!parts.length) empty = cfg.event === "weather_auto"
+          ? (cfg.weather_entity ? "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag)." : "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.")
+          : "Keine Vorschau.";
+      } else {
+        const active = effects.map((_, k) => k).filter((k) => entryStatus(effects[k], this._config.conditions, this._hass).on);
+        active.forEach((k) => { parts = parts.concat(this._previewParts(this._cfg(`e${k}`))); });
+        tag.textContent = `Live-Vorschau · ${active.length} von ${effects.length} laufen gerade`;
+        if (!effects.length) empty = "Noch kein Effekt in der Liste.";
+        else if (!parts.length) empty = "Gerade läuft nichts. Tipp einen Effekt an, um ihn trotzdem zu sehen.";
+      }
+    } else {
+      const c = this._config;
+      tag.textContent = "Live-Vorschau";
+      if (!c || c.event === "off") empty = "Kein Effekt ausgewählt.";
+      else {
+        parts = this._previewParts(c);
+        if (!parts.length && c.event === "weather_auto") {
+          empty = c.weather_entity ? "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag)." : "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.";
+        }
+      }
     }
-    if (c.event === "weather_auto") {
-      stage.innerHTML = "";
-      msg.textContent = "Keine Vorschau bei der Wetter-Automatik - der Effekt hängt vom echten Wetter ab.";
-      return;
-    }
-    const renderer = RENDERERS[c.event];
-    if (!renderer) {
-      stage.innerHTML = "";
-      msg.textContent = "";
-      return;
-    }
-    msg.textContent = "";
-    // Die Vorschau hat immer einen dunklen Hintergrund. Bei "automatischer"
-    // Farbe würde der Effekt sonst die Farbe des (evtl. hellen) Editor-
-    // Fensters übernehmen und wäre unsichtbar - deshalb hier immer hell.
-    const caps = EVENT_CAPABILITIES[c.event] || {};
-    const previewCfg = ((caps.color || c.event === "halloween") && (c.color_mode || "auto") === "auto")
-      ? { ...c, color: "#ffffff" }
-      : c;
-    const { css, html } = renderer(previewCfg, this._hass, this);
-    stage.innerHTML = `<style>${css}</style>${html}`;
+
+    msg.textContent = empty;
+    stage.innerHTML = parts.length
+      ? `<style>${parts.map((p) => p.css).join("\n")}</style>${parts.map((p) => `<div>${p.html}</div>`).join("")}`
+      : "";
     // Start-Knopf nur, wenn es Figuren gibt, die selten vorbeikommen
-    const hasPeriodic = this._periodicAnims().length > 0;
-    play.classList.toggle("show", hasPeriodic);
+    play.classList.toggle("show", this._periodicAnims().length > 0);
   }
 
   // Alle "seltenen" Animationen der Vorschau (Zyklus ab 25 Sekunden)
@@ -3908,28 +5277,6 @@ class AmbientOverlayCardEditor extends HTMLElement {
       const t = a.effect.getTiming();
       a.currentTime = (((t.delay || 0) % t.duration) + t.duration) % t.duration;
       a.play();
-    }
-  }
-
-  _update(key, value, rerender) {
-    this._suppressNextRender = !rerender;
-    this._config = { ...this._config, [key]: value };
-    fireEvent(this, "config-changed", { config: this._config });
-    if (rerender) {
-      this._render();
-    } else {
-      this._updatePreview();
-    }
-  }
-
-  _updateConfig(newValues, rerender) {
-    this._suppressNextRender = !rerender;
-    this._config = { ...this._config, ...newValues };
-    fireEvent(this, "config-changed", { config: this._config });
-    if (rerender) {
-      this._render();
-    } else {
-      this._updatePreview();
     }
   }
 }
