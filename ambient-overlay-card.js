@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.14-beta.5";
+const CARD_VERSION = "1.0.14-beta.6";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3341,22 +3341,37 @@ class AmbientOverlayCard extends HTMLElement {
     return this._layerCfg?.[key] || this._config;
   }
 
-  // "Fingerabdruck" von allem, worauf die Bedingungen schauen. Ändert sich
-  // dieser, wird neu gezeichnet - sonst nicht (schont schwache Geräte).
+  // "Fingerabdruck": Ändert er sich, wird neu gezeichnet - sonst nicht.
+  // Darin steckt nur, was das BILD verändert: ob ein Effekt gerade läuft
+  // (Ergebnis der Bedingungen, nicht jeder einzelne Zustand - ein Fire TV,
+  // der von "spielt" auf "pausiert" geht, ist weiterhin "nicht aus") und
+  // die Dinge, die ein Effekt selbst zeigt (Wetter, Personen, Schalter …).
   _signature() {
-    const ents = collectConditionEntities(this._config?.conditions);
     const entries = this._listMode ? (this._entries || []) : [this._config];
-    for (const e of entries) {
-      collectConditionEntities(e.conditions, ents);
-      entryEntities(e, ents);
-    }
-    ents.add("sun.sun");
-    const states = [...ents].sort().map((eid) => `${eid}=${this._hass?.states?.[eid]?.state}`).join("|");
     const now = new Date();
-    const active = entries.map((e) => (e.enabled === false ? 0 : evalConditions(e.conditions, this._hass, now).ok ? 1 : 0)).join("");
     const glob = evalConditions(this._config?.conditions, this._hass, now).ok ? 1 : 0;
-    const hw = entries.map((e) => (isHalloweenTime(e, this._hass) ? 1 : 0)).join("");
-    return `${states}#${active}#${glob}#${hw}`;
+    const per = entries.map((e) => {
+      const on = e.enabled === false ? 0 : (evalConditions(e.conditions, this._hass, now).ok ? 1 : 0);
+      return `${on}:${this._layerInputs(e)}`;
+    }).join("|");
+    return `${glob}#${per}`;
+  }
+
+  // Alles aus Home Assistant, was ein Effekt beim Zeichnen benutzt
+  _layerInputs(cfg) {
+    const ents = entryEntities(cfg);
+    ents.add("sun.sun");
+    const st = this._hass?.states || {};
+    const parts = [...ents].sort().map((eid) => {
+      const o = st[eid];
+      if (!o) return `${eid}=-`;
+      // Personen: auch Name und Bild (für den Waggon)
+      return eid.startsWith("person.")
+        ? `${eid}=${o.state}/${o.attributes?.friendly_name || ""}/${o.attributes?.entity_picture || ""}`
+        : `${eid}=${o.state}`;
+    });
+    parts.push(`hw=${isHalloweenTime(cfg, this._hass) ? 1 : 0}`);
+    return parts.join(",");
   }
 
   // Läuft alle 30 Sekunden: Uhrzeit- und Zeitraum-Bedingungen ändern sich
@@ -3566,6 +3581,7 @@ class AmbientOverlayCard extends HTMLElement {
         this._starsReshuffleTimer = setInterval(() => {
           const count = getParticleCount(this._cfgFor("stars")?.count_preset || "medium", "stars");
           _randomCache.delete(`stars:${count}`);
+          this._starsGen = (this._starsGen || 0) + 1;
           this._render();
         }, 240000);
       }
@@ -3643,10 +3659,19 @@ class AmbientOverlayCard extends HTMLElement {
       if (!this._effectLayers.has(key)) delete this._periodicStartTimes[key];
     }
 
-    let combinedCss = `
-      @keyframes fx-fade-out { from { opacity: 1; } to { opacity: 0; } }
-    `;
-    let combinedHtml = "";
+    // Jeder Effekt bekommt seine eigene Ebene. Neu gezeichnet wird eine
+    // Ebene NUR, wenn sich bei ihr etwas geändert hat - alle anderen laufen
+    // einfach weiter (sonst springen Wolken, Regen, Ballons … jedes Mal an
+    // ihren Anfang zurück, sobald sich irgendwo im Haus etwas ändert).
+    const root = this._portalShadow;
+    if (this._layerRoot !== root || !this._layerEls) {
+      root.innerHTML = `<style>@keyframes fx-fade-out { from { opacity: 1; } to { opacity: 0; } }</style>`;
+      this._layerEls = new Map();
+      this._layerRoot = root;
+    }
+    const dark = isDarkModeActive(this._hass, this) ? 1 : 0;
+    const day = new Date().toDateString(); // z. B. Mondphase wechselt täglich
+    const seen = new Set();
     for (const [event, state] of this._effectLayers.entries()) {
       const base = event.split("#")[0];
       const renderer = RENDERERS[base];
@@ -3664,10 +3689,7 @@ class AmbientOverlayCard extends HTMLElement {
         cfgForRender = { ...layerCfg, _wishstarPos: this._wishstarPos };
       } else if (base === "dog") {
         if (!this._periodicStartTimes[event]) {
-          const ranges = {
-            dog: [10, 80],
-          };
-          const [min, max] = ranges[event] || [10, 80];
+          const [min, max] = [10, 80];
           this._periodicStartTimes[event] = {
             startHeight: Math.random() * (max - min) + min,
             drift: Math.random() * 16 - 8,
@@ -3680,20 +3702,35 @@ class AmbientOverlayCard extends HTMLElement {
           _drift: pState.drift,
         };
       }
-      const { css, html } = renderer(cfgForRender, this._hass, this);
-      combinedCss += css;
-      // Fading-Layer bekommen eine "resume mid-animation"-Verzögerung wie
-      // bei santa/dog/comet: negativer animation-delay aus der bereits
-      // verstrichenen Ausblend-Zeit, damit ein Neu-Rendern während des
-      // Verblassens (z. B. durch andere laufende Timer) den Fade nicht
-      // wieder von vorne beginnen lässt.
+      const sig = JSON.stringify([event, cfgForRender, this._layerInputs(layerCfg), dark, day,
+        base === "stars" ? (this._starsGen || 0) : 0]);
+      let L = this._layerEls.get(event);
+      if (!L) {
+        L = { style: document.createElement("style"), div: document.createElement("div"), sig: null };
+        root.appendChild(L.style);
+        root.appendChild(L.div);
+        this._layerEls.set(event, L);
+      }
+      if (L.sig !== sig) {
+        const { css, html } = renderer(cfgForRender, this._hass, this);
+        L.style.textContent = css;
+        L.div.innerHTML = html;
+        L.sig = sig;
+      }
+      // Ausblenden: nur die Hülle bekommt die Blende, der Inhalt läuft weiter
       const layerStyle = state.fadeStartedAt !== null
-        ? `animation: fx-fade-out ${(FADE_DURATION_MS / 1000).toFixed(2)}s linear forwards; animation-delay: -${((Date.now() - state.fadeStartedAt) / 1000).toFixed(2)}s;`
+        ? `animation: fx-fade-out ${(FADE_DURATION_MS / 1000).toFixed(2)}s linear forwards;`
         : "opacity: 1;";
-      combinedHtml += `<div style="${layerStyle}">${html}</div>`;
+      if (L.div.getAttribute("style") !== layerStyle) L.div.setAttribute("style", layerStyle);
+      seen.add(event);
+    }
+    for (const [key, L] of this._layerEls) {
+      if (seen.has(key)) continue;
+      L.style.remove();
+      L.div.remove();
+      this._layerEls.delete(key);
     }
 
-    this._portalShadow.innerHTML = `<style>${combinedCss}</style>${combinedHtml}`;
     this._onVisibilityChange();
   }
 }
