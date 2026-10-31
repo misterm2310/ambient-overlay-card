@@ -25,6 +25,17 @@
 
 ## ✨ Was kann das Ding?
 
+- 🌦️ **Echtes Wetter** von deiner `weather.*`-Entity: Regen, Schnee, Blitz, Nebel, Sonne – plus 🌙 Mond mit echter Mondphase.
+- 🚂 **Dampflok** mit deiner Familie als Waggons (nur wer zuhause ist), Gästen und Schlusswagen.
+- 🐕 **Tiere:** Labrador, 🦉 Eule & Vogelhäuschen, 🕷️ Spinne, 🐝 Bienen.
+- 🎂 **Feste:** Geburtstag, 🎃 Halloween (am 31.10. ganz von selbst), 🎅 Weihnachtsmann, 🌠 Nachthimmel.
+- 🧺 **Alles in einer Karte** mit „🕒 Wann anzeigen?“ zum Antippen statt YAML.
+- 🔋 **Akku-schonend** über CSS, pausiert im Hintergrund, Hell & Dunkel von selbst.
+
+**11 Effekte zum Auswählen** plus die Wetter-Automatik mit 10 weiteren (Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne, Sonne, Mond). Entweder alles in **einer Karte** als Liste – oder wie früher pro Effekt eine Karte, z. B. Wetter-Automatik **und** Dampflok **und** Eule auf derselben Seite.
+
+<details><summary>📋 Alle Funktionen im Detail</summary>
+
 | Funktion | So klappt's |
 |---|---|
 | 🌦️ **Wetter-Automatik** | Die Karte schaut auf deine `weather.*`-Entity und zeigt selbst das Passende: Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne oder Sonne. Bei „Schneeregen“ laufen Schnee **und** Regen gleichzeitig, bei „Gewitter mit Regen“ Blitz **und** Regen. |
@@ -47,7 +58,7 @@
 | 🔋 **Akku-schonend** | Fast alles läuft über CSS (Grafikkarte). Ist der Tab im Hintergrund, pausieren die Animationen. |
 | 🎯 **Immer obendrauf** | Die Effekte liegen in einer eigenen Ebene über allem – auch über anderen Karten mit eigenen Animationen. |
 
-**11 Effekte zum Auswählen** plus die Wetter-Automatik mit 10 weiteren (Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne, Sonne, Mond). Entweder alles in **einer Karte** als Liste – oder wie früher pro Effekt eine Karte, z. B. Wetter-Automatik **und** Dampflok **und** Eule auf derselben Seite.
+</details>
 
 ---
 
@@ -104,7 +115,9 @@ Alle anderen Optionen (`event`, `count_preset`, `person_entities` …) bleiben g
 
 ## 👆 So wird's eingerichtet
 
-Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte startet mit **einem** Effekt. Willst du mehrere, tipp unten auf **„🔀 In Liste umwandeln“** (siehe [Alles in einer Karte](#-alles-in-einer-karte-liste)).
+<details><summary>Editor Schritt für Schritt: Vorschau, Effekt, Aussehen, Einstellungen – <i>aufklappen</i></summary>
+
+Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte startet mit **einem** Effekt. Willst du mehrere, tipp unten auf **„🔀 In Liste umwandeln“** (siehe „Alles in einer Karte“ gleich darunter).
 
 1. **▶ Vorschau:** Oben siehst du den Effekt live. Kommt eine Figur nur selten vorbei (Hexe, Zug, Hund, Weihnachtsmann …), schick sie mit **„▶ Jetzt vorbeifliegen lassen“** sofort los.
 2. **✨ Effekt:** Kachel antippen – danach klappt die Auswahl von selbst zu. Antippen der Zeile öffnet sie wieder. Die reinen Wetter-Effekte stehen bewusst nicht einzeln da, die macht die **🌦️ Wetter**-Automatik.
@@ -127,7 +140,9 @@ Gut zu wissen:
 * Die **Spinne** gibt es nur einmal, da gibt's keinen Anzahl-Regler.
 * **Weihnachtsmann, Hund, Dampflok, Eule & Vogelhäuschen, Laub, Bienen, Geburtstag und Halloween** haben feste Farben, also keinen Farbmodus.
 
-### 🧺 Alles in einer Karte (Liste)
+</details>
+
+<details><summary><b>🧺 Alles in einer Karte (Liste) mit „Wann anzeigen?“</b></summary>
 
 Statt für jeden Effekt eine eigene Karte mit Sichtbarkeits-Regeln anzulegen, packst du **alle Effekte in eine einzige Karte**. Bei einer Einzel-Karte unten auf **„🔀 In Liste umwandeln“** tippen – dein Effekt bleibt mit allen Einstellungen drin.
 
@@ -175,11 +190,15 @@ effects:
 
 **Und meine alten Karten?** Laufen genau wie vorher weiter – nichts musst du ändern. Auch die Einzel-Karte hat jetzt „🕒 Wann anzeigen?“.
 
-### 🚃 Reihenfolge der Waggons
+</details>
+
+<details><summary><b>🚃 Reihenfolge der Waggons</b></summary>
 
 Von vorn nach hinten: **Lok** → die **vier festen Waggons** → die **Personen** (in der Reihenfolge, wie du sie angehakt hast) → die **Gäste** (wie die Namen im Sensor stehen) → ganz hinten der **Schlusswagen** mit den blinkenden Lampen.
 
-### 🌦️ Was die Wetter-Automatik zeigt
+</details>
+
+<details><summary><b>🌦️ Was die Wetter-Automatik zeigt</b></summary>
 
 | Wetter in Home Assistant | Effekt |
 |---|---|
@@ -199,6 +218,8 @@ Von vorn nach hinten: **Lok** → die **vier festen Waggons** → die **Personen
 **Dazu immer:** Ist die Sonne untergegangen (`sun.sun` = `below_horizon`), kommt der 🌙 Mond dazu – egal welches Wetter. Die Sonne verschwindet dann, auch wenn die Wetter-Entity noch „sunny“ meldet (beide sitzen am selben Platz).
 
 Anzahl, Deckkraft und Farbmodus gelten bei der Automatik für **alle** Wetter-Effekte gemeinsam. Tiere und Deko laufen nicht über die Automatik – nimm sie einfach als weiteren Effekt in die Liste.
+
+</details>
 
 ---
 
@@ -318,7 +339,7 @@ leaf_colors:
 
 ## 🎛️ Karten-Optionen
 
-Alles geht im visuellen Editor. Für YAML-Fans:
+<details><summary>Alles geht im Editor – das hier ist für YAML-Fans – <i>aufklappen</i></summary>
 
 | Option | Standard | Was macht das? |
 |---|---|---|
@@ -343,6 +364,8 @@ Alles geht im visuellen Editor. Für YAML-Fans:
 | `conditions` | – | 🕒 Wann anzeigen? Liste von Bedingungen (Format wie die HA-Sichtbarkeit, plus `period` mit `from`/`to` als `"MM-TT"`). In der Liste: oben = gilt für alle, im Effekt = nur für diesen |
 | `effects` | – | macht aus der Karte eine Liste: jeder Eintrag hat dieselben Optionen wie oben, dazu `conditions` und `enabled: false` zum Ausschalten |
 
+</details>
+
 ---
 
 ## ❓ Häufige Fragen
@@ -364,6 +387,8 @@ Alles geht im visuellen Editor. Für YAML-Fans:
 Sie ist und bleibt **kostenlos**. Wenn du magst, kannst du mir ganz freiwillig eine kleine Spende per PayPal schicken: [paypal.me/MarcoStrickmann](https://paypal.me/MarcoStrickmann). Danke! 🙏
 
 [![PayPal](https://img.shields.io/badge/PayPal-Spenden-0070BA?logo=paypal&logoColor=white)](https://paypal.me/MarcoStrickmann)
+
+---
 
 ## 💡 Ideen, Wünsche und Fehler
 

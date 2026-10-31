@@ -27,6 +27,17 @@
 
 ## ✨ What can it do?
 
+- 🌦️ **Real weather** from your `weather.*` entity: rain, snow, lightning, fog, sun – plus a 🌙 moon with the real moon phase.
+- 🚂 **Steam train** with your family as wagons (only who is home), guests and a tail car.
+- 🐕 **Animals:** Labrador, 🦉 owl & birdhouse, 🕷️ spider, 🐝 bees.
+- 🎂 **Celebrations:** birthday, 🎃 Halloween (on Oct 31 all by itself), 🎅 Santa, 🌠 night sky.
+- 🧺 **All in one card** with “🕒 When to show?” to tap instead of YAML.
+- 🔋 **Battery-friendly** via CSS, pauses in the background, light & dark by itself.
+
+**11 effects to choose from** plus the weather automation with 10 more (rain, snow, hail, lightning, fog, storm, clouds, stars, sun, moon). Either everything in **one card** as a list – or one card per effect as before, e.g. weather automation **and** steam train **and** owl on the same view.
+
+<details><summary>📋 All features in detail</summary>
+
 | Feature | How it works |
 |---|---|
 | 🌦️ **Weather automation** | The card watches your `weather.*` entity and shows the matching effect by itself: rain, snow, hail, lightning, fog, storm, clouds, stars or sun. With “snowy-rainy” you get snow **and** rain at once, with “lightning-rainy” lightning **and** rain. |
@@ -49,7 +60,7 @@
 | 🔋 **Battery friendly** | Almost everything runs on CSS (GPU). When the tab is in the background, the animations pause. |
 | 🎯 **Always on top** | The effects live in their own layer above everything – even above other cards with their own animations. |
 
-**11 effects to choose from** plus the weather automation with 10 more (rain, snow, hail, lightning, fog, storm, clouds, stars, sun, moon). Either everything in **one card** as a list – or one card per effect as before, e.g. weather automation **and** steam train **and** owl on the same view.
+</details>
 
 ---
 
@@ -106,7 +117,9 @@ All other options (`event`, `count_preset`, `person_entities` …) stay the same
 
 ## 👆 Setting it up
 
-Add card → **Ambient Overlay Card** → in the editor. A new card starts with **one** effect. If you want several, tap **“🔀 In Liste umwandeln”** (convert to list) at the bottom – see [All in one card](#-all-in-one-card-list).
+<details><summary>The editor step by step: preview, effect, look, settings – <i>expand</i></summary>
+
+Add card → **Ambient Overlay Card** → in the editor. A new card starts with **one** effect. If you want several, tap **“🔀 In Liste umwandeln”** (convert to list) at the bottom – see “All in one card” right below.
 
 1. **▶ Preview (Live-Vorschau):** at the top you see the effect live. If a figure only comes by rarely (witch, train, dog, Santa …), send it off right away with **“▶ Jetzt vorbeifliegen lassen”**.
 2. **✨ Effect (Effekt):** tap a tile – the selection then closes by itself. Tapping the row opens it again. The pure weather effects are deliberately not listed one by one – the **🌦️ weather** automation does that.
@@ -129,7 +142,9 @@ Good to know:
 * There is only one **spider**, so it has no amount setting.
 * **Santa, dog, steam train, owl & birdhouse, leaves, bees, birthday and Halloween** have fixed colours, so no colour mode.
 
-### 🧺 All in one card (list)
+</details>
+
+<details><summary><b>🧺 All in one card (list) with “When to show?”</b></summary>
 
 Instead of creating a separate card with visibility rules for every effect, you put **all effects into one single card**. On a single card, tap **“🔀 In Liste umwandeln”** (convert to list) at the bottom – your effect stays in with all its settings.
 
@@ -177,11 +192,15 @@ effects:
 
 **And my old cards?** They keep working exactly as before – you don’t have to change anything. The single card now also has “🕒 When to show?”.
 
-### 🚃 Order of the wagons
+</details>
+
+<details><summary><b>🚃 Order of the wagons</b></summary>
 
 From front to back: **engine** → the **four fixed wagons** → the **people** (in the order you selected them) → the **guests** (as the names are in the sensor) → at the very end the **last wagon** with the blinking lights.
 
-### 🌦️ What the weather automation shows
+</details>
+
+<details><summary><b>🌦️ What the weather automation shows</b></summary>
 
 | Weather in Home Assistant | Effect |
 |---|---|
@@ -201,6 +220,8 @@ From front to back: **engine** → the **four fixed wagons** → the **people** 
 **Always on top of that:** once the sun has set (`sun.sun` = `below_horizon`), the 🌙 moon is added – whatever the weather. The sun then disappears, even if the weather entity still says “sunny” (both sit in the same spot).
 
 Amount, opacity and colour mode apply to **all** weather effects together in the automation. Animals and decoration do not run via the automation – just add them as another effect to the list.
+
+</details>
 
 ---
 
@@ -320,7 +341,7 @@ leaf_colors:
 
 ## 🎛️ Card options
 
-Everything can be done in the visual editor. For YAML fans:
+<details><summary>Everything works in the editor – this is for YAML fans – <i>expand</i></summary>
 
 | Option | Default | What does it do? |
 |---|---|---|
@@ -345,6 +366,8 @@ Everything can be done in the visual editor. For YAML fans:
 | `conditions` | – | 🕒 When to show? A list of conditions (same format as HA visibility, plus `period` with `from`/`to` as `"MM-DD"`). In a list card: at the top = applies to all, inside an effect = only for that one |
 | `effects` | – | turns the card into a list: each entry has the same options as above, plus `conditions` and `enabled: false` to switch it off |
 
+</details>
+
 ---
 
 ## ❓ FAQ
@@ -368,6 +391,8 @@ Everything can be done in the visual editor. For YAML fans:
 It is and stays **free**. If you like, you can send me a small voluntary donation via PayPal: [paypal.me/MarcoStrickmann](https://paypal.me/MarcoStrickmann). Thank you! 🙏
 
 [![PayPal](https://img.shields.io/badge/PayPal-Donate-0070BA?logo=paypal&logoColor=white)](https://paypal.me/MarcoStrickmann)
+
+---
 
 ## 💡 Ideas, wishes and bugs
 
