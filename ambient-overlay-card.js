@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.15-beta.1";
+const CARD_VERSION = "1.0.15-beta.2";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -30,6 +30,8 @@ function creditsHtml() {
     <div class="aoc-logo"><img src="${CREDITS_LOGO}" alt="Mister-M" loading="lazy"></div>
     <p><b>Ambient Overlay Card</b> v${CARD_VERSION}</p>
     <p>Gemacht von <b>Mister-M</b> – mit Hilfe von Claude 🤖</p>
+    <p>Ich versuche, Updates und Fehler-Korrekturen zeitnah zu erledigen.</p>
+    <p class="aoc-small">📅 Neue offizielle Versionen kommen immer sonntags. An den anderen Tagen gibt es nur Test-Versionen (Beta) – die siehst du in HACS unter „Beta-Versionen anzeigen“.</p>
     <div class="aoc-btns">
       <a class="aoc-btn" href="${CREDITS_REPO}" target="_blank" rel="noopener">🐙 GitHub</a>
       <a class="aoc-btn" href="${CREDITS_REPO}/discussions" target="_blank" rel="noopener">💡 Idee oder Wunsch</a>
@@ -37,6 +39,7 @@ function creditsHtml() {
       <a class="aoc-btn pp" href="https://paypal.me/MarcoStrickmann" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 2.7 5 6.2 5c2 0 3.5 1.1 5.8 3.4C14.3 6.1 15.8 5 17.8 5c3.5 0 5.2 3.6 3.8 6.8C19.5 16.4 12 21 12 21z" fill="#fff"/></svg><span>Spenden mit PayPal</span></a>
     </div>
     <p class="aoc-small">Die Karte ist und bleibt kostenlos. Wenn sie dir gefällt, freue ich mich über eine kleine Spende – ganz freiwillig. Beim Antippen öffnet sich PayPal im Browser; vorher geht nichts ins Internet.</p>
+    <p>🔒 Datenschutz: Die Karte spricht nur mit deinem Home Assistant und schickt selbst nichts ins Internet.</p>
     <p class="aoc-small">Lizenz: MIT</p>
   </div>`;
 }
