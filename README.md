@@ -6,6 +6,8 @@
 
 **Stimmung für dein Dashboard.** Die Karte legt kleine Animationen über das ganze Dashboard: echtes Wetter, Mond und Sterne, eine Dampflok mit deiner Familie als Waggons, einen Labrador, eine Eule, Geburtstags-Ballons und vieles mehr. Alles läuft über CSS, schont den Akku und pausiert, wenn das Dashboard im Hintergrund ist.
 
+Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=misterm2310&repository=ambient-overlay-card&category=plugin)
+
 ![Vorschau – Nacht mit Eule, Mond, Sternen und Dampflok, Tag mit Vogelhäuschen, Sonne, Bienen und Labrador](docs/screenshot.png)
 
 <details><summary>🎂 Geburtstags-Modus ansehen</summary>

@@ -6,6 +6,8 @@
 
 **Atmosphere for your dashboard.** The card lays small animations over the whole dashboard: real weather, moon and stars, a steam train with your family as wagons, a Labrador, an owl, birthday balloons and much more. Everything runs on CSS, is easy on the battery and pauses when the dashboard is in the background.
 
+One click opens it right in your Home Assistant: [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=misterm2310&repository=ambient-overlay-card&category=plugin)
+
 > ℹ️ The card's editor is in **German**. This page explains every part of it in English, with the German labels in brackets so you can find them.
 
 ![Preview – night with owl, moon, stars and steam train; day with birdhouse, sun, bees and Labrador](docs/screenshot.png)
