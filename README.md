@@ -66,7 +66,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 
 ## 📦 Installation
 
-1. **HACS** öffnen → oben rechts **⋮ → Benutzerdefinierte Repositories**.
+1. **HACS** öffnen (ab Home Assistant 2026.11: **Einstellungen → Marketplace**) → oben rechts **⋮ → Benutzerdefinierte Repositories**.
 2. `https://github.com/misterm2310/ambient-overlay-card` eintragen, Typ **Dashboard** (früher „Lovelace“), **Hinzufügen**.
 3. Nach **Ambient Overlay Card** suchen, **Herunterladen**.
 4. Dashboard neu laden (`Strg` + `F5`).

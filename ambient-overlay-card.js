@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.16-beta.1";
+const CARD_VERSION = "1.0.16-beta.2";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3945,7 +3945,7 @@ const EDITOR_CSS = `
   .empty { text-align: center; color: var(--secondary-text-color, #727272); font-size: 13px; padding: 10px 0; }
   .convert { display: flex; align-items: center; gap: 12px; padding: 12px 4px; }
   .convert .txt { flex: 1; font-size: 13px; color: var(--secondary-text-color, #727272); line-height: 1.4; }
-  .convert .txt b { color: var(--primary-text-color, #212121); font-weight: 500; font-size: 14.5px; display: block; }
+  .convert .txt b { color: var(--primary-text-color, #212121); font-weight: 500; font-size: 14.5px; display: flex; align-items: center; gap: 6px; }
 
   /* Bedingungen */
   .cond { background: var(--secondary-background-color, rgba(127,127,127,.12)); border-radius: 12px; margin: 6px 0; }
@@ -4193,10 +4193,19 @@ class AmbientOverlayCardEditor extends HTMLElement {
   _label(text, hintId, hintText) {
     if (!hintText) return `<div class="lbl">${text}</div>`;
     hintId = String(hintId).replace(/^root:/, "");
-    const on = this._hintsOpen.has(hintId);
     return `
-      <div class="lbl">${text}<button class="info ${on ? "on" : ""}" type="button" data-hint="${hintId}" aria-label="Erklärung">i</button></div>
-      <div class="hint ${on ? "on" : ""}" data-hint-text="${hintId}">${hintText}</div>`;
+      <div class="lbl">${text}${this._info(hintId)}</div>
+      ${this._hint(hintId, hintText)}`;
+  }
+
+  // ⓘ zum Antippen - und der Text, der dann aufklappt
+  _info(hintId) {
+    const on = this._hintsOpen.has(hintId);
+    return `<button class="info ${on ? "on" : ""}" type="button" data-hint="${hintId}" aria-label="Erklärung">i</button>`;
+  }
+
+  _hint(hintId, hintText) {
+    return `<div class="hint ${this._hintsOpen.has(hintId) ? "on" : ""}" data-hint-text="${hintId}">${hintText}</div>`;
   }
 
   _seg(scope, key, options, value) {
@@ -4352,7 +4361,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
     const note = isAll
       ? "Diese Bedingungen gelten für <b>alle</b> Effekte. Stimmt hier etwas nicht, ist gar nichts zu sehen. Leer = immer."
       : "Leer = immer anzeigen. Stehen hier mehrere Bedingungen, müssen <b>alle</b> stimmen. Für „eins davon reicht“ nimm eine ODER-Gruppe.";
-    const body = `<div class="note">${note}</div>${this._condList(scope, [], list)}`;
+    const body = `${this._label("Bedingungen", `${scope}:wann`, note)}${this._condList(scope, [], list)}`;
     if (isAll) return this._panel(id, "🔒", "Gilt für alle Effekte", summary, body, r.missing);
     return this._panel(id, "🕒", "Wann anzeigen?", summary, body, r.missing, sub);
   }
@@ -4478,19 +4487,19 @@ class AmbientOverlayCardEditor extends HTMLElement {
       const days = (sel) => Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${sel === i + 1 ? "selected" : ""}>${i + 1}.</option>`).join("");
       const months = (sel) => MONTH_NAMES.map((n, i) => `<option value="${i + 1}" ${sel === i + 1 ? "selected" : ""}>${n}</option>`).join("");
       return `
+        ${this._label("Zeitraum", `${key}:period`, "Wiederholt sich jedes Jahr. Geht auch über Silvester, z. B. 20. Dezember bis 6. Januar.")}
         <div class="row2"><span class="rl">Von</span><select class="field" data-c="${key}" data-cf="from_d">${days(f.d)}</select><select class="field" data-c="${key}" data-cf="from_m">${months(f.m)}</select></div>
-        <div class="row2" style="margin-top:6px"><span class="rl">Bis</span><select class="field" data-c="${key}" data-cf="to_d">${days(t.d)}</select><select class="field" data-c="${key}" data-cf="to_m">${months(t.m)}</select></div>
-        <div class="note" style="margin-top:8px">Wiederholt sich jedes Jahr. Geht auch über Silvester, z. B. 20. Dezember bis 6. Januar.</div>`;
+        <div class="row2" style="margin-top:6px"><span class="rl">Bis</span><select class="field" data-c="${key}" data-cf="to_d">${days(t.d)}</select><select class="field" data-c="${key}" data-cf="to_m">${months(t.m)}</select></div>`;
     }
     if (kind === "time") {
       const wd = Array.isArray(c.weekdays) ? c.weekdays : [];
       const order = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
       return `
+        ${this._label("Uhrzeit", `${key}:time`, "Geht auch über Mitternacht, z. B. 22:00 bis 06:00.")}
         <div class="row2"><span class="rl">Von</span><input class="field" type="time" data-c="${key}" data-cf="after" value="${fmtHM(c.after)}"/>
           <span class="rl" style="text-align:center">bis</span><input class="field" type="time" data-c="${key}" data-cf="before" value="${fmtHM(c.before)}"/></div>
-        <div class="lbl">An welchen Tagen? <span class="note" style="margin:0">(keiner gewählt = jeden Tag)</span></div>
-        <div class="chips">${order.map((d) => `<button type="button" class="chip day ${wd.includes(d) ? "on" : ""}" data-c="${key}" data-wd="${d}">${WEEKDAY_NAMES[d]}</button>`).join("")}</div>
-        <div class="note" style="margin-top:8px">Geht auch über Mitternacht, z. B. 22:00 bis 06:00.</div>`;
+        ${this._label("An welchen Tagen?", `${key}:days`, "Keinen Tag gewählt = jeden Tag.")}
+        <div class="chips">${order.map((d) => `<button type="button" class="chip day ${wd.includes(d) ? "on" : ""}" data-c="${key}" data-wd="${d}">${WEEKDAY_NAMES[d]}</button>`).join("")}</div>`;
     }
     if (kind === "person") {
       return picker(["person"], "Person suchen")
@@ -4552,7 +4561,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
     cur.forEach((v) => { if (!all.includes(v)) all.push(v); });
     return `
       <div class="state-slot" data-c="${key}" style="margin-top:8px">
-        <div class="lbl" style="margin-top:0">Zustand <span class="note" style="margin:0">(mehrere = eins davon reicht)</span></div>
+        <div class="lbl" style="margin-top:0">Zustand${this._info(`${key}:state`)}</div>
+        ${this._hint(`${key}:state`, "Mehrere gewählt = eins davon reicht.")}
         <div class="chips">${all.map((v) => `<button type="button" class="chip day ${cur.includes(v) ? "on" : ""}" data-c="${key}" data-st="${escapeHtml(v)}">${escapeHtml(stateLabel(this._hass, eid, v))}</button>`).join("")}</div>
         <input class="field" style="margin-top:8px" type="text" data-c="${key}" data-cf="addstate" placeholder="eigener Wert, z. B. 21 oder Wohnzimmer"/>
       </div>`;
@@ -4661,9 +4671,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
       html = this._effectPanels("root", true);
       html += `
         <div class="panel"><div class="convert">
-          <span class="txt"><b>🔀 Mehrere Effekte in einer Karte?</b>Macht aus dieser Karte eine Liste. Dieser Effekt bleibt mit allen Einstellungen drin, weitere kannst du dazunehmen - jeder mit eigenem „Wann anzeigen?“.</span>
+          <span class="txt"><b>🔀 Mehrere Effekte in einer Karte? ${this._info("convert")}</b></span>
           <button type="button" class="btn prim" data-act="convert">In Liste umwandeln</button>
-        </div></div>`;
+        </div>${this._hint("convert", "Macht aus dieser Karte eine Liste. Dieser Effekt bleibt mit allen Einstellungen drin, weitere kannst du dazunehmen - jeder mit eigenem „Wann anzeigen?“.")}</div>`;
       if (PREVIEW_PLAY_TEXT[c.event]) playText = PREVIEW_PLAY_TEXT[c.event];
     }
     html += this._panel("ueber", "💙", "Über die Karte", `v${CARD_VERSION} · Mister-M`, creditsHtml());
