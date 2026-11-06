@@ -55,6 +55,7 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 | 🎅 **Santa** | Flies past with sleigh and reindeer and drops a present now and then. |
 | 🕷️🐝🍂 **More animals & decoration** | A spider in its web (loses its grip for a moment and then acts as if nothing happened), a swarm of bees and autumn leaves. |
 | ☃️ **Growing snow layer** | If it snows for a while, a thin layer of snow slowly builds up at the bottom. |
+| 🥶 **Frosty edges** | Below 0 °C outside, the edges of the screen ice over – the colder, the stronger. Runs in the weather automation whatever the weather. |
 | 🌫️ **Soft, not hard** | When the weather changes by itself, the old effect fades out gently. |
 | 🧺 **All in one card** | All effects in one single card, each with its own **“🕒 When to show?”** – tap instead of YAML: only at night, period of the year, time of day, switch, person at home, weather … plus OR/AND groups. Green and grey dots show what is running right now and why something is waiting. |
 | 👁️ **Editor with live preview** | Effects as tiles to tap, collapsible sections, toggle switches and the same entity search as in Home Assistant. A preview at the top with a “▶ Let it fly past now” button – no need to wait minutes for the witch, train or dog. |
@@ -221,6 +222,8 @@ From front to back: **engine** → the **four fixed wagons** → the **people** 
 
 **Always on top of that:** once the sun has set (`sun.sun` = `below_horizon`), the 🌙 moon is added – whatever the weather. The sun then disappears, even if the weather entity still says “sunny” (both sit in the same spot).
 
+**And when it freezes:** below 0 °C the 🥶 screen edges ice over – whatever the weather. The colder, the wider the ice (4 steps: down to -3 °C, -6 °C, -10 °C, below that full strength). The temperature comes from the weather entity or from your own `temperature_entity` (e.g. your weather station). To switch it off: `frost_edges: false`, or in the editor under ⚙️ Settings („Einstellungen“ → „Frost-Ränder“).
+
 Amount, opacity and colour mode apply to **all** weather effects together in the automation. Animals and decoration do not run via the automation – just add them as another effect to the list.
 
 </details>
@@ -353,6 +356,8 @@ leaf_colors:
 | `color_mode` | `auto` | `auto` = matching the theme, `custom` = fixed colour |
 | `color` | `auto` | your own colour (hex) for the night sky, spider web and weather effects |
 | `weather_entity` | – | `weather.*` entity for the automation, and for the dog’s shaking |
+| `frost_edges` | `true` | Weather automation: 🥶 frosty edges below 0 °C on/off |
+| `temperature_entity` | – | Weather automation: your own temperature sensor for the frost (°C or °F). Empty = temperature from `weather_entity` |
 | `birthday_text` | `Happy Birthday!` | Text on the bunting (protected against malicious code) |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Parts of the birthday mode on/off |
 | `night_shooting_stars` / `night_wishstar` / `night_comet` | `true` | Parts of the night sky on/off |

@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.16-beta.2";
+const CARD_VERSION = "1.0.16-beta.3";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -2811,7 +2811,103 @@ function renderOwlBirdhouse(cfg, hass, hostEl) {
   return isNight ? renderOwl(cfg, hass, hostEl) : renderBirdhouse(cfg, hass, hostEl);
 }
 
+/* ❄️ Frost-Ränder: Ist es draußen unter 0 °C, vereisen die Bildschirm-
+   ränder - je kälter, desto breiter und dichter. Die Temperatur kommt aus
+   einem eigenen Sensor (z. B. Wetterstation) oder aus der Wetter-Entity.
+   Stufen statt Kommazahlen, damit nicht jedes Zehntelgrad neu zeichnet. */
+function readTemperatureC(cfg, hass) {
+  const fromEntity = (raw, unit) => {
+    const t = parseFloat(raw);
+    if (!Number.isFinite(t)) return null;
+    return /F/i.test(unit || "") ? (t - 32) * 5 / 9 : t;
+  };
+  const sensor = cfg?.temperature_entity ? hass?.states?.[cfg.temperature_entity] : null;
+  if (sensor) {
+    const t = fromEntity(sensor.state, sensor.attributes?.unit_of_measurement);
+    if (t !== null) return t;
+  }
+  const w = cfg?.weather_entity ? hass?.states?.[cfg.weather_entity] : null;
+  if (w) return fromEntity(w.attributes?.temperature, w.attributes?.temperature_unit);
+  return null;
+}
+
+// 0 = kein Frost, 1 = knapp unter 0 °C … 4 = unter -10 °C
+function frostLevel(cfg, hass) {
+  if (cfg?.event !== "weather_auto" || cfg?.frost_edges === false) return 0;
+  const t = readTemperatureC(cfg, hass);
+  if (t === null || t >= 0) return 0;
+  if (t >= -3) return 1;
+  if (t >= -6) return 2;
+  if (t >= -10) return 3;
+  return 4;
+}
+
+function renderFrost(cfg, hass, hostEl) {
+  const level = cfg._frostLevel || frostLevel(cfg, hass) || 1;
+  const opacity = getOpacityValue(cfg.opacity_preset || "medium");
+  const isHigh = (cfg.opacity_preset || "medium") === "high";
+  const k = level / 4;                               // 0.25 … 1
+  const width = (4 + 10 * k).toFixed(1);             // Breite des Eisrands in vmin
+  const alpha = Math.min(0.95, (0.35 + 0.5 * k) * (isHigh ? 1.15 : Math.max(opacity, 0.5)));
+  // Dunkles Theme: weißes Eis. Helles Theme: Weiß sähe man nicht - dort
+  // ein kühles Eisblau.
+  const dark = isDarkModeActive(hass, hostEl);
+  const ice = dark ? "215,236,255" : "140,184,224";
+  const crystalColor = dark ? "245,251,255" : "96,150,205";
+
+  // Eiskristalle am Rand: je kälter, desto mehr
+  const crystals = getCachedRandomSet("frost", 48, () => {
+    const side = Math.floor(Math.random() * 4);      // 0 oben, 1 rechts, 2 unten, 3 links
+    return {
+      side,
+      along: (Math.random() * 100).toFixed(2),
+      depth: Math.random(),
+      size: (Math.random() * 1.6 + 1.2).toFixed(2),
+      rot: Math.floor(Math.random() * 60),
+      dur: (Math.random() * 4 + 4).toFixed(2),
+      off: Math.random() * 10,
+    };
+  });
+  const shown = crystals.slice(0, 12 * level);
+  const nowS = Date.now() / 1000;
+  const crystalHtml = shown.map((c) => {
+    const d = (c.depth * parseFloat(width) * 0.8).toFixed(2);
+    const pos = [
+      `top:${d}vmin; left:${c.along}vw;`,
+      `right:${d}vmin; top:${c.along}vh;`,
+      `bottom:${d}vmin; left:${c.along}vw;`,
+      `left:${d}vmin; top:${c.along}vh;`,
+    ][c.side];
+    // Startpunkt aus der echten Uhrzeit - so beginnt das Funkeln nach einem
+    // Neuzeichnen nicht bei allen Kristallen gleichzeitig von vorne
+    const delay = (-((nowS + c.off) % parseFloat(c.dur))).toFixed(2);
+    return `<div class="frost-crystal" style="${pos} font-size:${c.size}vmin; transform:rotate(${c.rot}deg); animation-duration:${c.dur}s; animation-delay:${delay}s;">❄</div>`;
+  }).join("");
+
+  const css = `
+    ${overlayBaseCss("frost-container")}
+    .frost-edge {
+      position: absolute; inset: 0;
+      box-shadow:
+        inset 0 0 ${width}vmin ${(parseFloat(width) * 0.35).toFixed(1)}vmin rgba(${ice},${alpha.toFixed(2)}),
+        inset 0 0 ${(parseFloat(width) * 2.2).toFixed(1)}vmin 0 rgba(${ice},${(alpha * 0.45).toFixed(2)});
+      filter: blur(1px);
+    }
+    .frost-crystal {
+      position: absolute; line-height: 1; color: rgba(${crystalColor},${Math.min(1, alpha + 0.1).toFixed(2)});
+      text-shadow: 0 0 0.6vmin rgba(${ice},0.9);
+      animation-name: frost-twinkle; animation-iteration-count: infinite; animation-timing-function: ease-in-out;
+    }
+    @keyframes frost-twinkle {
+      0%, 100% { opacity: 0.45; }
+      50% { opacity: 1; }
+    }
+  `;
+  return { css, html: `<div class="frost-container" aria-hidden="true"><div class="frost-edge"></div>${crystalHtml}</div>` };
+}
+
 const RENDERERS = {
+  frost: renderFrost,
   rain: renderRain,
   snow: renderSnow,
   leaves: renderLeaves,
@@ -3089,6 +3185,7 @@ function eventsForConfig(cfg, hass) {
       events = events.filter((e) => e !== "off" && e !== "sun");
       if (!events.includes("moon")) events.push("moon");
     }
+    if (frostLevel(cfg, hass) > 0) events = events.concat("frost"); // concat: die Wetter-Tabelle selbst nicht verändern
     return events.filter((e) => e !== "off");
   }
   return cfg.event && cfg.event !== "off" ? [cfg.event] : [];
@@ -3103,6 +3200,8 @@ const EFFECT_DEFAULTS = {
   color_mode: "auto",
   leaf_colors: ["#c9a227", "#a83232", "#d9812c"],
   weather_entity: "",
+  frost_edges: true,
+  temperature_entity: "",
   birthday_text: "Happy Birthday!",
   birthday_balloons: true,
   birthday_confetti: true,
@@ -3355,7 +3454,7 @@ class AmbientOverlayCard extends HTMLElement {
     const glob = evalConditions(this._config?.conditions, this._hass, now).ok ? 1 : 0;
     const per = entries.map((e) => {
       const on = e.enabled === false ? 0 : (evalConditions(e.conditions, this._hass, now).ok ? 1 : 0);
-      return `${on}:${this._layerInputs(e)}`;
+      return `${on}:${this._layerInputs(e)}:fr=${frostLevel(e, this._hass)}`;
     }).join("|");
     return `${glob}#${per}`;
   }
@@ -3437,6 +3536,7 @@ class AmbientOverlayCard extends HTMLElement {
     // wird bei jedem Update aus Home Assistant neu geprüft - so wechselt
     // der Look um Mitternacht von selbst, ohne die Seite neu zu laden.
     const oldHalloween = this._lastHalloween;
+    const oldFrost = this._lastFrost;
 
     this._hass = hass;
     const newWeatherState = weatherEntity ? hass?.states?.[weatherEntity]?.state : undefined;
@@ -3449,9 +3549,12 @@ class AmbientOverlayCard extends HTMLElement {
     const newHalloween = isHalloweenTime(this._config, hass);
     this._lastHalloween = newHalloween;
     const halloweenChanged = oldHalloween !== undefined && oldHalloween !== newHalloween;
+    const newFrost = frostLevel(this._config, hass);
+    this._lastFrost = newFrost;
+    const frostChanged = oldFrost !== undefined && oldFrost !== newFrost;
 
     const weatherChanged = oldWeatherState !== newWeatherState;
-    const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged || halloweenChanged;
+    const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged || halloweenChanged || frostChanged;
 
     // Sanftes Ausblenden nur bei einer ECHTEN automatischen Wetteränderung
     // (nicht beim allerersten Rendern - da gibt's ja noch nichts, von dem
@@ -3510,6 +3613,8 @@ class AmbientOverlayCard extends HTMLElement {
         events = events.filter((e) => e !== "off" && e !== "sun");
         if (!events.includes("moon")) events.push("moon");
       }
+      // ❄️ Frost-Ränder unter 0 °C - egal welches Wetter gerade ist
+      if (frostLevel(cfg, this._hass) > 0) events = events.filter((e) => e !== "off").concat("frost");
       return events.length > 0 ? events : ["off"];
     }
     return [cfg.event || "off"];
@@ -3685,6 +3790,8 @@ class AmbientOverlayCard extends HTMLElement {
       let cfgForRender = layerCfg;
       if (base === "snow") {
         cfgForRender = { ...layerCfg, _snowLevel: this._snowLevel };
+      } else if (base === "frost") {
+        cfgForRender = { ...layerCfg, _frostLevel: frostLevel(layerCfg, this._hass) };
       } else if (base === "night_sky") {
         // Der Wunschstern steckt im Sammel-Effekt "Nachthimmel" - die
         // zufällige Position muss also unter DIESEM Namen durchgereicht
@@ -4304,6 +4411,17 @@ class AmbientOverlayCardEditor extends HTMLElement {
     if (ev === "weather_auto") {
       set += this._picker(scope, "🌦️ Wetter-Sensor", "weather_entity", ["weather"], "Diese Wetter-Entity bestimmt, welcher Effekt gerade läuft (regnet, schneit, …).", "Wetter suchen, z. B. weather.home");
       if (c.weather_entity) sum.push(this._friendly(c.weather_entity)); else { sum.push("Wetter fehlt!"); warn = true; }
+      const frostOn = c.frost_edges !== false;
+      const fid = `${scope}:frost`.replace(/^root:/, "");
+      set += `
+        <label class="sw-row" for="frost-${scope}"><span class="em">❄️</span><span class="txt" style="display:flex;align-items:center;gap:6px">Frost-Ränder${this._info(fid)}</span>
+          <input type="checkbox" id="frost-${scope}" data-scope="${scope}" data-part="frost_edges" ${frostOn ? "checked" : ""}/><span class="sw"></span></label>
+        ${this._hint(fid, "Unter 0 °C vereisen die Ränder vom Bildschirm - je kälter, desto stärker (ab -10 °C volle Stärke). Läuft bei jedem Wetter mit.")}`;
+      if (frostOn) {
+        set += this._picker(scope, "🌡️ Temperatur-Sensor (optional)", "temperature_entity", ["sensor"], "Zum Beispiel die Außentemperatur deiner Wetterstation. Leer = die Temperatur aus dem Wetter-Sensor.", "Sensor suchen, z. B. Außentemperatur");
+        const t = readTemperatureC(c, this._hass);
+        if (t !== null) sum.push(`${t.toFixed(1).replace(".", ",")} °C${t < 0 ? " ❄️" : ""}`);
+      }
     }
     if (ev === "dog") {
       set += this._picker(scope, "🌦️ Wetter-Sensor (optional)", "weather_entity", ["weather"], "Meldet diese Wetter-Entity gerade Regen, schüttelt sich der Hund kurz.", "Wetter suchen, z. B. weather.home");
@@ -4794,6 +4912,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       return;
     }
     if ((b = el("[data-hint]"))) {
+      e.preventDefault(); // ⓘ in einer Schalter-Zeile: nur Erklärung, nicht umschalten
       const id = b.dataset.hint;
       const on = !this._hintsOpen.has(id);
       if (on) this._hintsOpen.add(id); else this._hintsOpen.delete(id);

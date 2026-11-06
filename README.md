@@ -53,6 +53,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 | 🎅 **Weihnachtsmann** | Fliegt mit Schlitten und Rentieren vorbei und verliert ab und zu ein Geschenk. |
 | 🕷️🐝🍂 **Noch mehr Tiere & Deko** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen), Bienenschwarm und Herbstlaub. |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
+| 🥶 **Frost-Ränder** | Ist es draußen unter 0 °C, vereisen die Ränder vom Bildschirm – je kälter, desto stärker. Läuft in der Wetter-Automatik bei jedem Wetter mit. |
 | 🌫️ **Sanft statt hart** | Wechselt das Wetter von selbst, blendet der alte Effekt weich aus. |
 | 🧺 **Alles in einer Karte** | Alle Effekte in einer einzigen Karte, jeder mit eigenem **„🕒 Wann anzeigen?“** – zum Antippen statt YAML: nur nachts, Zeitraum im Jahr, Uhrzeit, Schalter, Person zuhause, Wetter … plus ODER-/UND-Gruppen. Grüne und graue Punkte zeigen, was gerade läuft und warum etwas wartet. |
 | 👁️ **Editor mit Live-Vorschau** | Effekte als Kacheln zum Antippen, aufklappbare Bereiche, Schiebeschalter und Suchfelder wie in Home Assistant. Oben eine Vorschau mit Knopf „▶ Jetzt vorbeifliegen lassen“ – so musst du nicht minutenlang auf Hexe, Zug oder Hund warten. |
@@ -219,6 +220,8 @@ Von vorn nach hinten: **Lok** → die **vier festen Waggons** → die **Personen
 
 **Dazu immer:** Ist die Sonne untergegangen (`sun.sun` = `below_horizon`), kommt der 🌙 Mond dazu – egal welches Wetter. Die Sonne verschwindet dann, auch wenn die Wetter-Entity noch „sunny“ meldet (beide sitzen am selben Platz).
 
+**Und bei Frost:** Unter 0 °C vereisen die 🥶 Bildschirmränder – egal welches Wetter. Je kälter, desto breiter das Eis (4 Stufen: bis -3 °C, bis -6 °C, bis -10 °C, darunter volle Stärke). Die Temperatur kommt aus dem Wetter-Sensor oder aus einem eigenen `temperature_entity` (z. B. deiner Wetterstation). Abschalten: `frost_edges: false` oder im Editor unter ⚙️ Einstellungen.
+
 Anzahl, Deckkraft und Farbmodus gelten bei der Automatik für **alle** Wetter-Effekte gemeinsam. Tiere und Deko laufen nicht über die Automatik – nimm sie einfach als weiteren Effekt in die Liste.
 
 </details>
@@ -351,6 +354,8 @@ leaf_colors:
 | `color_mode` | `auto` | `auto` = passend zum Theme, `custom` = feste Farbe |
 | `color` | `auto` | eigene Farbe (Hex) für Nachthimmel, Spinnennetz und die Wetter-Effekte |
 | `weather_entity` | – | `weather.*`-Entity für die Automatik, beim Hund fürs Schütteln |
+| `frost_edges` | `true` | Wetter-Automatik: 🥶 Frost-Ränder unter 0 °C an/aus |
+| `temperature_entity` | – | Wetter-Automatik: eigener Temperatur-Sensor für den Frost (°C oder °F). Leer = Temperatur aus `weather_entity` |
 | `birthday_text` | `Happy Birthday!` | Text auf der Wimpelkette (wird gegen Schadcode abgesichert) |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Teile des Geburtstags-Modus einzeln an/aus |
 | `night_shooting_stars` / `night_wishstar` / `night_comet` | `true` | Teile des Nachthimmels einzeln an/aus |
