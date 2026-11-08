@@ -31,12 +31,13 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 
 - 🌦️ **Real weather** from your `weather.*` entity: rain, snow, lightning, fog, sun – plus a 🌙 moon with the real moon phase.
 - 🚂 **Steam train** with your family as wagons (only who is home), guests and a tail car.
-- 🐕 **Animals:** Labrador, 🦉 owl & birdhouse, 🕷️ spider, 🐝 bees.
-- 🎂 **Celebrations:** birthday, 🎃 Halloween (on Oct 31 all by itself), 🎅 Santa, 🌠 night sky.
+- 🐕 **Animals:** Labrador, 🦉 owl & birdhouse, 🕷️ spider.
+- 🍂 **Seasons** by themselves: blossoms, bees, leaves, tiny icicles.
+- 🎉 **Holidays** by themselves: Halloween, St. Martin, St. Nicholas, Santa, New Year’s Eve, Valentine’s Day, Easter – plus 🎂 birthday and 🌠 night sky.
 - 🧺 **All in one card** with “🕒 When to show?” to tap instead of YAML.
 - 🔋 **Battery-friendly** via CSS, pauses in the background, light & dark by itself.
 
-**11 effects to choose from** plus the weather automation with 10 more (rain, snow, hail, lightning, fog, storm, clouds, stars, sun, moon). Either everything in **one card** as a list – or one card per effect as before, e.g. weather automation **and** steam train **and** owl on the same view.
+**9 effects to choose from** plus the weather automation with 10 more (rain, snow, hail, lightning, fog, storm, clouds, stars, sun, moon). Either everything in **one card** as a list – or one card per effect as before, e.g. weather automation **and** steam train **and** owl on the same view.
 
 <details><summary>📋 All features in detail</summary>
 
@@ -50,10 +51,10 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 | 🦉🐦 **Owl & birdhouse** | Top left: the birdhouse with visitors during the day, at night the owl that blinks and turns its head. Switches via `sun.sun`. |
 | 🌠 **Night sky** | Shooting stars, a wishing star and a rare comet – each part can be switched on or off. |
 | 🎂 **Birthday mode** | Balloons, confetti, bunting with your own text (adjustable height) and fairy lights – each part can be switched on or off. |
-| 🎃 **Halloween** | Flickering jack-o’-lanterns, a ghost that shouts “Boo!”, a witch on her broom (who loses her hat now and then), cobwebs and bats – each part can be switched on or off. |
+| 🍂 **Seasons** | Changes by itself: 🌸 spring = blossoms in pink, white and lilac · 🐝 summer = bees · 🍂 autumn = leaves blowing through now and then · 🧊 winter = tiny icicles along the top (with drops) and glittering ice crystals. The season comes from the sensor of the HA “Season” integration – without a sensor from the date. Each season can be switched off. |
+| 🎉 **Holidays** | Each holiday only on its days, each one can be switched off: 🎃 Halloween (Oct 29–31 or via a switch: pumpkins, ghost, witch, cobwebs, bats – each part on its own) · 🏮 St. Martin (Nov 10–11: lantern parade at the bottom, behind the train) · 👢 St. Nicholas (Dec 5–6: filled boots in the bottom corners) · 🎅 Santa (only while your Christmas switch is on) · 🎆 New Year’s Eve (Dec 31–Jan 1: fireworks in the upper half) · 💕 Valentine’s Day (Feb 13–14: rising hearts) · 🐰 Easter (Palm Sunday to Easter Monday, calculated by the card: grass with eggs and a hopping bunny, behind the train). |
 | 👻 **Halloween look** | On 31 October all by itself (or via a switch): train with pumpkins, cauldron, coffin and sweets, Labrador with little devil horns, owl with a witch’s hat, birdhouse with a pumpkin and a cobweb (the bird wears a tiny witch’s hat) and an orange moon (in its real moon phase). |
-| 🎅 **Santa** | Flies past with sleigh and reindeer and drops a present now and then. |
-| 🕷️🐝🍂 **More animals & decoration** | A spider in its web (loses its grip for a moment and then acts as if nothing happened), a swarm of bees and autumn leaves. |
+| 🕷️ **Spider** | A spider in its web (loses its grip for a moment and then acts as if nothing happened). |
 | ☃️ **Growing snow layer** | If it snows for a while, a thin layer of snow slowly builds up at the bottom. |
 | 🥶 **Frosty edges** | Below 0 °C outside, the edges of the screen ice over – the colder, the stronger. Runs in the weather automation whatever the weather. |
 | 🌫️ **Soft, not hard** | When the weather changes by itself, the old effect fades out gently. |
@@ -126,24 +127,26 @@ Add card → **Ambient Overlay Card** → in the editor. A new card starts with 
 
 1. **▶ Preview (Live-Vorschau):** at the top you see the effect live. If a figure only comes by rarely (witch, train, dog, Santa …), send it off right away with **“▶ Jetzt vorbeifliegen lassen”**.
 2. **✨ Effect (Effekt):** tap a tile – the selection then closes by itself. Tapping the row opens it again. The pure weather effects are deliberately not listed one by one – the **🌦️ weather** automation does that.
-3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky and Halloween): every part has its own toggle. For the birthday you also enter the bunting text here and get a number field for the height of the text (in pixels).
+3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky, seasons and holidays): every part has its own toggle. For the birthday you also enter the bunting text here and get a number field for the height of the text (in pixels). For the holidays, the Halloween parts follow below. If today is no holiday, the preview shows the next one.
 4. **🎨 Appearance (Aussehen):** amount (Wenig/Mittel/Viel = low/medium/high), opacity (Zart/Dezent/Kräftig = soft/subtle/strong) and for some effects the colour.
 5. **⚙️ Settings (Einstellungen)** – depending on the effect:
    * **🌦️ Weather:** your `weather.*` entity (without it the section shows a red “Wetter fehlt!” = weather missing).
    * **🐕 Labrador:** optionally the weather entity for shaking in the rain.
    * **🚂 Steam train:** Christmas, dinner and Halloween switches, people to tap, guest sensor or fixed guest text. If several switches are on: Christmas beats dinner beats Halloween.
-   * **🎃 Halloween switch** exists for the steam train, Labrador, owl & birdhouse and the weather automation (for the moon). Without a switch the Halloween look only appears on 31 October. Found are `input_boolean.`, `binary_sensor.` and `switch.`.
+   * **🍂 Seasons:** optionally the season sensor (“Season” integration, reports `spring`/`summer`/`autumn`/`winter`). Without a sensor: spring from 1 March, summer from 1 June, autumn from 1 September, winter from 1 December.
+   * **🎉 Holidays:** the Christmas switch (without it Santa never comes) and the Halloween switch (Halloween also outside Oct 29–31).
+   * **🎃 Halloween switch** also exists for the steam train, Labrador, owl & birdhouse and the weather automation (for the moon). Without a switch the Halloween look only appears on 31 October. Found are `input_boolean.`, `binary_sensor.` and `switch.`.
 6. **🕒 When to show? (Wann anzeigen?)** When the effect is visible (empty = always) – building blocks see below.
 7. **💙 About the card (Über die Karte):** version, links and donate button.
 
 Next to many settings there is a small **ⓘ** – tap it for a short explanation. On the right of every row you see a summary, even when the section is closed.
 
 Good to know:
-* For **Santa, dog, steam train, birdhouse, comet and leaves**, “amount” does not mean *how many* but *how often* something comes by.
-* For **Halloween**, “amount” controls both: how many pumpkins and bats, and how often the witch and ghost come by.
-* For **bees, clouds and birthday**, “amount” is a normal quantity.
+* For **dog, steam train, birdhouse and comet**, “amount” does not mean *how many* but *how often* something comes by.
+* For **seasons and holidays** it depends on the part: leaves, lantern parade, Easter bunny, Santa, witch and ghost = *how often*; blossoms, bees, ice crystals, pumpkins, bats, rockets, hearts, eggs and stars = *how many*.
+* For **clouds and birthday**, “amount” is a normal quantity.
 * There is only one **spider**, so it has no amount setting.
-* **Santa, dog, steam train, owl & birdhouse, leaves, bees, birthday and Halloween** have fixed colours, so no colour mode.
+* **Dog, steam train, owl & birdhouse, seasons, holidays and birthday** have fixed colours, so no colour mode.
 
 </details>
 
@@ -170,11 +173,8 @@ conditions:                      # 🔒 applies to all effects
 effects:
   - event: weather_auto
     weather_entity: weather.home
-  - event: halloween
+  - event: holidays
     conditions:                  # 🕒 When to show?
-      - condition: period        # every year 17 October to 2 November
-        from: "10-17"
-        to: "11-02"
       - condition: state         # only at night
         entity: sun.sun
         state: below_horizon
@@ -239,13 +239,13 @@ Amount, opacity and colour mode apply to **all** weather effects together in the
 | `night_sky` | 🌠 Shooting stars, wishing star and comet |
 | `owl_birdhouse` | 🦉🐦 Birdhouse by day, owl by night |
 | `birthday` | 🎂 Balloons, confetti, bunting with text, fairy lights |
-| `halloween` | 🎃 Pumpkins, ghost, witch, cobwebs, bats |
-| `leaves` | 🍂 Autumn gust with a 3-colour blend |
-| `santa` | 🎅 Santa with sleigh, sometimes drops a present |
+| `seasons` | 🍂 Seasons: blossoms, bees, leaves, icicles – changes by itself |
+| `holidays` | 🎉 Holidays: Halloween, St. Martin, St. Nicholas, Santa, New Year’s Eve, Valentine’s Day, Easter |
 | `train` | 🚂 Steam train with wagons, family, guests and last wagon |
 | `dog` | 🐕 Golden Labrador (optionally shaking in the rain) |
 | `spider` | 🕷️ Spider in its web with red eyes |
-| `bee` | 🐝 Swarm of bees in a zigzag |
+
+> **⚠️ Switching over from version 1.0.19:** `leaves`, `bee`, `halloween` and `santa` no longer exist as effects of their own. If your card still uses one of them, it stays empty. Leaves and bees now live in **🍂 Seasons** (`seasons`), Halloween and Santa in **🎉 Holidays** (`holidays`). In the editor just tap the new tile – your Halloween parts (`halloween_bats` etc.) and your Christmas switch (`santa_sensor`) still apply.
 
 <details><summary>📋 YAML examples</summary>
 
@@ -292,13 +292,22 @@ birthday_text_top: 120   # text a bit further down
 opacity_preset: high
 ```
 
-**Halloween without bats**
+**Holidays – with Christmas switch, Halloween without bats, no Valentine’s Day**
 ```yaml
 type: custom:ambient-overlay-card
-event: halloween
-count_preset: medium
+event: holidays
 opacity_preset: high
+santa_sensor: input_boolean.christmas_time
 halloween_bats: false
+holiday_valentin: false
+```
+
+**Seasons with the Season sensor, but without summer bees**
+```yaml
+type: custom:ambient-overlay-card
+event: seasons
+season_entity: sensor.season
+season_summer: false
 ```
 
 **Halloween train from mid-October (via a switch)**
@@ -326,16 +335,10 @@ event: spider
 color_mode: auto
 ```
 
-**Bees**
-```yaml
-type: custom:ambient-overlay-card
-event: bee
-```
-
 **Autumn leaves with your own colours** (YAML only)
 ```yaml
 type: custom:ambient-overlay-card
-event: leaves
+event: seasons
 leaf_colors:
   - "#c9a227"
   - "#a83232"
@@ -363,10 +366,13 @@ leaf_colors:
 | `birthday_text_top` | `26` | Height of the text: distance from the top edge in pixels (0–600). The bunting stays at the top |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Parts of the birthday mode on/off |
 | `night_shooting_stars` / `night_wishstar` / `night_comet` | `true` | Parts of the night sky on/off |
-| `santa_sensor` | – | Switch (`input_boolean`/`binary_sensor`): on = Christmas cargo on the train |
+| `season_entity` | – | Seasons: sensor of the “Season” integration (`spring`/`summer`/`autumn`/`winter`). Empty = by date |
+| `season_spring` / `season_summer` / `season_autumn` / `season_winter` | `true` | Seasons on/off one by one |
+| `holiday_halloween` / `holiday_martini` / `holiday_nikolaus` / `holiday_christmas` / `holiday_silvester` / `holiday_valentin` / `holiday_easter` | `true` | Holidays on/off one by one |
+| `santa_sensor` | – | Switch (`input_boolean`/`binary_sensor`/`switch`): on = Christmas cargo on the train, or for holidays: Santa flies |
 | `dinner_sensor` | – | Switch: on = dinner cargo on the train (Christmas wins) |
-| `halloween_pumpkins` / `halloween_ghost` / `halloween_witch` / `halloween_webs` / `halloween_bats` | `true` | Parts of the Halloween mode on/off |
-| `halloween_sensor` | – | Switch: on = Halloween look for train, dog, owl and moon. On 31 October the look comes even without a switch |
+| `halloween_pumpkins` / `halloween_ghost` / `halloween_witch` / `halloween_webs` / `halloween_bats` | `true` | Holidays: Halloween parts on/off one by one |
+| `halloween_sensor` | – | Switch: on = Halloween look for train, dog, owl and moon (otherwise only on 31 October); for holidays: Halloween also outside Oct 29–31 |
 | `person_entities` | – | `person.` entities separated by commas – whoever is at home rides along (tap to select in the editor) |
 | `custom_wagon_entity` | – | Sensor with names separated by commas, e.g. `input_text.guests` – one wagon per name. Empty, `unknown` or `unavailable` = no guest wagons. Wins over the fixed text |
 | `custom_wagon_text` | – | fixed text for guest wagons, e.g. `Grandma, Grandpa` |
@@ -381,7 +387,9 @@ leaf_colors:
 
 ## ❓ FAQ
 
-**Can I switch off the Halloween look on 31 October?** Not at the moment – on that day it comes automatically. The Halloween mode itself (`event: halloween`) only runs if you choose it.
+**Can I switch off the Halloween look on 31 October?** Not at the moment – on that day it comes automatically. The Halloween decoration with pumpkins, witch & co. only comes with **🎉 Holidays** – there you can switch Halloween off completely.
+
+**Where does the season sensor come from?** From the Home Assistant **“Season”** integration (Settings → Devices & services → Add integration → “Season”). Choose “meteorological” (changes on 1 March, 1 June …) or “astronomical” (on the 20th/21st). Without a sensor the card counts meteorologically by date.
 
 **Can I have several effects at the same time?** Yes – easiest with **“all in one card”** (see above). Several single cards still work too.
 

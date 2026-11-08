@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.18";
+const CARD_VERSION = "1.0.19-beta.1";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -359,6 +359,8 @@ const PERIODIC_PHASE = {
   birdhouse: 0.25,
   witch: 1 / 6,
   ghost: 0,
+  lanterns: 0.75,
+  hare: 0.4,
 };
 
 // Wie lange eine Figur tatsaechlich sichtbar unterwegs ist (in Sekunden).
@@ -372,6 +374,8 @@ const PERIODIC_FLIGHT_SEC = {
   comet: 3.5,
   witch: 16,
   ghost: 22,
+  lanterns: 32,
+  hare: 12,
 };
 
 // Zeitpunkt, an dem die Karte geladen wurde (also praktisch der Moment des
@@ -456,28 +460,36 @@ function mapWeatherStateToEvents(state) {
 }
 
 const COUNT_IS_INTERVAL_TEXT = {
-  santa: "Wie oft der Weihnachtsmann vorbeifliegt: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (keine Partikelmenge, da es nur einen Schlitten gibt).",
+  seasons: "Frühling: Menge der Blüten · Sommer: Anzahl der Bienen · Herbst: wie oft ein Windstoß Laub bringt (Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min.) · Winter: Anzahl der glitzernden Eiskristalle.",
   dog: "Wie oft der Labrador durchläuft: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (keine Partikelmenge, da es nur einen Hund gibt).",
   train: "Wie oft die Dampflok vorbeituckert: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (keine Partikelmenge, da es nur eine gibt).",
 
   night_sky: "Wie oft der Komet vorbeizieht: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. Steuert gleichzeitig die Anzahl der Sternschnuppen (3 / 5 / 8).",
   owl_birdhouse: "Wie oft tagsüber ein Vogel am Häuschen vorbeifliegt: Wenig ≈ alle 100 Sek., Mittel ≈ alle 60 Sek., Viel ≈ alle 30 Sek. (nachts sitzt dort die Eule, dann ohne Wirkung).",
-  halloween: "Wenig = 3 Kürbisse, Hexe ≈ alle 5-6 Min., Gespenst ≈ alle 3 Min. · Mittel = 5 Kürbisse, Hexe ≈ alle 3-4 Min., Gespenst ≈ alle 2 Min. · Viel = 7 Kürbisse, Hexe ≈ alle 1-2 Min., Gespenst ≈ jede Minute. Steuert auch die Anzahl der Fledermäuse.",
+  holidays: "Halloween: Anzahl Kürbisse und Fledermäuse, wie oft Hexe und Gespenst kommen · Martini: wie oft der Laternenumzug kommt (Wenig ≈ alle 6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min.) · Nikolaus: Anzahl Sterne · Weihnachtsmann: wie oft er vorbeifliegt · Silvester: Anzahl Raketen · Valentinstag: Anzahl Herzen · Ostern: Anzahl Eier und wie oft der Hase hoppelt.",
 };
 
 const EVENT_CAPABILITIES = {
   off: { count: false, opacity: false, color: false },
   weather_auto: { count: true, opacity: true, color: true },
-  leaves: { count: true, opacity: true, color: false },
+  seasons: { count: true, opacity: true, color: false },
+  holidays: { count: true, opacity: true, color: false },
   night_sky: { count: true, opacity: true, color: true },
-  santa: { count: true, opacity: true, color: false },
   spider: { count: false, opacity: true, color: true },
   dog: { count: true, opacity: true, color: false },
   train: { count: true, opacity: true, color: false },
   owl_birdhouse: { count: true, opacity: true, color: false },
-  bee: { count: true, opacity: true, color: false },
   birthday: { count: true, opacity: true, color: false },
-  halloween: { count: true, opacity: true, color: false },
+};
+
+// Früher eigene Effekte, jetzt nur noch Teil von "Jahreszeiten" bzw.
+// "Feiertage". Steht so ein Effekt noch in einer alten Karte, zeigt sie
+// nichts mehr (bewusst ohne Übergangslösung) - der Editor sagt, wohin.
+const RETIRED_EVENTS = {
+  leaves: "seasons",
+  bee: "seasons",
+  halloween: "holidays",
+  santa: "holidays",
 };
 
 const BALLOON_COLORS = ["#FF4B4B", "#FF851B", "#FFDC00", "#2ECC40", "#0074D9", "#B10DC9", "#F012BE"];
@@ -2917,6 +2929,382 @@ function renderFrost(cfg, hass, hostEl) {
   return { css, html: `<div class="frost-container" aria-hidden="true"><div class="frost-edge"></div>${crystalHtml}</div>` };
 }
 
+/* ======================= 🍂 JAHRESZEITEN & 🎉 FEIERTAGE ======================= */
+// Zwei Sammel-Effekte, die selbst wissen, was gerade "dran" ist:
+// - Jahreszeiten: Frühling = Blüten, Sommer = Bienen, Herbst = Laub,
+//   Winter = winzige Eiszapfen oben. Welche Jahreszeit gerade ist, sagt ein
+//   Sensor aus Home Assistant (Integration "Season"), sonst das Datum.
+// - Feiertage: Halloween, Martini, Nikolaus, Weihnachten, Silvester,
+//   Valentinstag und Ostern - jeder nur an seinen Tagen.
+// Jede Jahreszeit und jeder Feiertag lässt sich einzeln abschalten.
+
+// Ostersonntag nach der Gaußschen Osterformel (Variante von Meeus),
+// gilt für den gregorianischen Kalender. Ergebnis wird pro Jahr gemerkt.
+const _easterCache = {};
+function easterSunday(y) {
+  if (_easterCache[y]) return _easterCache[y];
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100;
+  const d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return (_easterCache[y] = new Date(y, month - 1, day));
+}
+
+// Tage zwischen zwei Daten (nur das Datum zählt, nicht die Uhrzeit)
+function dayDiff(a, b) {
+  const ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const ub = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((ua - ub) / 86400000);
+}
+
+function entityIsOn(hass, eid) {
+  return !!eid && hass?.states?.[eid]?.state === "on";
+}
+
+// Zustände des Season-Sensors (englisch, manche Installationen deutsch)
+const SEASON_STATE_MAP = {
+  spring: "spring", summer: "summer", autumn: "autumn", fall: "autumn", winter: "winter",
+  "frühling": "spring", "sommer": "summer", "herbst": "autumn",
+};
+
+// [Schlüssel, Effekt, Symbol, Name, kurze Erklärung, Datum ohne Sensor]
+const SEASONS = [
+  ["spring", "blossoms", "🌸", "Frühling", "Blüten in Rosa, Weiß und Flieder", "1. März – 31. Mai"],
+  ["summer", "bee", "🐝", "Sommer", "Bienen summen kreuz und quer", "1. Juni – 31. August"],
+  ["autumn", "leaves", "🍂", "Herbst", "Laub weht ab und zu durchs Bild", "1. September – 30. November"],
+  ["winter", "icicles", "🧊", "Winter", "Winzige Eiszapfen oben, Glitzer", "1. Dezember – Ende Februar"],
+];
+
+function seasonNow(cfg, hass, now = new Date()) {
+  const raw = cfg?.season_entity ? hass?.states?.[cfg.season_entity]?.state : null;
+  const s = raw && SEASON_STATE_MAP[String(raw).toLowerCase()];
+  if (s) return s;
+  const m = now.getMonth();
+  if (m >= 2 && m <= 4) return "spring";
+  if (m >= 5 && m <= 7) return "summer";
+  if (m >= 8 && m <= 10) return "autumn";
+  return "winter";
+}
+
+// [Schlüssel, Effekt, Symbol, Name, Wann, Prüfung(Datum, cfg, hass)]
+const HOLIDAYS = [
+  ["halloween", "halloween", "🎃", "Halloween", "29. – 31. Oktober oder Halloween-Schalter",
+    (d, cfg, hass) => (d.getMonth() === 9 && d.getDate() >= 29) || entityIsOn(hass, cfg?.halloween_sensor)],
+  ["martini", "lanterns", "🏮", "Martini", "10. – 11. November, Laternenumzug",
+    (d) => d.getMonth() === 10 && (d.getDate() === 10 || d.getDate() === 11)],
+  ["nikolaus", "boots", "👢", "Nikolaus", "5. – 6. Dezember, gefüllte Stiefel",
+    (d) => d.getMonth() === 11 && (d.getDate() === 5 || d.getDate() === 6)],
+  ["christmas", "santa", "🎅", "Weihnachtsmann", "Nur wenn der Weihnachts-Schalter an ist",
+    (d, cfg, hass) => entityIsOn(hass, cfg?.santa_sensor)],
+  ["silvester", "fireworks", "🎆", "Silvester", "31. Dezember – 1. Januar, Feuerwerk",
+    (d) => (d.getMonth() === 11 && d.getDate() === 31) || (d.getMonth() === 0 && d.getDate() === 1)],
+  ["valentin", "hearts", "💕", "Valentinstag", "13. – 14. Februar, Herzen",
+    (d) => d.getMonth() === 1 && (d.getDate() === 13 || d.getDate() === 14)],
+  ["easter", "easter", "🐰", "Ostern", "Palmsonntag – Ostermontag, Hase und Eier",
+    (d) => { const k = dayDiff(d, easterSunday(d.getFullYear())); return k >= -7 && k <= 1; }],
+];
+
+// Welche Einzel-Effekte zeigen "Jahreszeiten" bzw. "Feiertage" gerade?
+function seasonalEvents(cfg, hass, now = new Date()) {
+  if (cfg?.event === "seasons") {
+    const s = seasonNow(cfg, hass, now);
+    const row = SEASONS.find((r) => r[0] === s);
+    return row && cfg[`season_${s}`] !== false ? [row[1]] : [];
+  }
+  if (cfg?.event === "holidays") {
+    return HOLIDAYS
+      .filter(([key, , , , , test]) => cfg[`holiday_${key}`] !== false && test(now, cfg, hass))
+      .map((r) => r[1]);
+  }
+  return [];
+}
+
+// Nächster Feiertag mit festem Datum (für die Vorschau im Editor, wenn
+// heute gerade keiner ist). Schalter-Feiertage zählen hier nicht.
+function nextHoliday(cfg, now = new Date()) {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (let i = 1; i <= 400; i++) {
+    d.setDate(d.getDate() + 1);
+    const row = HOLIDAYS.find(([key, , , , , test]) =>
+      key !== "christmas" && cfg?.[`holiday_${key}`] !== false && test(d, {}, null));
+    if (row) return { row, date: new Date(d) };
+  }
+  return null;
+}
+
+// Startzeit einer Endlos-Animation aus der echten Uhrzeit: so springt
+// nichts an den Anfang zurück, wenn die Ebene neu gezeichnet wird.
+function clockDelay(dur, off) {
+  return (-((Date.now() / 1000 + off) % dur)).toFixed(2);
+}
+
+function layerOpacity(cfg) {
+  return (cfg.opacity_preset || "medium") === "high" ? 1 : getOpacityValue(cfg.opacity_preset || "medium");
+}
+
+// 🌸 Frühling: Blütenblätter und kleine Blüten fallen schaukelnd
+function renderBlossoms(cfg, hass, hostEl) {
+  const n = { low: 8, medium: 14, high: 22 }[cfg.count_preset || "medium"] || 14;
+  const all = getCachedRandomSet("blossoms", 22, () => ({
+    l: Math.random() * 98,
+    dur: Math.random() * 7 + 12,
+    sway: (Math.random() * 2 + 2.6).toFixed(1),
+    off: Math.random() * 30,
+    size: Math.random() * 8 + 12,
+    color: ["#f7b7cf", "#fbd3e2", "#ffffff", "#d9c4f3", "#f3a6c4"][Math.floor(Math.random() * 5)],
+    rot: Math.floor(Math.random() * 360),
+  }));
+  const html = all.slice(0, n).map((p, i) => {
+    const inner = i % 4 === 0
+      ? `<svg viewBox="0 0 20 20" style="width:${(p.size * 1.3).toFixed(0)}px;height:${(p.size * 1.3).toFixed(0)}px;display:block">${[0, 72, 144, 216, 288].map((a) => `<ellipse cx="10" cy="5" rx="3.6" ry="5" fill="${p.color}" transform="rotate(${a} 10 10)"/>`).join("")}<circle cx="10" cy="10" r="2.6" fill="#f6d55c"/></svg>`
+      : `<b class="petal" style="width:${(p.size * 0.75).toFixed(0)}px;height:${p.size.toFixed(0)}px;background:${p.color};transform:rotate(${p.rot}deg)"></b>`;
+    return `<div class="bl-fall" style="left:${p.l.toFixed(1)}vw;animation-duration:${p.dur.toFixed(1)}s;animation-delay:${clockDelay(p.dur, p.off)}s"><i style="animation-duration:${p.sway}s;animation-delay:${clockDelay(+p.sway, p.off)}s">${inner}</i></div>`;
+  }).join("");
+  const css = `
+    ${overlayBaseCss("blossoms", `opacity:${layerOpacity(cfg)};`)}
+    .bl-fall { position:absolute; top:0; animation:bl-fall linear infinite; will-change:transform; }
+    .bl-fall > i { display:block; animation:bl-sway ease-in-out infinite; }
+    .petal { display:block; border-radius:70% 0 70% 0; box-shadow:inset -1px -1px 0 rgba(0,0,0,0.08); }
+    @keyframes bl-fall { from { transform:translateY(-8vh); } to { transform:translateY(108vh); } }
+    @keyframes bl-sway { 0%,100% { transform:translateX(-2.2vw) rotate(-25deg); } 50% { transform:translateX(2.2vw) rotate(25deg); } }
+  `;
+  return { css, html: `<div class="blossoms" aria-hidden="true">${html}</div>` };
+}
+
+// 🧊 Winter: ganz oben nur winzige Eiszapfen (damit nichts verdeckt wird),
+// ab und zu fällt ein Tropfen, darunter glitzern ein paar Eiskristalle.
+function renderIcicles(cfg, hass, hostEl) {
+  const dark = isDarkModeActive(hass, hostEl);
+  const glints = { low: 6, medium: 10, high: 16 }[cfg.count_preset || "medium"] || 10;
+  const icicles = getCachedRandomSet("icicles", 1, () => {
+    const list = [];
+    let x = 0;
+    while (x < 100) {
+      const w = Math.random() * 0.5 + 0.4, h = Math.random() * 1.8 + 0.8;
+      list.push({ x, w, h, shine: Math.random() < 0.3, drop: Math.random() < 0.12, dur: Math.random() * 5 + 5, off: Math.random() * 40 });
+      x += w + Math.random() * 1.3 + 0.3;
+    }
+    return list;
+  })[0];
+  const sparks = getCachedRandomSet("icicle-glints", 16, () => ({
+    l: Math.random() * 92 + 3, t: Math.random() * 60 + 15,
+    dur: Math.random() * 2.5 + 2.5, off: Math.random() * 10, s: Math.random() * 6 + 8,
+  }));
+  const ice = dark
+    ? "linear-gradient(90deg, rgba(190,225,255,.55), rgba(245,252,255,.95) 45%, rgba(170,210,245,.6))"
+    : "linear-gradient(90deg, rgba(120,170,215,.6), rgba(205,230,250,.95) 45%, rgba(110,160,210,.65))";
+  const glintColor = dark ? "#f4fbff" : "#7fb1de";
+  let html = icicles.map((c) => {
+    let s = `<div class="icicle" style="left:${c.x.toFixed(2)}vw;width:${c.w.toFixed(2)}vw;height:${c.h.toFixed(2)}vh">${c.shine ? `<b style="animation-delay:${clockDelay(5, c.off)}s"></b>` : ""}</div>`;
+    if (c.drop) s += `<div class="ic-drop" style="left:calc(${(c.x + c.w / 2).toFixed(2)}vw - 2px);top:${(c.h - 0.6).toFixed(2)}vh;animation-duration:${c.dur.toFixed(1)}s;animation-delay:${clockDelay(c.dur, c.off)}s"></div>`;
+    return s;
+  }).join("");
+  html += sparks.slice(0, glints).map((g) =>
+    `<div class="ic-glint" style="left:${g.l.toFixed(1)}vw;top:${g.t.toFixed(1)}vh;width:${g.s.toFixed(0)}px;height:${g.s.toFixed(0)}px;animation-duration:${g.dur.toFixed(1)}s;animation-delay:${clockDelay(g.dur, g.off)}s"></div>`).join("");
+  const css = `
+    ${overlayBaseCss("icicles", `opacity:${layerOpacity(cfg)};`)}
+    .icicle { position:absolute; top:0; clip-path:polygon(0 0,100% 0,50% 100%); background:${ice}; }
+    .icicle > b { position:absolute; inset:0; background:rgba(255,255,255,.95); opacity:0; animation:ic-shine 5s ease-in-out infinite; }
+    @keyframes ic-shine { 0%,70%,100% { opacity:0; } 80% { opacity:.85; } }
+    .ic-drop { position:absolute; width:4px; height:6px; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+      background:${dark ? "rgba(200,232,255,.95)" : "rgba(110,165,215,.9)"}; opacity:0; animation:ic-drip linear infinite; }
+    @keyframes ic-drip { 0%,70% { opacity:0; transform:translateY(0) scale(.4); } 74% { opacity:1; transform:translateY(0) scale(1); } 100% { opacity:0; transform:translateY(70vh); } }
+    .ic-glint { position:absolute; background:${glintColor};
+      clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);
+      animation:ic-twinkle ease-in-out infinite; }
+    @keyframes ic-twinkle { 0%,100% { opacity:.2; transform:scale(.6); } 50% { opacity:1; transform:scale(1); } }
+  `;
+  return { css, html: `<div class="icicles" aria-hidden="true">${html}</div>` };
+}
+
+// 🏮 Martini: Laternenumzug unten am Rand, HINTER dem Zug (z-index 9998).
+// Kommt wie der Zug ab und zu vorbei - wie oft, steuert "Anzahl".
+function renderLanterns(cfg, hass, hostEl) {
+  const interval = { low: 360, medium: 210, high: 100 }[cfg.count_preset || "medium"] || 210;
+  const flight = PERIODIC_FLIGHT_SEC.lanterns;
+  const pct = Math.min(30, (flight / interval) * 100).toFixed(3);
+  const delay = periodicDelaySec(interval, "lanterns");
+  const kinds = ["l-ball", "l-star", "l-moon", "l-sun", "l-tube", "l-ball l-green"];
+  const lanterns = kinds.map((k, i) => `
+    <div class="lantern">
+      <div class="stick"></div>
+      <div class="hang" style="animation-delay:${clockDelay(2.6, i * 0.7)}s"><div class="cord"></div>
+        <div class="body"><div class="glow" style="animation-delay:${clockDelay(2.2, i * 0.5)}s"></div><div class="${k}"></div></div>
+      </div>
+    </div>`).join("");
+  const css = `
+    ${overlayBaseCss("lanterns", `z-index:9998; opacity:${layerOpacity(cfg)};`)}
+    .parade { position:absolute; bottom:1vh; left:0; display:flex; gap:56px; align-items:flex-end;
+      transform:translateX(105vw); animation:lt-parade ${interval}s linear infinite; animation-delay:${delay}s; will-change:transform; }
+    @keyframes lt-parade { 0% { transform:translateX(105vw); } ${pct}% { transform:translateX(calc(-100% - 5vw)); } 100% { transform:translateX(calc(-100% - 5vw)); } }
+    .lantern { position:relative; width:44px; height:150px; }
+    .lantern .stick { position:absolute; left:50%; bottom:0; width:3px; height:112px; background:#7a5a3a; transform:rotate(-12deg); transform-origin:bottom; }
+    .lantern .hang { position:absolute; left:50%; top:0; transform-origin:top center; animation:lt-swing 2.6s ease-in-out infinite; }
+    @keyframes lt-swing { 0%,100% { transform:translateX(-50%) rotate(-7deg); } 50% { transform:translateX(-50%) rotate(7deg); } }
+    .lantern .cord { width:1px; height:14px; background:#b9a58a; margin:0 auto; }
+    .lantern .body { position:relative; display:grid; place-items:center; }
+    .lantern .glow { position:absolute; left:-70%; top:-70%; right:-70%; bottom:-70%; border-radius:50%;
+      background:radial-gradient(circle, rgba(255,200,90,.5), rgba(255,200,90,0) 65%); animation:lt-flicker 2.2s ease-in-out infinite; }
+    @keyframes lt-flicker { 0%,100% { opacity:.75; } 40% { opacity:1; } 55% { opacity:.55; } 70% { opacity:.9; } }
+    .l-ball { position:relative; width:36px; height:36px; border-radius:50%; background:radial-gradient(circle at 40% 40%, #ffd27a, #e2452c 70%); }
+    .l-green { background:radial-gradient(circle at 40% 40%, #fff0a0, #3aa35a 70%); }
+    .l-star { position:relative; width:42px; height:42px; background:radial-gradient(circle, #fff3b0, #f2b51f 70%);
+      clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
+    .l-moon { position:relative; width:38px; height:38px; border-radius:50%; background:radial-gradient(circle at 38% 40%, #fff6c9, #f0c94a 70%);
+      -webkit-mask:radial-gradient(circle at 78% 35%, transparent 38%, #000 39%); mask:radial-gradient(circle at 78% 35%, transparent 38%, #000 39%); }
+    .l-sun { position:relative; width:42px; height:42px; border-radius:50%;
+      background:radial-gradient(circle, #fff1b8 0 30%, #ff9a2e 31% 48%, transparent 49%), repeating-conic-gradient(#ffb547 0 12deg, transparent 12deg 30deg); }
+    .l-tube { position:relative; width:30px; height:42px; border-radius:7px; background:linear-gradient(90deg, #3a7bd5, #7fd1ff 50%, #3a7bd5);
+      box-shadow:inset 0 5px 0 #24508f, inset 0 -5px 0 #24508f; }
+  `;
+  return { css, html: `<div class="lanterns" aria-hidden="true"><div class="parade">${lanterns}</div></div>` };
+}
+
+// 👢 Nikolaus: zwei gefüllte Stiefel unten in den Ecken (da, wo an
+// Halloween die Kürbisse stehen), hinter dem Zug. Ab und zu wackelt einer.
+function bootSvg(id) {
+  return `<svg viewBox="0 0 100 120" style="width:100%;height:100%;overflow:visible">
+    <defs><linearGradient id="${id}" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000"/></linearGradient></defs>
+    <rect x="44" y="6" width="9" height="34" rx="4" fill="#fff" transform="rotate(14 48 23)"/>
+    <path d="M47 8 l4 3 M46 15 l4 3 M45 22 l4 3 M44 29 l4 3" stroke="#d6283a" stroke-width="3" transform="rotate(14 48 23)"/>
+    <path d="M44 7 q8 -8 16 2" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round" transform="rotate(14 48 23)"/>
+    <path d="M44 7 q8 -8 16 2" stroke="#d6283a" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="4 5" transform="rotate(14 48 23)"/>
+    <circle cx="30" cy="28" r="12" fill="#f39a1e"/><path d="M28 17 q3 -4 7 -2" stroke="#3f8a3a" stroke-width="3" fill="none"/>
+    <ellipse cx="68" cy="30" rx="9" ry="7" fill="#9a6a3b"/><path d="M62 30 q6 -3 12 0" stroke="#7a4f27" stroke-width="1.5" fill="none"/>
+    <path d="M14 34 h68 v40 q0 6 6 8 l10 4 q8 4 4 14 l-2 8 h-58 q-28 0 -28 -26z" fill="#c8202f"/>
+    <path d="M14 34 h68 v40 q0 6 6 8 l10 4 q8 4 4 14 l-2 8 h-58 q-28 0 -28 -26z" fill="url(#${id})" opacity=".35"/>
+    <rect x="9" y="30" width="78" height="14" rx="7" fill="#fbfbfb"/>
+    <circle cx="20" cy="37" r="2" fill="#e3e8ee"/><circle cx="44" cy="35" r="2" fill="#e3e8ee"/><circle cx="70" cy="38" r="2" fill="#e3e8ee"/>
+  </svg>`;
+}
+
+function renderBoots(cfg, hass, hostEl) {
+  const stars = { low: 4, medium: 6, high: 10 }[cfg.count_preset || "medium"] || 6;
+  const glints = getCachedRandomSet("boot-glints", 10, () => ({
+    x: Math.random() * 12 + 2, b: Math.random() * 14 + 14, dur: Math.random() * 2 + 2.4, off: Math.random() * 10, s: Math.random() * 6 + 9,
+  }));
+  const html = `
+    <div class="boot left" style="animation-delay:${clockDelay(7, 0)}s"><div class="flip">${bootSvg("aoc-boot-l")}</div></div>
+    <div class="boot right" style="animation-delay:${clockDelay(7, 3.5)}s">${bootSvg("aoc-boot-r")}</div>
+    ${glints.slice(0, stars).map((g, i) => `<div class="bt-glint" style="${i % 2 ? "right" : "left"}:${g.x.toFixed(1)}vw;bottom:${g.b.toFixed(1)}vh;width:${g.s.toFixed(0)}px;height:${g.s.toFixed(0)}px;animation-duration:${g.dur.toFixed(1)}s;animation-delay:${clockDelay(g.dur, g.off)}s"></div>`).join("")}`;
+  const css = `
+    ${overlayBaseCss("boots", `z-index:9998; opacity:${layerOpacity(cfg)};`)}
+    .boot { position:absolute; bottom:0.5vh; width:72px; height:86px; transform-origin:bottom center; animation:bt-wiggle 7s ease-in-out infinite; }
+    .boot.left { left:1vw; } .boot.right { right:1vw; }
+    .boot .flip { width:100%; height:100%; transform:scaleX(-1); }
+    @keyframes bt-wiggle { 0%,82%,100% { transform:rotate(0); } 85% { transform:rotate(-4deg); } 88% { transform:rotate(3deg); } 91% { transform:rotate(-2deg); } 94% { transform:rotate(0); } }
+    .bt-glint { position:absolute; background:#ffe48a;
+      clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%); animation:bt-twinkle ease-in-out infinite; }
+    @keyframes bt-twinkle { 0%,100% { opacity:.2; transform:scale(.6); } 50% { opacity:1; transform:scale(1); } }
+  `;
+  return { css, html: `<div class="boots" aria-hidden="true">${html}</div>` };
+}
+
+// 🎆 Silvester: Raketen steigen auf und platzen in der oberen Hälfte zu
+// bunten Funken (kein Konfetti, damit die Anzeige lesbar bleibt).
+function renderFireworks(cfg, hass, hostEl) {
+  const n = { low: 3, medium: 5, high: 8 }[cfg.count_preset || "medium"] || 5;
+  const COLORS = ["255,90,95", "255,209,102", "95,211,141", "90,176,255", "199,146,255", "255,159,67"];
+  const SPARKS = 14;
+  const rockets = getCachedRandomSet("fireworks", 8, () => ({
+    x: Math.random() * 80 + 10, y: Math.random() * 33 + 12, r: Math.random() * 6 + 9,
+    dur: Math.random() * 1.6 + 3.8, off: Math.random() * 20,
+    a: Array.from({ length: SPARKS }, (_, i) => (i * 360 / SPARKS + Math.random() * 10 - 5).toFixed(0)),
+    rr: Array.from({ length: SPARKS }, () => (Math.random() * 0.3 + 0.75).toFixed(2)),
+  }));
+  const html = rockets.slice(0, n).map((f, k) => {
+    const c = COLORS[k % COLORS.length];
+    const sparks = f.a.map((a, i) => `<b class="spark" style="--a:${a}deg;--r:${(f.r * f.rr[i]).toFixed(1)}vh"></b>`).join("");
+    return `<div class="fw" style="left:${f.x.toFixed(1)}vw;top:${f.y.toFixed(1)}vh;--c:rgb(${c});--c2:rgba(${c},.45);--fly:${(100 - f.y + 10).toFixed(0)}vh;--d:${f.dur.toFixed(2)}s;--dl:${clockDelay(f.dur, f.off)}s"><b class="flash"></b><b class="rocket"></b>${sparks}</div>`;
+  }).join("");
+  const css = `
+    ${overlayBaseCss("fireworks", `opacity:${layerOpacity(cfg)};`)}
+    .fw { position:absolute; width:0; height:0; }
+    .fw b { position:absolute; display:block; opacity:0; animation-duration:var(--d); animation-delay:var(--dl); animation-iteration-count:infinite; }
+    .fw .rocket { left:-2px; top:0; width:4px; height:22px; border-radius:2px; background:linear-gradient(180deg, #fff, var(--c) 40%, transparent);
+      animation-name:fw-launch; animation-timing-function:linear; }
+    @keyframes fw-launch { 0% { transform:translateY(var(--fly)); opacity:1; } 32% { transform:translateY(0); opacity:1; } 33%,100% { transform:translateY(0); opacity:0; } }
+    .fw .spark { left:-3px; top:-3px; width:6px; height:6px; border-radius:50%; background:var(--c); box-shadow:0 0 8px var(--c);
+      animation-name:fw-burst; animation-timing-function:cubic-bezier(.15,.7,.3,1); }
+    @keyframes fw-burst {
+      0%,32% { opacity:0; transform:rotate(var(--a)) translateX(0); }
+      34% { opacity:1; transform:rotate(var(--a)) translateX(4px); }
+      75% { opacity:.8; transform:rotate(var(--a)) translateX(var(--r)) translateY(1vh); }
+      100% { opacity:0; transform:rotate(var(--a)) translateX(calc(var(--r) * 1.12)) translateY(4vh); }
+    }
+    .fw .flash { left:-9vh; top:-9vh; width:18vh; height:18vh; border-radius:50%;
+      background:radial-gradient(circle, var(--c2), transparent 70%); animation-name:fw-flash; animation-timing-function:ease-out; }
+    @keyframes fw-flash { 0%,32% { opacity:0; } 35% { opacity:.9; } 55%,100% { opacity:0; } }
+  `;
+  return { css, html: `<div class="fireworks" aria-hidden="true">${html}</div>` };
+}
+
+// 💕 Valentinstag: Herzen steigen schaukelnd auf wie kleine Luftballons
+function renderHearts(cfg, hass, hostEl) {
+  const n = { low: 8, medium: 14, high: 22 }[cfg.count_preset || "medium"] || 14;
+  const all = getCachedRandomSet("hearts", 22, () => ({
+    l: Math.random() * 95, dur: Math.random() * 7 + 10, sway: (Math.random() * 2 + 3).toFixed(1),
+    s: Math.floor(Math.random() * 16 + 18), off: Math.random() * 30,
+    c: ["#e63950", "#ff6f91", "#ff9ab5", "#c9184a"][Math.floor(Math.random() * 4)],
+  }));
+  const html = all.slice(0, n).map((h) => `<div class="heart" style="left:${h.l.toFixed(1)}vw;animation-duration:${h.dur.toFixed(1)}s;animation-delay:${clockDelay(h.dur, h.off)}s"><i style="animation-duration:${h.sway}s;animation-delay:${clockDelay(+h.sway, h.off)}s"><svg width="${h.s}" height="${h.s}" viewBox="0 0 24 22" style="display:block"><path d="M12 21.5S1 14.6 1 7.4C1 3.8 3.8 1 7.2 1c2 0 3.8 1 4.8 2.6C13 2 14.8 1 16.8 1 20.2 1 23 3.8 23 7.4c0 7.2-11 14.1-11 14.1z" fill="${h.c}"/><path d="M6 5.5c1.2-1.4 3-1.2 3.8.2" stroke="rgba(255,255,255,.6)" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg></i></div>`).join("");
+  const css = `
+    ${overlayBaseCss("hearts", `opacity:${layerOpacity(cfg)};`)}
+    .heart { position:absolute; top:0; animation:ht-rise linear infinite; will-change:transform; }
+    .heart > i { display:block; animation:ht-sway ease-in-out infinite; }
+    @keyframes ht-rise { 0% { transform:translateY(108vh); opacity:0; } 10% { opacity:1; } 80% { opacity:1; } 100% { transform:translateY(-10vh); opacity:0; } }
+    @keyframes ht-sway { 0%,100% { transform:translateX(-1.6vw) rotate(-12deg); } 50% { transform:translateX(1.6vw) rotate(12deg); } }
+  `;
+  return { css, html: `<div class="hearts" aria-hidden="true">${html}</div>` };
+}
+
+// 🐰 Ostern: flacher Grasstreifen mit bunten Eiern ganz unten, ab und zu
+// hoppelt der Osterhase durch - alles HINTER dem Zug (z-index 9998).
+function renderEaster(cfg, hass, hostEl) {
+  const interval = { low: 300, medium: 180, high: 90 }[cfg.count_preset || "medium"] || 180;
+  const eggCount = { low: 4, medium: 6, high: 9 }[cfg.count_preset || "medium"] || 6;
+  const pct = Math.min(40, (PERIODIC_FLIGHT_SEC.hare / interval) * 100).toFixed(3);
+  const delay = periodicDelaySec(interval, "hare");
+  const blades = getCachedRandomSet("easter-grass", 1, () => {
+    let p = "";
+    for (let x = 0; x <= 400; x += 5) {
+      p += `M${x} 40 Q${x + 1} ${Math.floor(Math.random() * 14 + 8)} ${x + Math.floor(Math.random() * 4 + 2)} ${Math.floor(Math.random() * 12 + 2)} Q${x + 3} 25 ${x + 5} 40 Z `;
+    }
+    return p;
+  })[0];
+  const EGG_COLORS = [["#ff8fab", "#fff"], ["#7bdff2", "#f6f7d7"], ["#ffd166", "#ef476f"], ["#b8f2a8", "#5a7d2a"], ["#cdb4db", "#fff"], ["#f4a261", "#2a9d8f"]];
+  const eggs = getCachedRandomSet("easter-eggs", 9, () => ({ jit: Math.random() * 4 - 2, rot: Math.floor(Math.random() * 28 - 14) }));
+  const eggHtml = eggs.slice(0, eggCount).map((e, i) => {
+    const [a, b] = EGG_COLORS[i % EGG_COLORS.length];
+    return `<div class="egg" style="left:${(4 + i * (90 / eggCount) + e.jit).toFixed(1)}vw;background:repeating-linear-gradient(0deg, ${a} 0 22%, ${b} 22% 32%);transform:rotate(${e.rot}deg)"></div>`;
+  }).join("");
+  const hare = `<svg viewBox="0 0 60 60" style="width:100%;height:100%;overflow:visible">
+    <ellipse cx="30" cy="40" rx="17" ry="13" fill="#c8a27a"/><circle cx="13" cy="42" r="5" fill="#fff"/>
+    <ellipse cx="46" cy="30" rx="10" ry="9" fill="#c8a27a"/>
+    <ellipse cx="45" cy="13" rx="3.4" ry="12" fill="#c8a27a" transform="rotate(-10 45 13)"/>
+    <ellipse cx="50" cy="14" rx="3.4" ry="12" fill="#b88f68" transform="rotate(12 50 14)"/>
+    <ellipse cx="45" cy="13" rx="1.6" ry="8" fill="#f2b6c0" transform="rotate(-10 45 13)"/>
+    <circle cx="50" cy="28" r="1.6" fill="#2b1d12"/><circle cx="55.5" cy="31" r="1.3" fill="#e57a8a"/>
+    <ellipse cx="38" cy="52" rx="7" ry="3" fill="#b88f68"/></svg>`;
+  const css = `
+    ${overlayBaseCss("easter", `z-index:9998; opacity:${layerOpacity(cfg)};`)}
+    .easter .grass { position:absolute; left:0; bottom:0; width:100%; height:3.2vh; min-height:18px; }
+    .easter .egg { position:absolute; bottom:max(1.6vh, 10px); width:18px; height:24px; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%; }
+    .easter .hare { position:absolute; bottom:1vh; left:0; width:58px; height:58px; transform:translateX(-80px);
+      animation:ea-run ${interval}s linear infinite; animation-delay:${delay}s; will-change:transform; }
+    @keyframes ea-run { 0% { transform:translateX(-80px); } ${pct}% { transform:translateX(calc(100vw + 20px)); } 100% { transform:translateX(calc(100vw + 20px)); } }
+    .easter .hop { width:100%; height:100%; transform-origin:bottom center; animation:ea-hop .55s ease-in-out infinite; }
+    @keyframes ea-hop { 0%,100% { transform:translateY(0) rotate(0); } 45% { transform:translateY(-34px) rotate(-8deg); } 55% { transform:translateY(-34px) rotate(-4deg); } }
+  `;
+  const html = `${eggHtml}<svg class="grass" viewBox="0 0 400 40" preserveAspectRatio="none"><path d="${blades}" fill="#5aa43c"/><rect x="0" y="34" width="400" height="6" fill="#4b8f31"/></svg><div class="hare"><div class="hop">${hare}</div></div>`;
+  return { css, html: `<div class="easter" aria-hidden="true">${html}</div>` };
+}
+
 const RENDERERS = {
   frost: renderFrost,
   rain: renderRain,
@@ -2939,6 +3327,13 @@ const RENDERERS = {
   bee: renderBee,
   birthday: renderBirthday,
   halloween: renderHalloween,
+  blossoms: renderBlossoms,
+  icicles: renderIcicles,
+  lanterns: renderLanterns,
+  boots: renderBoots,
+  fireworks: renderFireworks,
+  hearts: renderHearts,
+  easter: renderEaster,
 };
 
 /* ============================== BEDINGUNGEN ============================== */
@@ -3199,6 +3594,8 @@ function eventsForConfig(cfg, hass) {
     if (frostLevel(cfg, hass) > 0) events = events.concat("frost"); // concat: die Wetter-Tabelle selbst nicht verändern
     return events.filter((e) => e !== "off");
   }
+  if (cfg.event === "seasons" || cfg.event === "holidays") return seasonalEvents(cfg, hass);
+  if (RETIRED_EVENTS[cfg.event]) return [];
   return cfg.event && cfg.event !== "off" ? [cfg.event] : [];
 }
 
@@ -3228,6 +3625,18 @@ const EFFECT_DEFAULTS = {
   halloween_webs: true,
   halloween_bats: true,
   halloween_sensor: "",
+  season_entity: "",
+  season_spring: true,
+  season_summer: true,
+  season_autumn: true,
+  season_winter: true,
+  holiday_halloween: true,
+  holiday_martini: true,
+  holiday_nikolaus: true,
+  holiday_christmas: true,
+  holiday_silvester: true,
+  holiday_valentin: true,
+  holiday_easter: true,
   santa_sensor: "",
   dinner_sensor: "",
   person_entities: "",
@@ -3238,7 +3647,7 @@ const EFFECT_DEFAULTS = {
 // Alle Entitäten, die ein Effekt-Eintrag selbst benutzt (Wetter, Schalter,
 // Personen, Gäste) - auch diese muss die Karte beobachten
 function entryEntities(cfg, out = new Set()) {
-  for (const k of ["weather_entity", "santa_sensor", "dinner_sensor", "halloween_sensor", "custom_wagon_entity"]) {
+  for (const k of ["weather_entity", "santa_sensor", "dinner_sensor", "halloween_sensor", "custom_wagon_entity", "season_entity"]) {
     if (cfg?.[k]) out.add(cfg[k]);
   }
   if (typeof cfg?.person_entities === "string") {
@@ -3466,7 +3875,8 @@ class AmbientOverlayCard extends HTMLElement {
     const glob = evalConditions(this._config?.conditions, this._hass, now).ok ? 1 : 0;
     const per = entries.map((e) => {
       const on = e.enabled === false ? 0 : (evalConditions(e.conditions, this._hass, now).ok ? 1 : 0);
-      return `${on}:${this._layerInputs(e)}:fr=${frostLevel(e, this._hass)}`;
+      const ev = (e.event === "seasons" || e.event === "holidays") ? eventsForConfig(e, this._hass).join("+") : "";
+      return `${on}:${this._layerInputs(e)}:fr=${frostLevel(e, this._hass)}:ev=${ev}`;
     }).join("|");
     return `${glob}#${per}`;
   }
@@ -3549,6 +3959,8 @@ class AmbientOverlayCard extends HTMLElement {
     // der Look um Mitternacht von selbst, ohne die Seite neu zu laden.
     const oldHalloween = this._lastHalloween;
     const oldFrost = this._lastFrost;
+    // 🍂🎉 Jahreszeit/Feiertag: wechselt um Mitternacht oder per Sensor
+    const oldSeasonal = this._lastSeasonal;
 
     this._hass = hass;
     const newWeatherState = weatherEntity ? hass?.states?.[weatherEntity]?.state : undefined;
@@ -3564,14 +3976,18 @@ class AmbientOverlayCard extends HTMLElement {
     const newFrost = frostLevel(this._config, hass);
     this._lastFrost = newFrost;
     const frostChanged = oldFrost !== undefined && oldFrost !== newFrost;
+    const isSeasonal = this._config?.event === "seasons" || this._config?.event === "holidays";
+    const newSeasonal = isSeasonal ? eventsForConfig(this._config, hass).join("+") : "";
+    this._lastSeasonal = newSeasonal;
+    const seasonalChanged = oldSeasonal !== undefined && oldSeasonal !== newSeasonal;
 
     const weatherChanged = oldWeatherState !== newWeatherState;
-    const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged || halloweenChanged || frostChanged;
+    const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged || halloweenChanged || frostChanged || seasonalChanged;
 
     // Sanftes Ausblenden nur bei einer ECHTEN automatischen Wetteränderung
     // (nicht beim allerersten Rendern - da gibt's ja noch nichts, von dem
     // aus geblendet werden könnte).
-    const isRealWeatherChange = this._hasRenderedOnce && weatherChanged;
+    const isRealWeatherChange = this._hasRenderedOnce && (weatherChanged || seasonalChanged);
 
     if (!this._hasRenderedOnce || weatherChanged || sensorChanged) {
       this._render(isRealWeatherChange);
@@ -3628,6 +4044,11 @@ class AmbientOverlayCard extends HTMLElement {
       // ❄️ Frost-Ränder unter 0 °C - egal welches Wetter gerade ist
       if (frostLevel(cfg, this._hass) > 0) events = events.filter((e) => e !== "off").concat("frost");
       return events.length > 0 ? events : ["off"];
+    }
+    // Jahreszeiten / Feiertage: zeigen, was heute dran ist (oder nichts)
+    if (cfg.event === "seasons" || cfg.event === "holidays" || RETIRED_EVENTS[cfg.event]) {
+      const ev = eventsForConfig(cfg, this._hass);
+      return ev.length ? ev : ["off"];
     }
     return [cfg.event || "off"];
   }
@@ -3864,14 +4285,12 @@ const EFFECT_TILES = [
   ["weather_auto", "🌦️", "Wetter", "Wetter-Automatik"],
   ["night_sky", "🌠", "Nacht", "Nachthimmel"],
   ["birthday", "🎂", "Geburtstag", "Geburtstag"],
-  ["halloween", "🎃", "Halloween", "Halloween"],
-  ["santa", "🎅", "Weihnacht", "Weihnachtsmann"],
-  ["leaves", "🍂", "Laub", "Herbstlaub"],
+  ["seasons", "🍂", "Jahreszeit", "Jahreszeiten"],
+  ["holidays", "🎉", "Feiertage", "Feiertage"],
   ["train", "🚂", "Zug", "Dampflok"],
   ["dog", "🐕", "Hund", "Labrador"],
   ["owl_birdhouse", "🦉", "Eule", "Eule & Vogelhaus"],
   ["spider", "🕷️", "Spinne", "Spinne"],
-  ["bee", "🐝", "Bienen", "Bienen"],
   ["off", "⭘", "Aus", "Aus"],
 ];
 
@@ -3888,19 +4307,24 @@ const EFFECT_PARTS = {
     ["night_wishstar", "⭐", "Wunschstern", "Funkelt und springt weiter"],
     ["night_comet", "☄️", "Komet", "Selten, mit langem Schweif"],
   ],
-  halloween: [
+  seasons: SEASONS.map(([key, , em, name, small, when]) => [`season_${key}`, em, name, `${small} · ohne Sensor ${when}`]),
+  holidays: HOLIDAYS.map(([key, , em, name, when]) => [`holiday_${key}`, em, name, when]),
+};
+
+// Die Teile von Halloween (innerhalb von "Feiertage")
+const HALLOWEEN_PARTS = [
     ["halloween_pumpkins", "🎃", "Kürbisse", "Flackern unten in den Ecken"],
     ["halloween_ghost", "👻", "Gespenst", "Schwebt vorbei und ruft „Buh!“"],
     ["halloween_witch", "🧙", "Hexe auf dem Besen", "Verliert ab und zu den Hut"],
     ["halloween_webs", "🕸️", "Spinnweben", "Oben in beiden Ecken"],
     ["halloween_bats", "🦇", "Fledermäuse", "Flattern durchs Bild"],
-  ],
-};
+];
 
 // Text auf dem Start-Knopf der Vorschau (nur bei Figuren, die selten kommen)
 const PREVIEW_PLAY_TEXT = {
   train: "Zug jetzt losfahren lassen",
   dog: "Hund jetzt loslaufen lassen",
+  holidays: "Jetzt vorbeiziehen lassen",
 };
 
 // Jeder Effekt erklärt nur, was sich bei IHM an Halloween verkleidet
@@ -3908,6 +4332,7 @@ const HALLOWEEN_HINTS = {
   train: "Am 31. Oktober tragen vier Waggons automatisch Kürbisse, Hexenkessel, Sarg und Süßigkeiten. Ist dieser Schalter 'an', auch an anderen Tagen. Weihnachten und Abendessen haben Vorrang.",
   dog: "Am 31. Oktober trägt der Hund automatisch Teufelshörnchen und ein Halstuch. Ist dieser Schalter 'an', auch an anderen Tagen.",
   owl_birdhouse: "Am 31. Oktober trägt die Eule nachts automatisch einen Hexenhut. Tagsüber steht ein Kürbis vor dem Vogelhäuschen, unterm Dach hängt eine Spinnwebe und der Vogel fliegt mit Hexenhut vorbei. Ist dieser Schalter 'an', auch an anderen Tagen.",
+  holidays: "Ist dieser Schalter 'an', läuft Halloween auch außerhalb vom 29. – 31. Oktober.",
   weather_auto: "Am 31. Oktober leuchtet der Mond automatisch orange - in seiner echten Mondphase. Ist dieser Schalter 'an', auch an anderen Tagen.",
 };
 
@@ -4369,7 +4794,12 @@ class AmbientOverlayCardEditor extends HTMLElement {
       const tiles = sub ? EFFECT_TILES.filter((t) => t[0] !== "off") : EFFECT_TILES;
       const body = `<div class="tiles">${tiles.map(([key, em, short]) =>
         `<button type="button" class="tile ${key === ev ? "sel" : ""}" data-scope="${scope}" data-event="${key}"><span class="em">${em}</span>${short}</button>`).join("")}</div>`;
-      html += this._panel(pid("effekt"), "✨", sub ? "Effekt ändern" : "Effekt", `${tile[1]} ${tile[3]}`, body, false, sub);
+      let effBody = body;
+      if (RETIRED_EVENTS[ev]) {
+        const to = this._tile(RETIRED_EVENTS[ev]);
+        effBody = `<div class="hint on">Diesen Effekt gibt es nicht mehr allein. Er steckt jetzt in ${to[1]} „${to[3]}“ - einfach unten antippen.</div>` + body;
+      }
+      html += this._panel(pid("effekt"), "✨", sub ? "Effekt ändern" : "Effekt", `${tile[1]} ${tile[3]}`, effBody, !!RETIRED_EVENTS[ev], sub);
     }
 
     // 2) Teile (Geburtstag, Nachthimmel, Halloween)
@@ -4380,6 +4810,13 @@ class AmbientOverlayCardEditor extends HTMLElement {
         <label class="sw-row"><span class="em">${em}</span><span class="txt">${name}<small>${small}</small></span>
           <input type="checkbox" data-scope="${scope}" data-part="${key}" ${c[key] !== false ? "checked" : ""}/><span class="sw"></span></label>`).join("");
       if (onCount === 0) body += `<div class="hint on">Alles ausgeschaltet - dann bleibt der Bildschirm leer.</div>`;
+      // 🎃 Halloween hat innerhalb der Feiertage noch eigene Teile
+      if (ev === "holidays" && c.holiday_halloween !== false) {
+        body += this._label("🎃 Was gehört zu Halloween?", `${scope}:halloween_parts`, "Wähle, welche Teile an Halloween zu sehen sind.")
+          + HALLOWEEN_PARTS.map(([key, em, name, small]) => `
+        <label class="sw-row"><span class="em">${em}</span><span class="txt">${name}<small>${small}</small></span>
+          <input type="checkbox" data-scope="${scope}" data-part="${key}" ${c[key] !== false ? "checked" : ""}/><span class="sw"></span></label>`).join("");
+      }
       if (ev === "birthday") {
         body += this._label("Text auf der Wimpelkette", `${scope}:birthday_text`, "Zum Beispiel „Happy Birthday, Max!“ für eine persönliche Note.")
           + `<input class="field" data-scope="${scope}" data-text="birthday_text" type="text" placeholder="Happy Birthday!" value="${escapeHtml(c.birthday_text || "")}"/>`;
@@ -4390,7 +4827,15 @@ class AmbientOverlayCardEditor extends HTMLElement {
             + `<span class="num-unit">px</span></div>`;
         }
       }
-      html += this._panel(pid("teile"), "🧩", "Was soll gezeigt werden?", `${onCount} von ${parts.length}`, body, onCount === 0, sub);
+      let partSum = `${onCount} von ${parts.length}`;
+      if (ev === "seasons") {
+        const row = SEASONS.find((r) => r[0] === seasonNow(c, this._hass));
+        if (row) partSum += ` · jetzt ${row[2]} ${row[3]}`;
+      } else if (ev === "holidays") {
+        const today = HOLIDAYS.filter((r) => c[`holiday_${r[0]}`] !== false && r[5](new Date(), c, this._hass));
+        partSum += today.length ? ` · heute ${today.map((r) => r[2]).join(" ")}` : "";
+      }
+      html += this._panel(pid("teile"), "🧩", "Was soll gezeigt werden?", partSum, body, onCount === 0, sub);
     }
 
     // 3) Aussehen
@@ -4444,6 +4889,16 @@ class AmbientOverlayCardEditor extends HTMLElement {
         if (t !== null) sum.push(`${t.toFixed(1).replace(".", ",")} °C${t < 0 ? " ❄️" : ""}`);
       }
     }
+    if (ev === "seasons") {
+      set += this._picker(scope, "🍂 Jahreszeiten-Sensor (optional)", "season_entity", ["sensor"], "Der Sensor der Home-Assistant-Integration „Season“ (meldet spring, summer, autumn, winter). Leer = die Karte rechnet nach Datum: Frühling ab 1. März, Sommer ab 1. Juni, Herbst ab 1. September, Winter ab 1. Dezember.", "Sensor suchen, z. B. Jahreszeit");
+      const row = SEASONS.find((r) => r[0] === seasonNow(c, this._hass));
+      sum.push(c.season_entity ? this._friendly(c.season_entity) : "nach Datum");
+      if (row) sum.push(`${row[2]} ${row[3]}`);
+    }
+    if (ev === "holidays" && c.holiday_christmas !== false) {
+      set += this._picker(scope, "🎅 Weihnachts-Schalter", "santa_sensor", B, "Der Weihnachtsmann fliegt nur, solange dieser Schalter 'an' ist - ganz ohne festes Datum. Ohne Schalter kommt er gar nicht.", "Schalter suchen, z. B. Weihnachten");
+      if (c.santa_sensor) sum.push("Weihnachten");
+    }
     if (ev === "dog") {
       set += this._picker(scope, "🌦️ Wetter-Sensor (optional)", "weather_entity", ["weather"], "Meldet diese Wetter-Entity gerade Regen, schüttelt sich der Hund kurz.", "Wetter suchen, z. B. weather.home");
       if (c.weather_entity) sum.push("Wetter");
@@ -4454,7 +4909,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (c.santa_sensor) sum.push("Weihnachten");
       if (c.dinner_sensor) sum.push("Abendessen");
     }
-    if (HALLOWEEN_HINTS[ev]) {
+    if (HALLOWEEN_HINTS[ev] && !(ev === "holidays" && c.holiday_halloween === false)) {
       set += this._picker(scope, "🎃 Halloween-Schalter", "halloween_sensor", B, HALLOWEEN_HINTS[ev], "Schalter suchen, z. B. Halloween");
       if (c.halloween_sensor) sum.push("Halloween");
     }
@@ -5382,10 +5837,22 @@ class AmbientOverlayCardEditor extends HTMLElement {
       // Fensters übernehmen und wäre unsichtbar - deshalb hier immer hell.
       const caps = EVENT_CAPABILITIES[cfg.event] || {};
       const auto = (cfg.color_mode || (cfg.color === "auto" ? "auto" : "custom")) === "auto";
-      const c = ((caps.color || cfg.event === "halloween") && auto) ? { ...cfg, color: "#ffffff" } : cfg;
+      const c = ((caps.color || cfg.event === "holidays") && auto) ? { ...cfg, color: "#ffffff" } : cfg;
       out.push(renderer(c, this._hass, this));
     }
     return out;
+  }
+
+  // Feiertage, aber heute ist keiner: dann zeigt die Vorschau den nächsten,
+  // damit man trotzdem sieht, wie er aussieht
+  _previewNextHoliday(cfg) {
+    if (cfg?.event !== "holidays") return null;
+    const next = nextHoliday(cfg);
+    if (!next) return null;
+    const [, event, em, name] = next.row;
+    const c = { ...cfg, color: "#ffffff" };
+    const when = `${next.date.getDate()}.${next.date.getMonth() + 1}.`;
+    return { parts: [RENDERERS[event](c, this._hass, this)], label: `${em} ${name} (ab ${when})` };
   }
 
   _updatePreview() {
@@ -5407,6 +5874,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
         const cfg = this._cfg(`e${i}`);
         parts = this._previewParts(cfg);
         tag.textContent = `Live-Vorschau · ${this._tile(cfg.event)[3]}`;
+        const nx = !parts.length && this._previewNextHoliday(cfg);
+        if (nx) { parts = nx.parts; tag.textContent = `Heute kein Feiertag · Vorschau: ${nx.label}`; }
         if (!parts.length) empty = cfg.event === "weather_auto"
           ? (cfg.weather_entity ? "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag)." : "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.")
           : "Keine Vorschau.";
@@ -5423,8 +5892,14 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (!c || c.event === "off") empty = "Kein Effekt ausgewählt.";
       else {
         parts = this._previewParts(c);
+        const nx = !parts.length && this._previewNextHoliday(c);
+        if (nx) { parts = nx.parts; tag.textContent = `Heute kein Feiertag · Vorschau: ${nx.label}`; }
         if (!parts.length && c.event === "weather_auto") {
           empty = c.weather_entity ? "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag)." : "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.";
+        } else if (!parts.length && RETIRED_EVENTS[c.event]) {
+          empty = "Diesen Effekt gibt es nicht mehr allein - siehe oben.";
+        } else if (!parts.length && (c.event === "seasons" || c.event === "holidays")) {
+          empty = "Gerade ist nichts eingeschaltet.";
         }
       }
     }
