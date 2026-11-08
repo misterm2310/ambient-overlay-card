@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.1";
+const CARD_VERSION = "1.0.19-beta.2";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -2972,23 +2972,20 @@ const SEASON_STATE_MAP = {
   "frühling": "spring", "sommer": "summer", "herbst": "autumn",
 };
 
-// [Schlüssel, Effekt, Symbol, Name, kurze Erklärung, Datum ohne Sensor]
+// [Schlüssel, Effekt, Symbol, Name, kurze Erklärung]
 const SEASONS = [
-  ["spring", "blossoms", "🌸", "Frühling", "Blüten in Rosa, Weiß und Flieder", "1. März – 31. Mai"],
-  ["summer", "bee", "🐝", "Sommer", "Bienen summen kreuz und quer", "1. Juni – 31. August"],
-  ["autumn", "leaves", "🍂", "Herbst", "Laub weht ab und zu durchs Bild", "1. September – 30. November"],
-  ["winter", "icicles", "🧊", "Winter", "Winzige Eiszapfen oben, Glitzer", "1. Dezember – Ende Februar"],
+  ["spring", "blossoms", "🌸", "Frühling", "Blüten in Rosa, Weiß und Flieder"],
+  ["summer", "bee", "🐝", "Sommer", "Bienen summen kreuz und quer"],
+  ["autumn", "leaves", "🍂", "Herbst", "Laub weht ab und zu durchs Bild"],
+  ["winter", "icicles", "🧊", "Winter", "Winzige Eiszapfen oben, Glitzer"],
 ];
 
-function seasonNow(cfg, hass, now = new Date()) {
+// Welche Jahreszeit meldet der Sensor? Ohne Sensor (oder wenn er nichts
+// Brauchbares meldet) gibt es bewusst KEINE Jahreszeit - die Karte rät
+// nicht nach Datum, dann bleibt der Effekt einfach leer.
+function seasonNow(cfg, hass) {
   const raw = cfg?.season_entity ? hass?.states?.[cfg.season_entity]?.state : null;
-  const s = raw && SEASON_STATE_MAP[String(raw).toLowerCase()];
-  if (s) return s;
-  const m = now.getMonth();
-  if (m >= 2 && m <= 4) return "spring";
-  if (m >= 5 && m <= 7) return "summer";
-  if (m >= 8 && m <= 10) return "autumn";
-  return "winter";
+  return (raw && SEASON_STATE_MAP[String(raw).toLowerCase()]) || null;
 }
 
 // [Schlüssel, Effekt, Symbol, Name, Wann, Prüfung(Datum, cfg, hass)]
@@ -3012,7 +3009,7 @@ const HOLIDAYS = [
 // Welche Einzel-Effekte zeigen "Jahreszeiten" bzw. "Feiertage" gerade?
 function seasonalEvents(cfg, hass, now = new Date()) {
   if (cfg?.event === "seasons") {
-    const s = seasonNow(cfg, hass, now);
+    const s = seasonNow(cfg, hass);
     const row = SEASONS.find((r) => r[0] === s);
     return row && cfg[`season_${s}`] !== false ? [row[1]] : [];
   }
@@ -3664,6 +3661,7 @@ function entryStatus(entry, rootConditions, hass, now = new Date()) {
   const e = evalConditions(entry.conditions, hass, now);
   if (!e.ok) return { on: false, reason: e.reason, missing: e.missing };
   if (entry.event === "weather_auto" && !entry.weather_entity) return { on: false, reason: "Wetter fehlt!", missing: true };
+  if (entry.event === "seasons" && !entry.season_entity) return { on: false, reason: "Jahreszeiten-Sensor fehlt!", missing: true };
   return { on: true, reason: "" };
 }
 
@@ -4307,7 +4305,7 @@ const EFFECT_PARTS = {
     ["night_wishstar", "⭐", "Wunschstern", "Funkelt und springt weiter"],
     ["night_comet", "☄️", "Komet", "Selten, mit langem Schweif"],
   ],
-  seasons: SEASONS.map(([key, , em, name, small, when]) => [`season_${key}`, em, name, `${small} · ohne Sensor ${when}`]),
+  seasons: SEASONS.map(([key, , em, name, small]) => [`season_${key}`, em, name, small]),
   holidays: HOLIDAYS.map(([key, , em, name, when]) => [`holiday_${key}`, em, name, when]),
 };
 
@@ -4890,10 +4888,13 @@ class AmbientOverlayCardEditor extends HTMLElement {
       }
     }
     if (ev === "seasons") {
-      set += this._picker(scope, "🍂 Jahreszeiten-Sensor (optional)", "season_entity", ["sensor"], "Der Sensor der Home-Assistant-Integration „Season“ (meldet spring, summer, autumn, winter). Leer = die Karte rechnet nach Datum: Frühling ab 1. März, Sommer ab 1. Juni, Herbst ab 1. September, Winter ab 1. Dezember.", "Sensor suchen, z. B. Jahreszeit");
+      set += this._picker(scope, "🍂 Jahreszeiten-Sensor", "season_entity", ["sensor"], "Der Sensor der Home-Assistant-Integration „Season“ (meldet spring, summer, autumn, winter). Ohne Sensor bleibt der Effekt leer.", "Sensor suchen, z. B. Jahreszeit");
       const row = SEASONS.find((r) => r[0] === seasonNow(c, this._hass));
-      sum.push(c.season_entity ? this._friendly(c.season_entity) : "nach Datum");
-      if (row) sum.push(`${row[2]} ${row[3]}`);
+      if (!c.season_entity) { sum.push("Sensor fehlt!"); warn = true; }
+      else {
+        sum.push(this._friendly(c.season_entity));
+        if (row) sum.push(`${row[2]} ${row[3]}`); else sum.push("meldet keine Jahreszeit");
+      }
     }
     if (ev === "holidays" && c.holiday_christmas !== false) {
       set += this._picker(scope, "🎅 Weihnachts-Schalter", "santa_sensor", B, "Der Weihnachtsmann fliegt nur, solange dieser Schalter 'an' ist - ganz ohne festes Datum. Ohne Schalter kommt er gar nicht.", "Schalter suchen, z. B. Weihnachten");
@@ -5878,6 +5879,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
         if (nx) { parts = nx.parts; tag.textContent = `Heute kein Feiertag · Vorschau: ${nx.label}`; }
         if (!parts.length) empty = cfg.event === "weather_auto"
           ? (cfg.weather_entity ? "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag)." : "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.")
+          : (cfg.event === "seasons" && !cfg.season_entity) ? "Bitte unter ⚙️ Einstellungen den Jahreszeiten-Sensor wählen."
           : "Keine Vorschau.";
       } else {
         const active = effects.map((_, k) => k).filter((k) => entryStatus(effects[k], this._config.conditions, this._hass).on);
@@ -5898,6 +5900,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
           empty = c.weather_entity ? "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag)." : "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.";
         } else if (!parts.length && RETIRED_EVENTS[c.event]) {
           empty = "Diesen Effekt gibt es nicht mehr allein - siehe oben.";
+        } else if (!parts.length && c.event === "seasons" && !c.season_entity) {
+          empty = "Bitte unter ⚙️ Einstellungen den Jahreszeiten-Sensor wählen.";
         } else if (!parts.length && (c.event === "seasons" || c.event === "holidays")) {
           empty = "Gerade ist nichts eingeschaltet.";
         }

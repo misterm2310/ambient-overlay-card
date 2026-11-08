@@ -49,7 +49,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 | 🦉🐦 **Eule & Vogelhäuschen** | Oben links: tagsüber das Vogelhäuschen mit Besuch, nachts die Eule, die blinzelt und den Kopf dreht. Umgeschaltet wird über `sun.sun`. |
 | 🌠 **Nachthimmel** | Sternschnuppen, Wunschstern und ein seltener Komet – jedes Teil einzeln an- und abwählbar. |
 | 🎂 **Geburtstags-Modus** | Luftballons, Konfetti, Wimpelkette mit eigenem Text (Höhe einstellbar) und Lichterkette – jedes Teil einzeln an- und abwählbar. |
-| 🍂 **Jahreszeiten** | Wechselt von selbst: 🌸 Frühling = Blüten in Rosa, Weiß und Flieder · 🐝 Sommer = Bienen · 🍂 Herbst = Laub, das ab und zu durchs Bild weht · 🧊 Winter = winzige Eiszapfen ganz oben (mit Tropfen) und glitzernde Eiskristalle. Welche Jahreszeit ist, sagt der Sensor der HA-Integration „Season“ – ohne Sensor das Datum. Jede Jahreszeit einzeln abschaltbar. |
+| 🍂 **Jahreszeiten** | Wechselt von selbst: 🌸 Frühling = Blüten in Rosa, Weiß und Flieder · 🐝 Sommer = Bienen · 🍂 Herbst = Laub, das ab und zu durchs Bild weht · 🧊 Winter = winzige Eiszapfen ganz oben (mit Tropfen) und glitzernde Eiskristalle. Welche Jahreszeit ist, sagt der Sensor der HA-Integration „Season“ – ohne Sensor bleibt der Effekt leer. Jede Jahreszeit einzeln abschaltbar. |
 | 🎉 **Feiertage** | Jeder Feiertag nur an seinen Tagen, jeder einzeln abschaltbar: 🎃 Halloween (29.–31.10. oder per Schalter: Kürbisse, Gespenst, Hexe, Spinnweben, Fledermäuse – jedes Teil einzeln) · 🏮 Martini (10.–11.11.: Laternenumzug unten, hinter dem Zug) · 👢 Nikolaus (5.–6.12.: gefüllte Stiefel in den unteren Ecken) · 🎅 Weihnachtsmann (nur solange dein Weihnachts-Schalter an ist) · 🎆 Silvester (31.12.–1.1.: Feuerwerk in der oberen Hälfte) · 💕 Valentinstag (13.–14.2.: aufsteigende Herzen) · 🐰 Ostern (Palmsonntag bis Ostermontag, rechnet die Karte selbst aus: Gras mit Eiern und hoppelnder Osterhase, hinter dem Zug). |
 | 👻 **Halloween-Look** | Am 31. Oktober ganz von selbst (oder per Schalter): Zug mit Kürbissen, Hexenkessel, Sarg und Süßigkeiten, Labrador mit Teufelshörnchen, Eule mit Hexenhut, Vogelhäuschen mit Kürbis und Spinnwebe (der Vogel trägt einen Mini-Hexenhut) und ein oranger Mond (in seiner echten Mondphase). |
 | 🕷️ **Spinne** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen). |
@@ -131,7 +131,7 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte st
    * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“).
    * **🐕 Labrador:** optional die Wetter-Entity fürs Schütteln bei Regen.
    * **🚂 Dampflok:** Weihnachts-, Abendessen- und Halloween-Schalter, Personen zum Antippen, Gäste-Sensor oder fester Gäste-Text. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
-   * **🍂 Jahreszeiten:** optional der Jahreszeiten-Sensor (Integration „Season“, meldet `spring`/`summer`/`autumn`/`winter`). Ohne Sensor: Frühling ab 1. März, Sommer ab 1. Juni, Herbst ab 1. September, Winter ab 1. Dezember.
+   * **🍂 Jahreszeiten:** der Jahreszeiten-Sensor (Integration „Season“, meldet `spring`/`summer`/`autumn`/`winter`). Ohne ihn zeigt der Bereich rot „Sensor fehlt!“ und der Effekt bleibt leer.
    * **🎉 Feiertage:** der Weihnachts-Schalter (ohne ihn kommt der Weihnachtsmann nicht) und der Halloween-Schalter (Halloween auch außerhalb vom 29.–31.10.).
    * **🎃 Halloween-Schalter** gibt's außerdem bei Dampflok, Labrador, Eule & Vogelhäuschen und der Wetter-Automatik (für den Mond). Ohne Schalter kommt der Halloween-Look nur am 31. Oktober. Gefunden werden `input_boolean.`, `binary_sensor.` und `switch.`.
 6. **🕒 Wann anzeigen?** Wann der Effekt zu sehen ist (leer = immer) – Bausteine siehe unten.
@@ -364,7 +364,7 @@ leaf_colors:
 | `birthday_text_top` | `26` | Höhe des Schriftzugs: Abstand vom oberen Rand in Pixeln (0–600). Die Wimpelkette bleibt oben |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Teile des Geburtstags-Modus einzeln an/aus |
 | `night_shooting_stars` / `night_wishstar` / `night_comet` | `true` | Teile des Nachthimmels einzeln an/aus |
-| `season_entity` | – | Jahreszeiten: Sensor der Integration „Season“ (`spring`/`summer`/`autumn`/`winter`). Leer = nach Datum |
+| `season_entity` | – | Jahreszeiten: Sensor der Integration „Season“ (`spring`/`summer`/`autumn`/`winter`). Pflicht – ohne Sensor bleibt der Effekt leer |
 | `season_spring` / `season_summer` / `season_autumn` / `season_winter` | `true` | Jahreszeiten einzeln an/aus |
 | `holiday_halloween` / `holiday_martini` / `holiday_nikolaus` / `holiday_christmas` / `holiday_silvester` / `holiday_valentin` / `holiday_easter` | `true` | Feiertage einzeln an/aus |
 | `santa_sensor` | – | Schalter (`input_boolean`/`binary_sensor`/`switch`): an = Weihnachts-Ladung im Zug bzw. bei den Feiertagen: der Weihnachtsmann fliegt |
@@ -387,7 +387,7 @@ leaf_colors:
 
 **Kann ich den Halloween-Look am 31. Oktober abschalten?** Im Moment nicht – an dem Tag kommt er automatisch. Die Halloween-Deko mit Kürbissen, Hexe & Co. kommt dagegen nur mit **🎉 Feiertage** – dort kannst du Halloween auch ganz abschalten.
 
-**Woher kommt der Jahreszeiten-Sensor?** Aus der Home-Assistant-Integration **„Season“** (Einstellungen → Geräte & Dienste → Integration hinzufügen → „Season“). Wähle „meteorologisch“ (Jahreszeit wechselt am 1. März, 1. Juni …) oder „astronomisch“ (am 20./21.). Ohne Sensor rechnet die Karte meteorologisch nach Datum.
+**Woher kommt der Jahreszeiten-Sensor?** Aus der Home-Assistant-Integration **„Season“** (Einstellungen → Geräte & Dienste → Integration hinzufügen → „Season“). Wähle „meteorologisch“ (Jahreszeit wechselt am 1. März, 1. Juni …) oder „astronomisch“ (am 20./21.). Ohne Sensor zeigt der Effekt nichts.
 
 **Kann ich mehrere Effekte gleichzeitig haben?** Ja – am einfachsten mit **„Alles in einer Karte“** (siehe oben). Mehrere Einzel-Karten gehen aber weiterhin.
 
