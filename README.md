@@ -47,7 +47,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 | 🐕 **Goldener Labrador** | Läuft mit echter Beinbewegung, wedelt, schnüffelt kurz und hinterlässt Pfotenabdrücke. Regnet es laut Wetter-Entity, schüttelt er sich. |
 | 🦉🐦 **Eule & Vogelhäuschen** | Oben links: tagsüber das Vogelhäuschen mit Besuch, nachts die Eule, die blinzelt und den Kopf dreht. Umgeschaltet wird über `sun.sun`. |
 | 🌠 **Nachthimmel** | Sternschnuppen, Wunschstern und ein seltener Komet – jedes Teil einzeln an- und abwählbar. |
-| 🎂 **Geburtstags-Modus** | Luftballons, Konfetti, Wimpelkette mit eigenem Text und Lichterkette – jedes Teil einzeln an- und abwählbar. |
+| 🎂 **Geburtstags-Modus** | Luftballons, Konfetti, Wimpelkette mit eigenem Text (Höhe einstellbar) und Lichterkette – jedes Teil einzeln an- und abwählbar. |
 | 🎃 **Halloween** | Flackernde Kürbis-Laternen, ein Gespenst, das „Buh!“ ruft, eine Hexe auf dem Besen (verliert ab und zu den Hut), Spinnweben und Fledermäuse – jedes Teil einzeln an- und abwählbar. |
 | 👻 **Halloween-Look** | Am 31. Oktober ganz von selbst (oder per Schalter): Zug mit Kürbissen, Hexenkessel, Sarg und Süßigkeiten, Labrador mit Teufelshörnchen, Eule mit Hexenhut, Vogelhäuschen mit Kürbis und Spinnwebe (der Vogel trägt einen Mini-Hexenhut) und ein oranger Mond (in seiner echten Mondphase). |
 | 🎅 **Weihnachtsmann** | Fliegt mit Schlitten und Rentieren vorbei und verliert ab und zu ein Geschenk. |
@@ -124,7 +124,7 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte st
 
 1. **▶ Vorschau:** Oben siehst du den Effekt live. Kommt eine Figur nur selten vorbei (Hexe, Zug, Hund, Weihnachtsmann …), schick sie mit **„▶ Jetzt vorbeifliegen lassen“** sofort los.
 2. **✨ Effekt:** Kachel antippen – danach klappt die Auswahl von selbst zu. Antippen der Zeile öffnet sie wieder. Die reinen Wetter-Effekte stehen bewusst nicht einzeln da, die macht die **🌦️ Wetter**-Automatik.
-3. **🧩 Was soll gezeigt werden?** (bei Geburtstag, Nachthimmel und Halloween): jedes Teil mit eigenem Schiebeschalter. Beim Geburtstag steht hier auch der Text für die Wimpelkette.
+3. **🧩 Was soll gezeigt werden?** (bei Geburtstag, Nachthimmel und Halloween): jedes Teil mit eigenem Schiebeschalter. Beim Geburtstag steht hier auch der Text für die Wimpelkette und ein Schieberegler für die Höhe des Schriftzugs.
 4. **🎨 Aussehen:** Anzahl (Wenig/Mittel/Viel), Deckkraft (Zart/Dezent/Kräftig) und bei manchen Effekten die Farbe.
 5. **⚙️ Einstellungen** – je nach Effekt:
    * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“).
@@ -286,6 +286,7 @@ opacity_preset: high
 type: custom:ambient-overlay-card
 event: birthday
 birthday_text: "Happy Birthday, Max!"
+birthday_text_top: 120   # Schriftzug etwas weiter unten
 opacity_preset: high
 ```
 
@@ -357,6 +358,7 @@ leaf_colors:
 | `frost_edges` | `true` | Wetter-Automatik: 🥶 Frost-Ränder unter 0 °C an/aus |
 | `temperature_entity` | – | Wetter-Automatik: eigener Temperatur-Sensor für den Frost (°C oder °F). Leer = Temperatur aus `weather_entity` |
 | `birthday_text` | `Happy Birthday!` | Text auf der Wimpelkette (wird gegen Schadcode abgesichert) |
+| `birthday_text_top` | `26` | Höhe des Schriftzugs: Abstand vom oberen Rand in Pixeln (0–600). Die Wimpelkette bleibt oben |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Teile des Geburtstags-Modus einzeln an/aus |
 | `night_shooting_stars` / `night_wishstar` / `night_comet` | `true` | Teile des Nachthimmels einzeln an/aus |
 | `santa_sensor` | – | Schalter (`input_boolean`/`binary_sensor`): an = Weihnachts-Ladung im Zug |

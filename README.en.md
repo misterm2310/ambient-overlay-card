@@ -49,7 +49,7 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 | 🐕 **Golden Labrador** | Walks with real leg movement, wags, sniffs for a moment and leaves paw prints. If your weather entity says rain, he shakes himself dry. |
 | 🦉🐦 **Owl & birdhouse** | Top left: the birdhouse with visitors during the day, at night the owl that blinks and turns its head. Switches via `sun.sun`. |
 | 🌠 **Night sky** | Shooting stars, a wishing star and a rare comet – each part can be switched on or off. |
-| 🎂 **Birthday mode** | Balloons, confetti, bunting with your own text and fairy lights – each part can be switched on or off. |
+| 🎂 **Birthday mode** | Balloons, confetti, bunting with your own text (adjustable height) and fairy lights – each part can be switched on or off. |
 | 🎃 **Halloween** | Flickering jack-o’-lanterns, a ghost that shouts “Boo!”, a witch on her broom (who loses her hat now and then), cobwebs and bats – each part can be switched on or off. |
 | 👻 **Halloween look** | On 31 October all by itself (or via a switch): train with pumpkins, cauldron, coffin and sweets, Labrador with little devil horns, owl with a witch’s hat, birdhouse with a pumpkin and a cobweb (the bird wears a tiny witch’s hat) and an orange moon (in its real moon phase). |
 | 🎅 **Santa** | Flies past with sleigh and reindeer and drops a present now and then. |
@@ -126,7 +126,7 @@ Add card → **Ambient Overlay Card** → in the editor. A new card starts with 
 
 1. **▶ Preview (Live-Vorschau):** at the top you see the effect live. If a figure only comes by rarely (witch, train, dog, Santa …), send it off right away with **“▶ Jetzt vorbeifliegen lassen”**.
 2. **✨ Effect (Effekt):** tap a tile – the selection then closes by itself. Tapping the row opens it again. The pure weather effects are deliberately not listed one by one – the **🌦️ weather** automation does that.
-3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky and Halloween): every part has its own toggle. For the birthday you also enter the bunting text here.
+3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky and Halloween): every part has its own toggle. For the birthday you also enter the bunting text here and get a slider for the height of the text.
 4. **🎨 Appearance (Aussehen):** amount (Wenig/Mittel/Viel = low/medium/high), opacity (Zart/Dezent/Kräftig = soft/subtle/strong) and for some effects the colour.
 5. **⚙️ Settings (Einstellungen)** – depending on the effect:
    * **🌦️ Weather:** your `weather.*` entity (without it the section shows a red “Wetter fehlt!” = weather missing).
@@ -288,6 +288,7 @@ opacity_preset: high
 type: custom:ambient-overlay-card
 event: birthday
 birthday_text: "Happy Birthday, Max!"
+birthday_text_top: 120   # text a bit further down
 opacity_preset: high
 ```
 
@@ -359,6 +360,7 @@ leaf_colors:
 | `frost_edges` | `true` | Weather automation: 🥶 frosty edges below 0 °C on/off |
 | `temperature_entity` | – | Weather automation: your own temperature sensor for the frost (°C or °F). Empty = temperature from `weather_entity` |
 | `birthday_text` | `Happy Birthday!` | Text on the bunting (protected against malicious code) |
+| `birthday_text_top` | `26` | Height of the text: distance from the top edge in pixels (0–600). The bunting stays at the top |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Parts of the birthday mode on/off |
 | `night_shooting_stars` / `night_wishstar` / `night_comet` | `true` | Parts of the night sky on/off |
 | `santa_sensor` | – | Switch (`input_boolean`/`binary_sensor`): on = Christmas cargo on the train |

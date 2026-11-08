@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.16";
+const CARD_VERSION = "1.0.17-beta.1";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -2361,6 +2361,14 @@ function renderStars(cfg, hass, hostEl) {
   return { css, html: `<div class="stars-container" aria-hidden="true">${starHTML}</div>` };
 }
 
+const BIRTHDAY_TEXT_TOP_MAX = 600;
+
+function birthdayTextTop(cfg) {
+  const v = Number(cfg.birthday_text_top);
+  if (cfg.birthday_text_top === undefined || cfg.birthday_text_top === "" || !Number.isFinite(v)) return 26;
+  return Math.min(BIRTHDAY_TEXT_TOP_MAX, Math.max(0, Math.round(v)));
+}
+
 function renderBirthday(cfg, hass, hostEl) {
   const opacity = getOpacityValue(cfg.opacity_preset || "medium");
   const isHigh = (cfg.opacity_preset || "medium") === "high";
@@ -2392,6 +2400,9 @@ function renderBirthday(cfg, hass, hostEl) {
 
   const text = (cfg.birthday_text && cfg.birthday_text.trim()) || "Happy Birthday!";
   const safeText = escapeHtml(text);
+  // Höhe des Schriftzugs: Abstand in Pixeln vom oberen Rand (Standard 26 =
+  // direkt unter der Wimpelkette). Kaputte Werte fallen auf den Standard zurück.
+  const textTop = birthdayTextTop(cfg);
   const flagColors = ["#ff4b4b", "#ffb703", "#8ecae6", "#06d6a0", "#f72585"];
   let flagsHtml = "";
   const flagCount = 16;
@@ -2469,7 +2480,7 @@ function renderBirthday(cfg, hass, hostEl) {
     <div class="birthday-banner" aria-hidden="true">
       <div class="banner-string"></div>
       ${flagsHtml}
-      <div class="banner-text">${safeText}</div>
+      <div class="banner-text" style="top:${textTop}px;">${safeText}</div>
     </div>` : ""}
     ${lightsPart ? lightsPart.html : ""}
   `;
@@ -3203,6 +3214,7 @@ const EFFECT_DEFAULTS = {
   frost_edges: true,
   temperature_entity: "",
   birthday_text: "Happy Birthday!",
+  birthday_text_top: 26,
   birthday_balloons: true,
   birthday_confetti: true,
   birthday_banner: true,
@@ -4001,6 +4013,9 @@ const EDITOR_CSS = `
     border-bottom: 1px solid var(--outline-color, rgba(127,127,127,.6)); border-radius: 4px 4px 0 0; }
   .field:focus { outline: none; border-bottom: 2px solid var(--primary-color, #03a9f4); }
   select.field { padding: 10px 8px; }
+  .range-row { display: flex; align-items: center; gap: 12px; }
+  .range-row input[type=range] { flex: 1; accent-color: var(--primary-color, #03a9f4); }
+  .range-val { min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
   input[type=color].field { height: 44px; padding: 4px; cursor: pointer; }
   .picker-slot { margin-bottom: 4px; }
   .row2 { display: flex; gap: 8px; align-items: center; }
@@ -4368,6 +4383,12 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (ev === "birthday") {
         body += this._label("Text auf der Wimpelkette", `${scope}:birthday_text`, "Zum Beispiel „Happy Birthday, Max!“ für eine persönliche Note.")
           + `<input class="field" data-scope="${scope}" data-text="birthday_text" type="text" placeholder="Happy Birthday!" value="${escapeHtml(c.birthday_text || "")}"/>`;
+        if (c.birthday_banner !== false) {
+          const top = birthdayTextTop(c);
+          body += this._label("Höhe des Schriftzugs", `${scope}:birthday_text_top`, "Wie weit der Text vom oberen Rand entfernt steht. 26 Pixel = direkt unter der Wimpelkette (Standard). Größer = weiter nach unten, z. B. wenn oben etwas verdeckt wird. Die Wimpelkette bleibt oben.")
+            + `<div class="range-row"><input type="range" min="0" max="${BIRTHDAY_TEXT_TOP_MAX}" step="2" data-scope="${scope}" data-num="birthday_text_top" value="${top}"/>`
+            + `<span class="range-val">${top} px</span></div>`;
+        }
       }
       html += this._panel(pid("teile"), "🧩", "Was soll gezeigt werden?", `${onCount} von ${parts.length}`, body, onCount === 0, sub);
     }
@@ -5132,6 +5153,10 @@ class AmbientOverlayCardEditor extends HTMLElement {
       this._set(t.dataset.scope || "root", { color: t.value }, false);
       return;
     }
+    if (t.dataset.num) {
+      this._setNum(t);
+      return;
+    }
     if (t.dataset.cf) {
       const f = t.dataset.cf, v = t.value;
       this._editLeaf(t.dataset.c, (c) => {
@@ -5165,6 +5190,17 @@ class AmbientOverlayCardEditor extends HTMLElement {
     // Wimpel-Text und Farbe sofort in der Vorschau zeigen
     if (t.dataset.text === "birthday_text") this._set(t.dataset.scope || "root", { birthday_text: t.value }, false);
     else if (t.dataset.color !== undefined) this._set(t.dataset.scope || "root", { color: t.value }, false);
+    else if (t.dataset.num) this._setNum(t);
+  }
+
+  // Schieberegler (z. B. Höhe des Schriftzugs): Zahl speichern und die
+  // Anzeige daneben sofort mitziehen, ohne den Editor neu aufzubauen.
+  _setNum(t) {
+    const v = Math.round(Number(t.value));
+    if (!Number.isFinite(v)) return;
+    const out = t.parentElement && t.parentElement.querySelector(".range-val");
+    if (out) out.textContent = `${v} px`;
+    this._set(t.dataset.scope || "root", { [t.dataset.num]: v }, false);
   }
 
   // Einzel-Karte -> Liste mit genau diesem einen Effekt
