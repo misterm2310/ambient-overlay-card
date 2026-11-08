@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.17";
+const CARD_VERSION = "1.0.18-beta.1";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -4013,9 +4013,9 @@ const EDITOR_CSS = `
     border-bottom: 1px solid var(--outline-color, rgba(127,127,127,.6)); border-radius: 4px 4px 0 0; }
   .field:focus { outline: none; border-bottom: 2px solid var(--primary-color, #03a9f4); }
   select.field { padding: 10px 8px; }
-  .range-row { display: flex; align-items: center; gap: 12px; }
-  .range-row input[type=range] { flex: 1; accent-color: var(--primary-color, #03a9f4); }
-  .range-val { min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+  .num-row { display: flex; align-items: center; gap: 10px; }
+  .num-row .field { max-width: 140px; }
+  .num-unit { opacity: 0.7; }
   input[type=color].field { height: 44px; padding: 4px; cursor: pointer; }
   .picker-slot { margin-bottom: 4px; }
   .row2 { display: flex; gap: 8px; align-items: center; }
@@ -4386,8 +4386,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
         if (c.birthday_banner !== false) {
           const top = birthdayTextTop(c);
           body += this._label("Höhe des Schriftzugs", `${scope}:birthday_text_top`, "Wie weit der Text vom oberen Rand entfernt steht. 26 Pixel = direkt unter der Wimpelkette (Standard). Größer = weiter nach unten, z. B. wenn oben etwas verdeckt wird. Die Wimpelkette bleibt oben.")
-            + `<div class="range-row"><input type="range" min="0" max="${BIRTHDAY_TEXT_TOP_MAX}" step="2" data-scope="${scope}" data-num="birthday_text_top" value="${top}"/>`
-            + `<span class="range-val">${top} px</span></div>`;
+            + `<div class="num-row"><input class="field" type="number" inputmode="numeric" min="0" max="${BIRTHDAY_TEXT_TOP_MAX}" step="1" data-scope="${scope}" data-num="birthday_text_top" value="${top}"/>`
+            + `<span class="num-unit">px</span></div>`;
         }
       }
       html += this._panel(pid("teile"), "🧩", "Was soll gezeigt werden?", `${onCount} von ${parts.length}`, body, onCount === 0, sub);
@@ -5154,7 +5154,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       return;
     }
     if (t.dataset.num) {
-      this._setNum(t);
+      this._setNum(t, true);
       return;
     }
     if (t.dataset.cf) {
@@ -5193,15 +5193,24 @@ class AmbientOverlayCardEditor extends HTMLElement {
     else if (t.dataset.num) this._setNum(t);
   }
 
-  // Schieberegler (z. B. Höhe des Schriftzugs): Zahl speichern und die
-  // Anzeige daneben sofort mitziehen, ohne den Editor neu aufzubauen.
-  _setNum(t) {
-    const v = Math.round(Number(t.value));
+  _setNum(t, final = false) {
+    // Zahlenfeld (z. B. Höhe des Schriftzugs). Leer = Standard.
+    // Beim Tippen nur gültige Zahlen übernehmen, beim Verlassen des
+    // Feldes auf 0 bis Maximum begrenzen und die Zahl im Feld korrigieren.
+    const scope = t.dataset.scope || "root";
+    const key = t.dataset.num;
+    if (t.value === "") {
+      if (final) this._set(scope, { [key]: undefined }, false);
+      return;
+    }
+    let v = Math.round(Number(t.value));
     if (!Number.isFinite(v)) return;
-    const out = t.parentElement && t.parentElement.querySelector(".range-val");
-    if (out) out.textContent = `${v} px`;
-    this._set(t.dataset.scope || "root", { [t.dataset.num]: v }, false);
+    const max = Number(t.max) || BIRTHDAY_TEXT_TOP_MAX;
+    v = Math.min(max, Math.max(0, v));
+    if (final && String(v) !== t.value) t.value = v;
+    this._set(scope, { [key]: v }, false);
   }
+
 
   // Einzel-Karte -> Liste mit genau diesem einen Effekt
   _convertToList() {

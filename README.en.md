@@ -126,7 +126,7 @@ Add card → **Ambient Overlay Card** → in the editor. A new card starts with 
 
 1. **▶ Preview (Live-Vorschau):** at the top you see the effect live. If a figure only comes by rarely (witch, train, dog, Santa …), send it off right away with **“▶ Jetzt vorbeifliegen lassen”**.
 2. **✨ Effect (Effekt):** tap a tile – the selection then closes by itself. Tapping the row opens it again. The pure weather effects are deliberately not listed one by one – the **🌦️ weather** automation does that.
-3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky and Halloween): every part has its own toggle. For the birthday you also enter the bunting text here and get a slider for the height of the text.
+3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky and Halloween): every part has its own toggle. For the birthday you also enter the bunting text here and get a number field for the height of the text (in pixels).
 4. **🎨 Appearance (Aussehen):** amount (Wenig/Mittel/Viel = low/medium/high), opacity (Zart/Dezent/Kräftig = soft/subtle/strong) and for some effects the colour.
 5. **⚙️ Settings (Einstellungen)** – depending on the effect:
    * **🌦️ Weather:** your `weather.*` entity (without it the section shows a red “Wetter fehlt!” = weather missing).
