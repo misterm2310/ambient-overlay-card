@@ -401,6 +401,8 @@ leaf_colors:
 
 **Is there an English editor?** Not yet – the editor is in German. This page translates every label so you can find your way around.
 
+**⏳ When will the next beta come?** To be honest: I build these integrations with the help of Claude (AI). How fast new betas come depends on how much Claude quota (tokens) is available. Once it is used up, I have to wait until it is refilled – no tokens, no betas. 😅 Thank you for your patience and understanding! 🙏
+
 ---
 
 ## 💙 Do you like the card?
