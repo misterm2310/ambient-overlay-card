@@ -395,6 +395,8 @@ leaf_colors:
 
 **How do I hide all effects at once?** In a list card via **🔒 Applies to all effects**, e.g. with an `input_boolean`. The card’s normal **visibility** in Home Assistant works as well.
 
+**🔄 What is the blue "New version available" bar?** Every now and then (2 minutes after loading, then at most every 6 hours) the card checks your Home Assistant for a newer version of itself, e.g. after a HACS update. If there is one, a bar appears at the bottom: tap **"Neu laden"** (reload) and you're done. No Home Assistant restart needed. **✕** hides it for that version. The card only asks your own Home Assistant, not the internet.
+
 **Is it heavy on my tablet?** Hardly. Almost everything runs on CSS, and in background tabs everything pauses. On very weak devices just use `low` for `count_preset`.
 
 **Is it safe?** The birthday text and custom leaf shapes are checked before they are shown. The card sends nothing to the internet.

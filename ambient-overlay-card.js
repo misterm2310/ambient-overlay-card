@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.2";
+const CARD_VERSION = "1.0.19-beta.3";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3665,6 +3665,142 @@ function entryStatus(entry, rootConditions, hass, now = new Date()) {
   return { on: true, reason: "" };
 }
 
+/* ============================== NEUE VERSION ============================== */
+// 🔄 „Neue Version da“-Hinweis – wie bei der Einkaufsliste.
+// Ambient ist eine reine Karte ohne Integration. Es gibt also keinen Server,
+// den man nach der Version fragen kann. Stattdessen holt die Karte ab und zu
+// ihre EIGENE Datei frisch vom Home Assistant und liest dort CARD_VERSION ab.
+// Ist die anders als die gerade laufende, erscheint unten ein kleiner Balken
+// mit „Neu laden“.
+// 📺 Fire TV schonen: erste Prüfung erst 2 Minuten nach dem Laden, danach
+// höchstens alle 6 Stunden, nur wenn die Seite sichtbar ist, und für alle
+// Ambient-Karten auf der Seite zusammen nur EINE Abfrage.
+const AOC_UPD_FIRST_MS = 2 * 60 * 1000;
+const AOC_UPD_EVERY_MS = 6 * 60 * 60 * 1000;
+
+// Versionen vergleichen: "1.0.19" > "1.0.19-beta.2" > "1.0.19-beta.1" > "1.0.18"
+function aocVerCmp(a, b) {
+  const p = (v) => {
+    const m = String(v || "").match(/^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?/);
+    return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? Infinity : +m[4]] : [0, 0, 0, 0];
+  };
+  const x = p(a), y = p(b);
+  for (let i = 0; i < 4; i++) if (x[i] !== y[i]) return x[i] > y[i] ? 1 : -1;
+  return 0;
+}
+
+const AOC_UPD = {
+  server: null,          // Version, die gerade auf dem Server liegt (null = gleich/unbekannt)
+  cards: new Set(),      // alle Ambient-Karten auf der Seite
+  editors: new Set(),    // offene Editoren (zeigen den Hinweis oben)
+  _started: false,
+  _last: 0,
+  _timer: null,
+  _bar: null,
+
+  // Wo liegt unsere Datei? HA lädt Karten als <script src="…">, sonst Ladeliste des Browsers.
+  url() {
+    const s = [...document.querySelectorAll('script[src*="ambient-overlay-card.js"]')].pop();
+    if (s) return s.src;
+    try {
+      const r = performance.getEntriesByType("resource").filter((e) => /\/ambient-overlay-card\.js(\?|$)/.test(e.name)).pop();
+      if (r) return r.name;
+    } catch (_) { /* egal */ }
+    return null;
+  },
+
+  start() {
+    if (this._started) return;
+    this._started = true;
+    this._plan(AOC_UPD_FIRST_MS);
+    document.addEventListener("visibilitychange", () => {
+      // Tablet/Fire TV war lange aus? Beim Aufwachen nachholen, falls fällig.
+      if (!document.hidden && this._last && Date.now() - this._last >= AOC_UPD_EVERY_MS) this._plan(5000);
+      this.sync();
+    });
+  },
+
+  _plan(ms) {
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this.check(), ms);
+  },
+
+  async check() {
+    // Seite unsichtbar oder keine Karte mehr da: nicht abfragen, später nochmal
+    if (document.hidden || (!this.cards.size && !this.editors.size)) { this._plan(AOC_UPD_EVERY_MS); return; }
+    this._last = Date.now();
+    try {
+      const url = this.url();
+      if (url) {
+        const res = await fetch(url + (url.includes("?") ? "&" : "?") + "aoc_check=" + Date.now(), { cache: "no-store" });
+        if (res.ok) {
+          const m = (await res.text()).match(/const CARD_VERSION\s*=\s*"([^"]+)"/);
+          const found = m && m[1] !== CARD_VERSION ? m[1] : null;
+          if (found !== this.server) {
+            this.server = found;
+            this.editors.forEach((ed) => { try { ed._render(); } catch (_) { /* egal */ } });
+          }
+        }
+      }
+    } catch (_) { /* kein Netz – kein Drama, in 6 Stunden nochmal */ }
+    this.sync();
+    this._plan(AOC_UPD_EVERY_MS);
+  },
+
+  // Text für Balken und Editor
+  text() {
+    if (!this.server) return "";
+    return aocVerCmp(this.server, CARD_VERSION) > 0
+      ? `🔄 <b>Neue Version ${this.server} ist da (hier läuft noch ${CARD_VERSION}).</b>`
+      : `🔄 <b>Auf dem Server liegt Version ${this.server} (hier läuft noch ${CARD_VERSION}).</b>`;
+  },
+
+  _skipped() {
+    try { return localStorage.getItem("aoc_upd_skip") === this.server; } catch (_) { return false; }
+  },
+
+  // Balken unten auf dem Dashboard zeigen/verstecken – nur wenn mindestens eine
+  // Ambient-Karte gerade sichtbar ist (folgt also auch den visibility-Bedingungen)
+  sync() {
+    const anyVisible = [...this.cards].some((c) => c._portalHost && c._portalHost.style.display !== "none");
+    const show = !!this.server && !this._skipped() && !document.hidden && anyVisible;
+    if (!show) { if (this._bar) this._bar.style.display = "none"; return; }
+    if (!this._bar) {
+      this._bar = document.createElement("div");
+      this._bar.style.cssText = "position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:2147483647; max-width:calc(100vw - 32px);";
+      const sh = this._bar.attachShadow({ mode: "open" });
+      sh.innerHTML = `<style>
+          .bar { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; font:14px/1.35 var(--paper-font-body1_-_font-family, Roboto, sans-serif);
+            background:var(--card-background-color, #fff); color:var(--primary-text-color, #222);
+            border:2px solid var(--primary-color, #03a9f4); box-shadow:0 2px 8px rgba(0,0,0,.25); }
+          .bar b { flex:1; font-weight:500; }
+          button { font:inherit; cursor:pointer; white-space:nowrap; border-radius:18px; padding:6px 14px; border:1px solid var(--primary-color, #03a9f4); }
+          .go { background:var(--primary-color, #03a9f4); color:var(--text-primary-color, #fff); font-weight:600; }
+          .x { background:none; color:inherit; border-color:transparent; padding:6px 8px; }
+          button:focus-visible { outline:3px solid var(--accent-color, #ff9800); outline-offset:2px; }
+        </style>
+        <div class="bar"><span class="t"></span><button class="go" type="button">Neu laden</button><button class="x" type="button" title="Für diese Version nicht mehr zeigen">✕</button></div>`;
+      sh.querySelector(".go").addEventListener("click", () => this.reload());
+      sh.querySelector(".x").addEventListener("click", () => {
+        try { localStorage.setItem("aoc_upd_skip", this.server); } catch (_) { /* egal */ }
+        this.sync();
+      });
+      document.body.appendChild(this._bar);
+    }
+    const t = this._bar.shadowRoot.querySelector(".t");
+    const html = this.text();
+    if (t.innerHTML !== html) t.innerHTML = html;
+    this._bar.style.display = "";
+  },
+
+  // „Neu laden“: Datei einmal am Browser-Zwischenspeicher vorbei holen, dann Seite neu laden
+  async reload() {
+    const url = this.url();
+    try { if (url) await fetch(url, { cache: "reload" }); } catch (_) { /* egal */ }
+    location.reload();
+  },
+};
+
 /* ============================== HAUPT-KARTE ============================== */
 
 class AmbientOverlayCard extends HTMLElement {
@@ -3762,6 +3898,7 @@ class AmbientOverlayCard extends HTMLElement {
 
     const isVisible = checkIsVisible() && !document.hidden;
     this._portalHost.style.display = isVisible ? "" : "none";
+    if (AOC_UPD.server) AOC_UPD.sync(); // 🔄 Neu-laden-Balken mitverstecken
   }
 
   connectedCallback() {
@@ -3771,6 +3908,8 @@ class AmbientOverlayCard extends HTMLElement {
     document.addEventListener("visibilitychange", this._onVisibilityChange);
 
     this._ensurePortal();
+    AOC_UPD.cards.add(this);
+    AOC_UPD.start();
     this._syncPortalVisibility();
     this._visibilityPollTimer = setInterval(() => this._syncPortalVisibility(), 700);
     this._condTimer = setInterval(() => this._tickConditions(), 30000);
@@ -3811,6 +3950,8 @@ class AmbientOverlayCard extends HTMLElement {
     }
     this._portalHost = null;
     this._portalShadow = null;
+    AOC_UPD.cards.delete(this);
+    AOC_UPD.sync();
   }
 
   _onThemeChange() {
@@ -4488,6 +4629,9 @@ const EDITOR_CSS = `
     padding: 11px; text-align: center; color: var(--primary-color, #03a9f4); font: inherit; font-weight: 500; font-size: 14px; background: none; cursor: pointer; }
   .addgrid { margin: 6px 0 10px; }
   .empty { text-align: center; color: var(--secondary-text-color, #727272); font-size: 13px; padding: 10px 0; }
+  /* 🔄 „Neue Version da“ – wie bei der Einkaufsliste */
+  .updbar { margin: 8px 2px; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, transparent); font-size: .88em; display: flex; align-items: center; gap: 8px; }
+  .updbar b { flex: 1; font-weight: 500; }
   .convert { display: flex; align-items: center; gap: 12px; padding: 12px 4px; }
   .convert .txt { flex: 1; font-size: 13px; color: var(--secondary-text-color, #727272); line-height: 1.4; }
   .convert .txt b { color: var(--primary-text-color, #212121); font-weight: 500; font-size: 14.5px; display: flex; align-items: center; gap: 6px; }
@@ -4584,6 +4728,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
   }
 
   connectedCallback() {
+    AOC_UPD.editors.add(this);
+    AOC_UPD.start();
     this._render();
     this._loadHaPickers();
     // Uhrzeit/Zeitraum ändern sich ohne Zustandsänderung - alle 30 s prüfen
@@ -4591,6 +4737,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
   }
 
   disconnectedCallback() {
+    AOC_UPD.editors.delete(this);
     if (this._resizeObs) this._resizeObs.disconnect();
     if (this._tick) { clearInterval(this._tick); this._tick = null; }
   }
@@ -5287,6 +5434,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
           <span class="pv-tag">Live-Vorschau</span>
           <button class="play" type="button" data-act="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><span>${playText}</span></button>
         </div>
+        ${AOC_UPD.server ? `<div class="updbar">${AOC_UPD.text()}<button type="button" class="btn prim" data-act="aocreload">Neu laden</button></div>` : ""}
         ${html}
       </div>`;
 
@@ -5522,6 +5670,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
     if ((b = el("[data-act]"))) {
       const act = b.dataset.act, i = +b.dataset.i;
       if (act === "play") { this._playPreview(); return; }
+      if (act === "aocreload") { AOC_UPD.reload(); return; }
       if (act === "entry") {
         this._openEntry = this._openEntry === i ? null : i;
         this._forgetPaths();

@@ -393,6 +393,8 @@ leaf_colors:
 
 **Wie blende ich alle Effekte auf einmal aus?** In der Liste über **🔒 Gilt für alle Effekte**, z. B. mit einem `input_boolean`. Die normale **Sichtbarkeit** der Karte in Home Assistant klappt auch.
 
+**🔄 Was ist der blaue Balken „Neue Version ist da“?** Die Karte schaut ab und zu (2 Minuten nach dem Laden, danach höchstens alle 6 Stunden) bei deinem Home Assistant nach, ob dort inzwischen eine neuere Version liegt – z. B. nach einem Update über HACS. Dann erscheint unten ein Balken: **„Neu laden“** antippen, fertig. Ein Neustart von Home Assistant ist nicht nötig. Mit **✕** blendest du ihn für diese Version aus. Die Karte fragt dabei nur deinen eigenen Home Assistant, nicht das Internet.
+
 **Belastet das mein Tablet?** Kaum. Fast alles läuft über CSS, und bei Tabs im Hintergrund pausiert alles. Auf sehr schwachen Geräten bei `count_preset` einfach `low` nehmen.
 
 **Ist das sicher?** Der Geburtstags-Text und eigene Blattformen werden geprüft, bevor sie angezeigt werden. Die Karte schickt nichts ins Internet.
