@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.3";
+const CARD_VERSION = "1.0.19-beta.4";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -538,18 +538,45 @@ const FLAKES_DATA = Array.from({ length: 50 }, (_, i) => ({
 
 /* ============================ RENDER-FUNKTIONEN ============================ */
 
+// Schlüsselbild-Name aus Zahlen (Minus geht in CSS-Namen nicht gut)
+function kfName(base, ...nums) {
+  return base + nums.map((n) => (n < 0 ? "m" : "p") + Math.abs(Math.round(n * 10))).join("");
+}
+
+// 🌧️ Wie die Regenstärke aussieht:
+// 1 = Niesel (weniger, kurze dünne Fäden, langsam, zart)
+// 2 = normaler Regen (wie bisher)
+// 3 = Starkregen (mehr, lange Striche, schnell)
+const RAIN_LOOK = {
+  1: { n: 0.6, len: 0.6, dur: 1.6, w: 1.5, op: 0.9 },
+  2: { n: 1, len: 1, dur: 1, w: 2, op: 1 },
+  3: { n: 1.45, len: 1.6, dur: 0.72, w: 2.5, op: 1 },
+};
+
 function renderRain(cfg, hass, hostEl) {
   const color = resolveDynamicColor(cfg.color, hass, "#000000", "#ffffff", hostEl);
-  const count = getParticleCount(cfg.count_preset || "medium", "rain");
+  const wx = wxFor(cfg, hass);
+  const look = RAIN_LOOK[cfg.rain_intensity === false ? 2 : (wx.rain || 2)];
+  // Starkregen hat mehr Tropfen, aber nie mehr als die 60 von "Viel"
+  const count = Math.min(DROPS.length, Math.round(getParticleCount(cfg.count_preset || "medium", "rain") * look.n));
   const opacity = getOpacityValue(cfg.opacity_preset || "medium");
   const drops = spreadSample(DROPS, count);
+  // 🌬️ Wind: so weit (in vh) weht ein Tropfen auf dem Weg nach unten zur
+  // Seite. Der Strich wird passend schräg gestellt, damit er in Flugrichtung zeigt.
+  const drift = WIND_DRIFT_VH[wx.wind.lvl] * wx.wind.dir;
+  const angle = (-Math.atan2(drift, 120) * 180 / Math.PI).toFixed(1);
+  const kf = kfName("rainfall", drift);
+  const nowSec = Date.now() / 1000;
 
   const isHigh = (cfg.opacity_preset || "medium") === "high";
-  const dropHTML = drops.map((d) => {
-    const op = isHigh
-      ? Math.min(1, Math.max(d.op, 0.85)).toFixed(2)
-      : (d.op * opacity).toFixed(2);
-    return `<div class="drop" style="left:${d.l}vw; height:${d.size}px; animation-duration:${d.dur}s; animation-delay:${d.d}s; opacity:${op};"></div>`;
+  const dropHTML = drops.map((d, i) => {
+    const op = (isHigh
+      ? Math.min(1, Math.max(d.op, 0.85))
+      : d.op * opacity) * look.op;
+    const dur = parseFloat(d.dur) * look.dur;
+    // Startzeit aus der Uhr: bei einem Neu-Zeichnen fällt der Tropfen weiter
+    const delay = -((nowSec + i * 0.37) % dur);
+    return `<div class="drop" style="left:${d.l}vw; height:${Math.round(d.size * look.len)}px; animation-duration:${dur.toFixed(2)}s; animation-delay:${delay.toFixed(2)}s; opacity:${op.toFixed(2)};"></div>`;
   }).join("\n");
 
   const css = `
@@ -557,18 +584,51 @@ function renderRain(cfg, hass, hostEl) {
     .rain .drop { 
       position: absolute; 
       top: -20%; 
-      width: 2px; 
+      width: ${look.w}px; 
       background: linear-gradient(180deg, rgba(255,255,255,0) 0%, ${color} 100%) !important; 
       border-radius: 50%; 
-      animation: rainfall linear infinite;
+      animation: ${kf} linear infinite;
       will-change: transform;
     }
-    @keyframes rainfall { 
-      0% { transform: translateY(0vh) translateX(0px); } 
-      100% { transform: translateY(120vh) translateX(-15px); } 
+    @keyframes ${kf} { 
+      0% { transform: translate(0, 0) rotate(${angle}deg); } 
+      100% { transform: translate(${drift}vh, 120vh) rotate(${angle}deg); } 
     }
   `;
   return { css, html: `<div class="rain" aria-hidden="true">${dropHTML}</div>` };
+}
+
+// 💧 Regen-Vorbote: Laut Vorhersage kommt gleich Regen - dann rinnen ein
+// paar zarte Tropfen nur ganz am linken und rechten Rand herunter.
+// Bewusst nur 8 Stück, damit es den Fire TV nicht belastet.
+function renderRainHint(cfg, hass, hostEl) {
+  const color = resolveDynamicColor(cfg.color, hass, "#000000", "#ffffff", hostEl);
+  const opacity = layerOpacity(cfg) * 0.7;
+  const spots = [1.2, 2.8, 4.1, 5.6, 94.2, 95.6, 97.1, 98.6];
+  const nowSec = Date.now() / 1000;
+  const html = spots.map((l, i) => {
+    const dur = 1.6 + (i % 3) * 0.45;
+    // Jeder Tropfen fällt nur ab und zu (Pause im Schlüsselbild), so wirkt
+    // es wie "die ersten Tropfen" statt wie Regen
+    const cycle = dur * 4;
+    return `<div class="hint-drop" style="left:${l}vw; height:${14 + (i % 4) * 4}px; animation-duration:${cycle.toFixed(2)}s; animation-delay:${(-((nowSec + i * 1.9) % cycle)).toFixed(2)}s;"></div>`;
+  }).join("");
+  const css = `
+    ${overlayBaseCss("rain-hint")}
+    .rain-hint { opacity: ${opacity.toFixed(2)}; }
+    .rain-hint .hint-drop {
+      position: absolute; top: -5%; width: 2px; border-radius: 50%;
+      background: linear-gradient(180deg, rgba(255,255,255,0) 0%, ${color} 100%);
+      animation: rain-hint-fall linear infinite; will-change: transform, opacity;
+    }
+    @keyframes rain-hint-fall {
+      0% { transform: translateY(0); opacity: 0; }
+      3% { opacity: 1; }
+      25% { transform: translateY(110vh); opacity: 1; }
+      25.1%, 100% { transform: translateY(110vh); opacity: 0; }
+    }
+  `;
+  return { css, html: `<div class="rain-hint" aria-hidden="true">${html}</div>` };
 }
 
 function renderSnow(cfg, hass, hostEl) {
@@ -584,6 +644,10 @@ function renderSnow(cfg, hass, hostEl) {
   // rendert alle 15 Sekunden neu - mit fester Verzögerung sprang jede
   // Flocke dabei sichtbar ein Stück zurück nach oben.
   const snowNowSec = Date.now() / 1000;
+  // 🌬️ Wind: Flocken treiben schräg - Schnee ist leicht, also etwas stärker als Regen
+  const wx = wxFor(cfg, hass);
+  const drift = wx.wind.lvl > 0 ? WIND_DRIFT_VH[wx.wind.lvl] * wx.wind.dir * 1.3 : 0;
+  const kf = kfName("wander-fall", drift);
   const flakeHTML = flakes.map((f) => {
     const op = isHigh
       ? Math.min(1, Math.max(f.op, 0.85)).toFixed(2)
@@ -593,11 +657,11 @@ function renderSnow(cfg, hass, hostEl) {
 
   const css = `
     ${overlayBaseCss("snowflakes")}
-    .snowflake { position:absolute; top:-10%; font-style:normal; animation:wander-fall linear infinite; will-change: transform; }
-    @keyframes wander-fall {
+    .snowflake { position:absolute; top:-10%; font-style:normal; animation:${kf} linear infinite; will-change: transform; }
+    @keyframes ${kf} {
       0%   { transform: translate(var(--start-x), -10%); }
-      50%  { transform: translate(var(--end-x), 60vh); }
-      100% { transform: translate(var(--end-x), 120vh); }
+      50%  { transform: translate(calc(var(--end-x) + ${(drift / 2).toFixed(1)}vh), 60vh); }
+      100% { transform: translate(calc(var(--end-x) + ${drift.toFixed(1)}vh), 120vh); }
     }
     .snow-accumulation {
       position: absolute; bottom: 0; left: 0; width: 100%;
@@ -801,6 +865,10 @@ function renderHail(cfg, hass, hostEl) {
   const opacity = getOpacityValue(cfg.opacity_preset || "medium");
   const isHigh = (cfg.opacity_preset || "medium") === "high";
   const stones = spreadSample(DROPS, count);
+  // 🌬️ Wind: Hagel ist schwer, er weht nur ein bisschen schräg
+  const wx = wxFor(cfg, hass);
+  const drift = wx.wind.lvl > 0 ? WIND_DRIFT_VH[wx.wind.lvl] * wx.wind.dir * 0.6 : -2.3;
+  const kf = kfName("hailfall", drift);
 
   const hailHTML = stones.map((d) => {
     const op = isHigh
@@ -816,12 +884,12 @@ function renderHail(cfg, hass, hostEl) {
     .hail .hailstone {
       position: absolute; top: -10%; border-radius: 50%;
       box-shadow: 0 0 2px rgba(0,0,0,0.3);
-      animation: hailfall linear infinite;
+      animation: ${kf} linear infinite;
       will-change: transform;
     }
-    @keyframes hailfall {
-      0% { transform: translateY(0vh) translateX(0px); }
-      100% { transform: translateY(120vh) translateX(-25px); }
+    @keyframes ${kf} {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(${drift.toFixed(1)}vh, 120vh); }
     }
   `;
   return { css, html: `<div class="hail" aria-hidden="true">${hailHTML}</div>` };
@@ -2865,6 +2933,251 @@ function frostLevel(cfg, hass) {
   return 4;
 }
 
+/* ===================== ECHTES WETTER (Regen, Wind, Blitz) ===================== */
+// Alles, was die Wetter-Automatik über den reinen Zustand ("regnet") hinaus
+// weiß: wie STARK es regnet, wie stark der Wind weht, ob der eigene
+// Regen-Sensor im Garten nass ist, ob Regen gleich kommt und ob ein
+// Gewitter wirklich in der Nähe ist.
+// Wichtig für den Fire TV: Hier wird nur gerechnet, nichts gezeichnet. Die
+// Ergebnisse sind grob in Stufen eingeteilt - neu gezeichnet wird nur, wenn
+// sich eine STUFE ändert, nicht bei jedem Zehntel km/h.
+
+const RAIN_STATES = ["rainy", "pouring", "lightning-rainy", "snowy-rainy"];
+const AOC_DEAD = ["unavailable", "unknown", "none", ""];
+
+// Zahl aus einem Sensor oder Attribut (Komma oder Punkt), sonst null
+function numOf(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const n = parseFloat(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+// Regen in mm (bzw. mm/h) - Zoll werden umgerechnet
+function mmOf(v, unit) {
+  const n = numOf(v);
+  if (n === null) return null;
+  return /in/i.test(unit || "") ? n * 25.4 : n;
+}
+
+// mm/h -> Stufe: 1 = Niesel, 2 = normaler Regen, 3 = Starkregen
+function rainLevelFromMm(mm) {
+  if (mm === null) return 0;
+  if (mm < 0.5) return 1;
+  if (mm < 4) return 2;
+  return 3;
+}
+
+// ☔ Eigener Regen-Sensor: true = nass, false = trocken, null = nicht da
+// oder nicht verfügbar (dann entscheidet ganz normal der Wetter-Sensor).
+// Ja/Nein-Sensoren (Regenmelder) und Zahlen (Regenrate in mm/h) gehen beide.
+function rainSensorInfo(cfg, hass) {
+  const s = cfg?.rain_entity ? hass?.states?.[cfg.rain_entity] : null;
+  if (!s || AOC_DEAD.includes(String(s.state).toLowerCase())) return null;
+  const st = String(s.state).toLowerCase();
+  if (st === "on" || st === "off") return { wet: st === "on", mm: null };
+  const mm = mmOf(s.state, s.attributes?.unit_of_measurement);
+  if (mm === null) return null;
+  return { wet: mm > 0, mm };
+}
+
+/* ---------- Stündliche Vorhersage (für den Regen-Vorboten) ---------- */
+// Home Assistant liefert die Vorhersage nicht mehr als Attribut, man muss
+// sie abonnieren. Damit der Fire TV nicht für jede Karte eine eigene
+// Leitung aufmacht, gibt es pro Wetter-Entität genau EIN Abo für die ganze
+// Seite. HA schickt nur dann etwas, wenn es eine neue Vorhersage gibt
+// (meist alle 30-60 Minuten) - es wird also nichts ständig abgefragt.
+const AOC_FC = new Map(); // entity_id -> { list, unsub, cards:Set, failed }
+
+function forecastSupported(hass, eid) {
+  const f = hass?.states?.[eid]?.attributes?.supported_features;
+  return typeof f === "number" && (f & 2) === 2; // 2 = stündliche Vorhersage
+}
+
+function forecastSubscribe(card, hass, eid) {
+  let fc = AOC_FC.get(eid);
+  if (!fc) {
+    fc = { list: null, unsub: null, cards: new Set(), failed: false };
+    AOC_FC.set(eid, fc);
+    try {
+      fc.unsub = hass.connection.subscribeMessage((msg) => {
+        fc.list = Array.isArray(msg?.forecast) ? msg.forecast.slice(0, 6) : [];
+        fc.cards.forEach((c) => c._onForecast());
+      }, { type: "weather/subscribe_forecast", forecast_type: "hourly", entity_id: eid });
+      Promise.resolve(fc.unsub).catch(() => { fc.failed = true; });
+    } catch (e) {
+      fc.failed = true;
+    }
+  }
+  fc.cards.add(card);
+}
+
+function forecastRelease(card, eid) {
+  const fc = AOC_FC.get(eid);
+  if (!fc) return;
+  fc.cards.delete(card);
+  if (fc.cards.size) return;
+  AOC_FC.delete(eid);
+  Promise.resolve(fc.unsub).then((u) => { if (typeof u === "function") u(); }).catch(() => {});
+}
+
+// Regnet es laut Vorhersage-Eintrag?
+function forecastWet(f) {
+  if (!f) return false;
+  if (RAIN_STATES.includes(f.condition)) return true;
+  const mm = numOf(f.precipitation);
+  const p = numOf(f.precipitation_probability);
+  return mm !== null && mm >= 0.3 && (p === null || p >= 50);
+}
+
+// Vorhersage für die laufende Stunde und "kommt in den nächsten ~30 Min. Regen?"
+function forecastNow(cfg, now = Date.now()) {
+  const list = cfg?.weather_entity ? AOC_FC.get(cfg.weather_entity)?.list : null;
+  if (!list || !list.length) return { cur: null, soon: false };
+  let cur = null;
+  let soon = false;
+  for (const f of list) {
+    const t = Date.parse(f.datetime);
+    if (!Number.isFinite(t)) continue;
+    if (t <= now && now < t + 3600e3) cur = f;
+    // "in 30 Minuten": die laufende Stunde oder eine, die spätestens in
+    // 40 Minuten beginnt
+    if (t + 3600e3 > now && t <= now + 40 * 60e3 && forecastWet(f)) soon = true;
+    if (t > now + 40 * 60e3) break;
+  }
+  return { cur, soon };
+}
+
+/* ---------- Wind ---------- */
+function windKmh(w) {
+  const v = numOf(w?.attributes?.wind_speed);
+  if (v === null) return null;
+  const u = String(w.attributes?.wind_speed_unit || "km/h").toLowerCase();
+  if (u === "m/s") return v * 3.6;
+  if (u === "mph") return v * 1.609;
+  if (u === "kn" || u === "kt") return v * 1.852;
+  if (u === "ft/s") return v * 1.097;
+  return v;
+}
+
+// Stufe 0 (fast windstill) bis 4 (Sturm) und Richtung (-1 = nach links, 1 = nach rechts)
+function windInfo(cfg, hass) {
+  const w = cfg?.weather_entity ? hass?.states?.[cfg.weather_entity] : null;
+  if (!w || cfg?.wind_effects === false) return { lvl: 0, dir: -1 };
+  const kmh = windKmh(w);
+  let lvl = kmh === null ? 0 : kmh < 10 ? 0 : kmh < 20 ? 1 : kmh < 35 ? 2 : kmh < 50 ? 3 : 4;
+  if ((w.state === "windy" || w.state === "windy-variant") && lvl < 2) lvl = 2;
+  // Windrichtung = woher er kommt. Kommt er aus dem Osten (0-180°), treibt
+  // er nach Westen = auf dem Bildschirm nach links. Sonst nach rechts.
+  // (Der Bildschirm "weiß" nicht, wo Norden ist - wichtig ist nur, dass sich
+  // bei Westwind sichtbar etwas ändert.)
+  const b = numOf(w.attributes?.wind_bearing);
+  const dir = b === null ? -1 : (b > 0 && b < 180 ? -1 : 1);
+  return { lvl, dir };
+}
+
+// Wie weit ein Tropfen auf seinem Weg nach unten zur Seite weht (in vh)
+const WIND_DRIFT_VH = [2, 10, 22, 36, 55];
+
+/* ---------- ⚡ Blitzortung ---------- */
+// true = Blitz in der Nähe, false = kein Gewitter in der Nähe,
+// null = kein Sensor oder nicht verfügbar (dann entscheidet das Wetter).
+// Gedacht für den Sensor "Lightning distance" der Integration Blitzortung:
+// Er meldet die Entfernung des letzten Blitzes. Nah genug UND frisch (in den
+// letzten 15 Minuten aktualisiert) = es blitzt.
+const LIGHTNING_FRESH_MS = 15 * 60e3;
+function lightningNear(cfg, hass, now = Date.now()) {
+  const s = cfg?.lightning_entity ? hass?.states?.[cfg.lightning_entity] : null;
+  if (!s || String(s.state).toLowerCase() === "unavailable") return null;
+  const v = numOf(s.state);
+  if (v === null) return false; // "unknown" = gerade kein Blitz gemessen
+  const fresh = now - Date.parse(s.last_updated || s.last_changed || 0) <= LIGHTNING_FRESH_MS;
+  if (!fresh) return false;
+  const unit = String(s.attributes?.unit_of_measurement || "").toLowerCase();
+  if (unit === "km" || unit === "mi" || unit === "m") {
+    const km = unit === "mi" ? v * 1.609 : unit === "m" ? v / 1000 : v;
+    const max = numOf(cfg.lightning_km) ?? 15;
+    return km <= max;
+  }
+  // Kein Entfernungs-Sensor (z. B. der Blitz-Zähler): frisch und > 0 = Blitz
+  return v > 0;
+}
+
+// Die ganze Wetter-Automatik in einem: welche Effekte laufen, wie stark
+// regnet es, wie weht der Wind, kommt gleich Regen?
+// Wird von der Karte (Einzel und Liste) UND von der Editor-Vorschau benutzt.
+function weatherInfo(cfg, hass, now = Date.now()) {
+  const out = { events: [], rain: 0, wind: { lvl: 0, dir: -1 }, hint: false };
+  if (!cfg || cfg.event !== "weather_auto") return out;
+  const w = cfg.weather_entity ? hass?.states?.[cfg.weather_entity] : null;
+  let events = w ? mapWeatherStateToEvents(w.state).slice() : [];
+  events = events.filter((e) => e !== "off");
+
+  // ☔ Eigener Regen-Sensor hat Vorrang vor dem Wetterdienst
+  const rs = rainSensorInfo(cfg, hass);
+  if (rs) {
+    if (rs.wet && !events.some((e) => e === "rain" || e === "snow" || e === "hail")) events.push("rain");
+    if (!rs.wet) events = events.filter((e) => e !== "rain");
+  }
+
+  // ⚡ Blitzortung hat Vorrang vor dem Wetterdienst
+  const near = lightningNear(cfg, hass, now);
+  if (near !== null) {
+    events = events.filter((e) => e !== "lightning");
+    if (near) events.push("lightning");
+  }
+
+  // Mond nachts (auch bei Wolken), Sonne nachts weg
+  if (hass?.states?.["sun.sun"]?.state === "below_horizon") {
+    events = events.filter((e) => e !== "sun");
+    if (!events.includes("moon")) events.push("moon");
+  }
+  // ❄️ Frost-Ränder unter 0 °C - egal welches Wetter gerade ist
+  if (frostLevel(cfg, hass) > 0) events.push("frost");
+
+  const fc = (cfg.rain_hint !== false || cfg.rain_intensity !== false) ? forecastNow(cfg, now) : { cur: null, soon: false };
+
+  // 🌧️ Wie stark regnet es? Reihenfolge: eigener Sensor (mm/h), Attribut
+  // "precipitation" der Wetter-Entität (haben manche), Vorhersage der
+  // laufenden Stunde, sonst nur der Zustand (pouring = stark).
+  if (events.includes("rain")) {
+    let lvl = 2;
+    if (cfg.rain_intensity !== false) {
+      const pu = w?.attributes?.precipitation_unit;
+      let mm = rs?.mm ?? null;
+      if (mm === null) mm = mmOf(w?.attributes?.precipitation, pu);
+      if (mm === null && fc.cur) mm = mmOf(fc.cur.precipitation, pu);
+      if (mm !== null && mm > 0) lvl = rainLevelFromMm(mm);
+      if (w?.state === "pouring" && (mm === null || mm <= 0)) lvl = 3;
+    }
+    out.rain = lvl;
+  }
+
+  out.wind = windInfo(cfg, hass);
+
+  // 💧 Regen-Vorbote: es regnet noch nicht, aber gleich laut Vorhersage
+  if (cfg.rain_hint !== false && !events.some((e) => e === "rain" || e === "snow" || e === "hail") && fc.soon) {
+    out.hint = true;
+    events.push("rain_hint");
+  }
+  out.events = events;
+  return out;
+}
+
+// Kurzer "Fingerabdruck" - ändert er sich, muss neu gezeichnet werden
+function weatherSig(cfg, hass) {
+  if (cfg?.event !== "weather_auto") return "";
+  const i = weatherInfo(cfg, hass);
+  return `${i.events.join("+")}|r${i.rain}|w${i.wind.lvl}${i.wind.dir}`;
+}
+
+// Wetter-Daten für einen einzelnen Regen-/Schnee-/Hagel-Renderer
+// (in der Karte vorab berechnet, in der Editor-Vorschau direkt hier)
+function wxFor(cfg, hass) {
+  if (cfg?._wx) return cfg._wx;
+  const i = weatherInfo(cfg, hass);
+  return { rain: i.rain, wind: i.wind };
+}
+
 function renderFrost(cfg, hass, hostEl) {
   const level = cfg._frostLevel || frostLevel(cfg, hass) || 1;
   const opacity = getOpacityValue(cfg.opacity_preset || "medium");
@@ -3305,6 +3618,7 @@ function renderEaster(cfg, hass, hostEl) {
 const RENDERERS = {
   frost: renderFrost,
   rain: renderRain,
+  rain_hint: renderRainHint,
   snow: renderSnow,
   leaves: renderLeaves,
   lightning: renderLightning,
@@ -3576,21 +3890,8 @@ function describeConditions(list, hass) {
 // Automatik wird dabei in Regen/Schnee/Mond/... übersetzt)
 function eventsForConfig(cfg, hass) {
   if (!cfg) return [];
-  if (cfg.event === "weather_auto") {
-    let events;
-    if (cfg.weather_entity && hass) {
-      const entityState = hass.states?.[cfg.weather_entity];
-      events = entityState ? mapWeatherStateToEvents(entityState.state) : ["off"];
-    } else {
-      events = ["off"];
-    }
-    if (hass?.states?.["sun.sun"]?.state === "below_horizon") {
-      events = events.filter((e) => e !== "off" && e !== "sun");
-      if (!events.includes("moon")) events.push("moon");
-    }
-    if (frostLevel(cfg, hass) > 0) events = events.concat("frost"); // concat: die Wetter-Tabelle selbst nicht verändern
-    return events.filter((e) => e !== "off");
-  }
+  // Wetter-Automatik: alles Wetter-Wissen steckt in weatherInfo()
+  if (cfg.event === "weather_auto") return weatherInfo(cfg, hass).events;
   if (cfg.event === "seasons" || cfg.event === "holidays") return seasonalEvents(cfg, hass);
   if (RETIRED_EVENTS[cfg.event]) return [];
   return cfg.event && cfg.event !== "off" ? [cfg.event] : [];
@@ -3607,6 +3908,12 @@ const EFFECT_DEFAULTS = {
   weather_entity: "",
   frost_edges: true,
   temperature_entity: "",
+  rain_intensity: true,
+  wind_effects: true,
+  rain_entity: "",
+  rain_hint: true,
+  lightning_entity: "",
+  lightning_km: 15,
   birthday_text: "Happy Birthday!",
   birthday_text_top: 26,
   birthday_balloons: true,
@@ -3662,6 +3969,10 @@ function entryStatus(entry, rootConditions, hass, now = new Date()) {
   if (!e.ok) return { on: false, reason: e.reason, missing: e.missing };
   if (entry.event === "weather_auto" && !entry.weather_entity) return { on: false, reason: "Wetter fehlt!", missing: true };
   if (entry.event === "seasons" && !entry.season_entity) return { on: false, reason: "Jahreszeiten-Sensor fehlt!", missing: true };
+  // ⓘ Sensor gewählt, aber weg oder nicht verfügbar: läuft (Mond/Frost),
+  // aber mit rotem Punkt und Grund, statt still leer zu bleiben
+  if (entry.event === "weather_auto" && entityTrouble(hass, entry.weather_entity, "weather_entity")) return { on: false, reason: "Wetter nicht verfügbar!", missing: true };
+  if (entry.event === "seasons" && entityTrouble(hass, entry.season_entity, "season_entity")) return { on: false, reason: "Jahreszeiten-Sensor nicht verfügbar!", missing: true };
   return { on: true, reason: "" };
 }
 
@@ -3914,6 +4225,7 @@ class AmbientOverlayCard extends HTMLElement {
     this._visibilityPollTimer = setInterval(() => this._syncPortalVisibility(), 700);
     this._condTimer = setInterval(() => this._tickConditions(), 30000);
     this._render();
+    this._syncForecasts();
   }
 
   disconnectedCallback() {
@@ -3952,6 +4264,8 @@ class AmbientOverlayCard extends HTMLElement {
     this._portalShadow = null;
     AOC_UPD.cards.delete(this);
     AOC_UPD.sync();
+    for (const eid of this._fcSubs || []) forecastRelease(this, eid);
+    this._fcSubs = new Set();
   }
 
   _onThemeChange() {
@@ -3990,6 +4304,7 @@ class AmbientOverlayCard extends HTMLElement {
     this._layerCfg = {};
     this._lastSig = undefined;
     this._render();
+    this._syncForecasts();
   }
 
   // Nutzt die Karte "Wann anzeigen?"-Bedingungen (Liste oder "Gilt für alle")?
@@ -4015,7 +4330,7 @@ class AmbientOverlayCard extends HTMLElement {
     const per = entries.map((e) => {
       const on = e.enabled === false ? 0 : (evalConditions(e.conditions, this._hass, now).ok ? 1 : 0);
       const ev = (e.event === "seasons" || e.event === "holidays") ? eventsForConfig(e, this._hass).join("+") : "";
-      return `${on}:${this._layerInputs(e)}:fr=${frostLevel(e, this._hass)}:ev=${ev}`;
+      return `${on}:${this._layerInputs(e)}:fr=${frostLevel(e, this._hass)}:ev=${ev}:wx=${weatherSig(e, this._hass)}`;
     }).join("|");
     return `${glob}#${per}`;
   }
@@ -4040,12 +4355,43 @@ class AmbientOverlayCard extends HTMLElement {
   // Läuft alle 30 Sekunden: Uhrzeit- und Zeitraum-Bedingungen ändern sich
   // ja ohne dass Home Assistant etwas meldet.
   _tickConditions() {
-    if (!this._usesConditions() || !this._hasRenderedOnce) return;
+    if (!this._hasRenderedOnce) return;
+    if (!this._usesConditions()) {
+      // ⚡💧 Blitz "zu alt" oder Vorbote fällig: das ändert sich mit der
+      // Uhr, ohne dass Home Assistant etwas meldet
+      if (this._config?.event !== "weather_auto") return;
+      const wx = weatherSig(this._config, this._hass);
+      if (wx !== this._lastWx) { this._lastWx = wx; this._render(true); }
+      return;
+    }
     const sig = this._signature();
     if (sig !== this._lastSig) {
       this._lastSig = sig;
       this._render(true);
     }
+  }
+
+  // 💧 Stündliche Vorhersage abonnieren - nur für Wetter-Effekte, die sie
+  // brauchen (Regen-Vorbote oder Regenstärke), und nur wenn die
+  // Wetter-Entität überhaupt eine stündliche Vorhersage kann.
+  _syncForecasts() {
+    const want = new Set();
+    if (this.isConnected && this._hass?.connection) {
+      const entries = this._listMode ? (this._entries || []) : [this._config];
+      for (const e of entries) {
+        if (e?.event !== "weather_auto" || e.enabled === false || !e.weather_entity) continue;
+        if (e.rain_hint === false && e.rain_intensity === false) continue;
+        if (forecastSupported(this._hass, e.weather_entity)) want.add(e.weather_entity);
+      }
+    }
+    this._fcSubs = this._fcSubs || new Set();
+    for (const eid of this._fcSubs) if (!want.has(eid)) { forecastRelease(this, eid); this._fcSubs.delete(eid); }
+    for (const eid of want) if (!this._fcSubs.has(eid)) { forecastSubscribe(this, this._hass, eid); this._fcSubs.add(eid); }
+  }
+
+  // Neue Vorhersage da: nur neu zeichnen, wenn sich dadurch etwas ändert
+  _onForecast() {
+    this._tickConditions();
   }
 
   set hass(hass) {
@@ -4059,6 +4405,7 @@ class AmbientOverlayCard extends HTMLElement {
         this._hasRenderedOnce = true;
       }
       this._syncPortalVisibility();
+      this._syncForecasts();
       return;
     }
     const weatherEntity = this._config?.weather_entity;
@@ -4098,6 +4445,8 @@ class AmbientOverlayCard extends HTMLElement {
     // der Look um Mitternacht von selbst, ohne die Seite neu zu laden.
     const oldHalloween = this._lastHalloween;
     const oldFrost = this._lastFrost;
+    // 🌧️🌬️⚡ Regenstärke, Wind, Regen-Sensor, Blitzortung, Vorbote
+    const oldWx = this._lastWx;
     // 🍂🎉 Jahreszeit/Feiertag: wechselt um Mitternacht oder per Sensor
     const oldSeasonal = this._lastSeasonal;
 
@@ -4115,12 +4464,15 @@ class AmbientOverlayCard extends HTMLElement {
     const newFrost = frostLevel(this._config, hass);
     this._lastFrost = newFrost;
     const frostChanged = oldFrost !== undefined && oldFrost !== newFrost;
+    const newWx = weatherSig(this._config, hass);
+    this._lastWx = newWx;
+    const wxChanged = oldWx !== undefined && oldWx !== newWx;
     const isSeasonal = this._config?.event === "seasons" || this._config?.event === "holidays";
     const newSeasonal = isSeasonal ? eventsForConfig(this._config, hass).join("+") : "";
     this._lastSeasonal = newSeasonal;
     const seasonalChanged = oldSeasonal !== undefined && oldSeasonal !== newSeasonal;
 
-    const weatherChanged = oldWeatherState !== newWeatherState;
+    const weatherChanged = oldWeatherState !== newWeatherState || wxChanged;
     const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged || halloweenChanged || frostChanged || seasonalChanged;
 
     // Sanftes Ausblenden nur bei einer ECHTEN automatischen Wetteränderung
@@ -4133,6 +4485,7 @@ class AmbientOverlayCard extends HTMLElement {
       this._hasRenderedOnce = true;
     }
     this._syncPortalVisibility();
+    this._syncForecasts();
   }
 
   _resolveEvents() {
@@ -4158,30 +4511,10 @@ class AmbientOverlayCard extends HTMLElement {
       return keys;
     }
     if (cfg.event === "weather_auto") {
-      let events;
-      if (cfg.weather_entity && this._hass) {
-        const entityState = this._hass.states?.[cfg.weather_entity];
-        events = entityState ? mapWeatherStateToEvents(entityState.state) : ["off"];
-      } else {
-        events = ["off"];
-      }
-      // Mond zusätzlich einblenden, sobald die Sonne untergegangen ist -
-      // unabhängig vom eigentlichen Wetter-Zustand (also auch bei
-      // bewölkter Nacht, nicht nur bei "clear-night"). Nutzt die in jeder
-      // Home-Assistant-Installation vorhandene eingebaute sun.sun-Entity,
-      // kein zusätzlicher Sensor oder Konfiguration nötig.
-      const sunState = this._hass?.states?.["sun.sun"]?.state;
-      if (sunState === "below_horizon") {
-        // Die Sonne darf nachts nicht stehenbleiben: manche Wetter-
-        // Integrationen melden den TAGES-Zustand und bleiben auch nach
-        // Sonnenuntergang auf "sunny". Ohne diese Zeile lägen Sonne und
-        // Mond exakt übereinander (beide sitzen oben rechts) und ergäben
-        // ein seltsames Mischbild.
-        events = events.filter((e) => e !== "off" && e !== "sun");
-        if (!events.includes("moon")) events.push("moon");
-      }
-      // ❄️ Frost-Ränder unter 0 °C - egal welches Wetter gerade ist
-      if (frostLevel(cfg, this._hass) > 0) events = events.filter((e) => e !== "off").concat("frost");
+      // Wetter, Mond (sobald die Sonne weg ist - auch bei bewölkter Nacht),
+      // Frost, eigener Regen-Sensor, Blitzortung und Regen-Vorbote:
+      // alles steckt in weatherInfo() (gleich wie in der Liste)
+      const events = weatherInfo(cfg, this._hass).events;
       return events.length > 0 ? events : ["off"];
     }
     // Jahreszeiten / Feiertage: zeigen, was heute dran ist (oder nichts)
@@ -4360,8 +4693,14 @@ class AmbientOverlayCard extends HTMLElement {
       if (this._layerCfg?.[event]) state.cfg = this._layerCfg[event];
       const layerCfg = state.cfg || this._config;
       let cfgForRender = layerCfg;
+      // 🌧️🌬️ Regenstärke und Wind in Stufen - eine neue Stufe zeichnet neu
+      const wxLayer = (base === "rain" || base === "snow" || base === "hail" || base === "rain_hint")
+        ? (() => { const i = weatherInfo(layerCfg, this._hass); return { rain: i.rain, wind: i.wind }; })()
+        : null;
       if (base === "snow") {
-        cfgForRender = { ...layerCfg, _snowLevel: this._snowLevel };
+        cfgForRender = { ...layerCfg, _snowLevel: this._snowLevel, _wx: wxLayer };
+      } else if (wxLayer) {
+        cfgForRender = { ...layerCfg, _wx: wxLayer };
       } else if (base === "frost") {
         cfgForRender = { ...layerCfg, _frostLevel: frostLevel(layerCfg, this._hass) };
       } else if (base === "night_sky") {
@@ -4495,6 +4834,65 @@ const GROUP_TEXT = {
   and: ["UND", "alles davon muss stimmen"],
 };
 
+// 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
+// darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
+const AOC_BETA_NEWS = [
+  "🌧️ Echte Regenstärke: Niesel sieht zart aus, Starkregen kräftig",
+  "🌬️ Echter Wind: Regen, Schnee und Hagel fallen schräg, je nach Windstärke und -richtung",
+  "☔ Eigener Regen-Sensor (optional) - ohne Sensor entscheidet wie bisher das Wetter",
+  "💧 Regen-Vorbote: kommt laut Vorhersage gleich Regen, tropft es schon am Rand",
+  "⚡ Gewitter in der Nähe: mit „Blitzortung“ blitzt es nur, wenn es wirklich nah ist",
+  "ⓘ Hinweis im Editor, wenn ein Sensor fehlt oder nicht verfügbar ist",
+];
+const AOC_NEWS = [
+  ["1.0.19-beta.3", "🔄 „Neue Version da“-Hinweis mit Knopf „Neu laden“"],
+  ["1.0.19-beta.2", "🍂 Jahreszeiten nur noch mit Sensor"],
+  ["1.0.19-beta.1", "🍂 Jahreszeiten und 🎉 Feiertage"],
+  ["1.0.18", "🔢 Höhe des Geburtstags-Schriftzugs per Zahl eingeben"],
+  ["1.0.17", "🎂 Höhe des Geburtstags-Schriftzugs einstellbar"],
+  ["1.0.16", "❄️ Frost-Ränder in der Wetter-Automatik, ⓘ zum Antippen im Editor"],
+  ["1.0.15", "README aufgeräumt, Credits wie bei der Einkaufsliste"],
+  ["1.0.14", "🧺 Alles in einer Karte"],
+  ["1.0.13", "✨ Neuer Editor"],
+];
+
+function newsHtml() {
+  const beta = /-beta/.test(CARD_VERSION)
+    ? `<div class="beta-box"><b>🧪 Beta ${CARD_VERSION}</b><ul>${AOC_BETA_NEWS.map((t) => `<li>${t}</li>`).join("")}</ul></div>`
+    : "";
+  const last = AOC_NEWS.slice(0, 15);
+  return `${beta}<div class="lbl">Die letzten Neuerungen bis Version ${last[0] ? last[0][0] : CARD_VERSION}</div>
+    <ul class="news">${last.map(([v, t]) => `<li><b>${v}</b> ${t}</li>`).join("")}</ul>`;
+}
+
+// ⓘ Was passiert, wenn ein gewählter Sensor fehlt oder "nicht verfügbar" ist?
+// (Nr. 6: lieber ehrlich sagen, statt dass der Effekt still leer bleibt)
+const MISSING_TEXT = {
+  weather_entity: "Solange bleibt der Wetter-Effekt leer (nur Mond und Frost laufen weiter).",
+  temperature_entity: "Solange nimmt die Karte die Temperatur aus dem Wetter-Sensor.",
+  season_entity: "Solange bleibt der Effekt leer.",
+  rain_entity: "Kein Problem: Solange entscheidet der Wetter-Sensor, ob es regnet.",
+  lightning_entity: "Kein Problem: Solange entscheidet der Wetter-Sensor, ob es blitzt.",
+  santa_sensor: "Solange zählt er als „aus“.",
+  dinner_sensor: "Solange zählt er als „aus“.",
+  halloween_sensor: "Solange zählt er als „aus“ (das Datum gilt trotzdem).",
+  custom_wagon_entity: "Solange gilt der Gäste-Text darunter.",
+};
+// Diese Entitäten beobachtet der Editor, damit der Hinweis von selbst kommt und geht
+const PICKER_KEYS = Object.keys(MISSING_TEXT);
+
+// Ist eine gewählte Entität weg oder nicht verfügbar? null = alles gut
+function entityTrouble(hass, eid, key) {
+  if (!eid || !hass?.states) return null;
+  const st = hass.states[eid];
+  if (!st) return "missing";
+  const v = String(st.state).toLowerCase();
+  if (v === "unavailable") return "unavailable";
+  // Blitzortung meldet "unknown", wenn gerade kein Blitz da ist - das ist normal
+  if (v === "unknown" && key !== "lightning_entity") return "unavailable";
+  return null;
+}
+
 const EDITOR_CSS = `
   :host { display: block; }
   .wrap { padding: 4px 0 8px; color: var(--primary-text-color, #212121); font-family: inherit; }
@@ -4561,6 +4959,13 @@ const EDITOR_CSS = `
   .hint { display: none; background: var(--secondary-background-color, rgba(127,127,127,.12)); border-radius: 10px;
     padding: 9px 12px; font-size: 12.5px; line-height: 1.45; color: var(--secondary-text-color, #727272); margin: -2px 2px 10px; }
   .hint.on { display: block; }
+  .beta-box { background: rgba(255,152,0,.16); border: 1px solid rgba(255,152,0,.55); border-radius: 12px;
+    padding: 10px 12px; font-size: 13px; line-height: 1.45; margin: 4px 2px 6px; }
+  .beta-box ul, .news { margin: 6px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+  .news b { font-weight: 600; margin-right: 4px; }
+  .miss { display: flex; gap: 8px; align-items: flex-start; background: rgba(255,152,0,.14); border-radius: 10px;
+    padding: 8px 12px; font-size: 12.5px; line-height: 1.45; color: var(--primary-text-color, #212121); margin: 6px 2px 10px; }
+  .miss .info { flex: 0 0 auto; border-color: var(--warning-color, #ff9800); color: var(--warning-color, #ff9800); cursor: default; }
   .note { font-size: 12.5px; line-height: 1.45; color: var(--secondary-text-color, #727272); margin: 2px 2px 8px; }
 
   /* Segment-Knöpfe */
@@ -4767,9 +5172,11 @@ class AmbientOverlayCardEditor extends HTMLElement {
         walk(e?.conditions);
       });
     }
-    const w = c.weather_entity;
-    if (w) parts.push(this._hass?.states?.[w]?.state);
-    if (this._list) c.effects.forEach((e) => e?.weather_entity && parts.push(this._hass?.states?.[e.weather_entity]?.state));
+    const st = this._hass?.states || {};
+    for (const e of (this._list ? c.effects : [c])) {
+      for (const k of PICKER_KEYS) if (e?.[k]) parts.push(st[e[k]] ? st[e[k]].state : "-");
+      if (e?.event === "weather_auto") parts.push(weatherSig(e, this._hass));
+    }
     parts.push(this._hass?.states?.["sun.sun"]?.state);
     return JSON.stringify(parts);
   }
@@ -4907,7 +5314,20 @@ class AmbientOverlayCardEditor extends HTMLElement {
 
   _picker(scope, label, key, domains, hint, placeholder) {
     return `${this._label(label, `${scope}:${key}`, hint)}
-      <div class="picker-slot" data-scope="${scope}" data-key="${key}" data-domains="${domains.join(",")}" data-placeholder="${escapeHtml(placeholder)}"></div>`;
+      <div class="picker-slot" data-scope="${scope}" data-key="${key}" data-domains="${domains.join(",")}" data-placeholder="${escapeHtml(placeholder)}"></div>
+      ${this._missHint(scope, key)}`;
+  }
+
+  // ⓘ Hinweis unter dem Suchfeld, wenn die gewählte Entität fehlt oder
+  // gerade nicht verfügbar ist - mit dem, was die Karte dann macht
+  _missHint(scope, key) {
+    const eid = this._cfg(scope)[key];
+    const t = entityTrouble(this._hass, eid, key);
+    if (!t) return "";
+    const what = t === "missing"
+      ? `„${escapeHtml(eid)}“ gibt es in Home Assistant nicht (mehr).`
+      : `„${escapeHtml(this._friendly(eid))}“ ist gerade nicht verfügbar.`;
+    return `<div class="miss"><span class="info" aria-hidden="true">i</span><span>${what} ${MISSING_TEXT[key] || ""}</span></div>`;
   }
 
   _friendly(eid) {
@@ -5021,7 +5441,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
     let warn = false;
     if (ev === "weather_auto") {
       set += this._picker(scope, "🌦️ Wetter-Sensor", "weather_entity", ["weather"], "Diese Wetter-Entity bestimmt, welcher Effekt gerade läuft (regnet, schneit, …).", "Wetter suchen, z. B. weather.home");
-      if (c.weather_entity) sum.push(this._friendly(c.weather_entity)); else { sum.push("Wetter fehlt!"); warn = true; }
+      if (!c.weather_entity) { sum.push("Wetter fehlt!"); warn = true; }
+      else if (entityTrouble(this._hass, c.weather_entity, "weather_entity")) { sum.push("Wetter nicht verfügbar!"); warn = true; }
+      else sum.push(this._friendly(c.weather_entity));
       const frostOn = c.frost_edges !== false;
       const fid = `${scope}:frost`.replace(/^root:/, "");
       set += `
@@ -5032,6 +5454,42 @@ class AmbientOverlayCardEditor extends HTMLElement {
         set += this._picker(scope, "🌡️ Temperatur-Sensor (optional)", "temperature_entity", ["sensor"], "Zum Beispiel die Außentemperatur deiner Wetterstation. Leer = die Temperatur aus dem Wetter-Sensor.", "Sensor suchen, z. B. Außentemperatur");
         const t = readTemperatureC(c, this._hass);
         if (t !== null) sum.push(`${t.toFixed(1).replace(".", ",")} °C${t < 0 ? " ❄️" : ""}`);
+      }
+      // Kleine Schalter-Zeile mit ⓘ (gleich gebaut wie die Frost-Ränder)
+      const swRow = (key, em, name, hint) => {
+        const id = `${scope}:${key}`.replace(/^root:/, "");
+        return `
+        <label class="sw-row" for="${key}-${scope}"><span class="em">${em}</span><span class="txt" style="display:flex;align-items:center;gap:6px">${name}${this._info(id)}</span>
+          <input type="checkbox" id="${key}-${scope}" data-scope="${scope}" data-part="${key}" ${c[key] !== false ? "checked" : ""}/><span class="sw"></span></label>
+        ${this._hint(id, hint)}`;
+      };
+      const wx = weatherInfo(c, this._hass);
+      set += swRow("rain_intensity", "🌧️", "Echte Regenstärke",
+        "Nieselregen = wenige kurze, zarte Fäden. Starkregen = viele lange, schnelle Striche. Woher die Karte das weiß: eigener Regen-Sensor (mm/h), sonst die Regenmenge vom Wetter-Sensor bzw. seiner Vorhersage, sonst „Starkregen“ (pouring) vom Wetterdienst.");
+      if (wx.rain) sum.push(["", "Niesel", "Regen", "Starkregen"][wx.rain]);
+      set += swRow("wind_effects", "🌬️", "Echter Wind",
+        "Regen, Schnee und Hagel fallen schräg - je stärker der Wind laut Wetter-Sensor, desto schräger (ab ca. 10 km/h). Die Windrichtung bestimmt, ob nach links oder rechts. Das Laub gehört zu den 🍂 Jahreszeiten und kennt den Wind nicht.");
+      if (c.wind_effects !== false && wx.wind.lvl > 0) sum.push(`Wind ${"▮".repeat(wx.wind.lvl)}`);
+      set += this._picker(scope, "☔ Eigener Regen-Sensor (optional)", "rain_entity", ["binary_sensor", "sensor", "input_boolean"],
+        "Zum Beispiel der Regenmelder im Garten (an/aus) oder die Regenrate deiner Wetterstation in mm/h. Er hat Vorrang vor dem Wetterdienst: nass = Regen, trocken = kein Regen. Leer, fehlt er oder ist er nicht verfügbar, entscheidet einfach der Wetter-Sensor - du musst also nichts einrichten.",
+        "Sensor suchen, z. B. Regensensor");
+      const rs = rainSensorInfo(c, this._hass);
+      if (rs) sum.push(rs.wet ? "☔ nass" : "☔ trocken");
+      set += swRow("rain_hint", "💧", "Regen-Vorbote",
+        "Kommt laut stündlicher Vorhersage in den nächsten etwa 30 Minuten Regen, rinnen schon mal ein paar zarte Tropfen am linken und rechten Rand herunter. Braucht einen Wetter-Sensor mit stündlicher Vorhersage (z. B. Met.no, DWD, OpenWeatherMap).");
+      if (c.rain_hint !== false && c.weather_entity && this._hass?.states?.[c.weather_entity] && !forecastSupported(this._hass, c.weather_entity)) {
+        set += `<div class="miss"><span class="info" aria-hidden="true">i</span><span>Dein Wetter-Sensor liefert keine stündliche Vorhersage - der Regen-Vorbote bleibt deshalb aus.</span></div>`;
+      }
+      if (wx.hint) sum.push("💧 Regen bald");
+      set += this._picker(scope, "⚡ Blitz-Sensor (optional)", "lightning_entity", ["sensor"],
+        "Für die Integration „Blitzortung“: den Sensor „Lightning distance“ (Entfernung) wählen. Dann blitzt es NUR, wenn ein Blitz wirklich nah war (in den letzten 15 Minuten, näher als die Entfernung darunter) - egal was der Wetterdienst sagt. Leer oder nicht verfügbar = der Wetter-Sensor entscheidet.",
+        "Sensor suchen, z. B. Lightning distance");
+      if (c.lightning_entity) {
+        set += this._label("Wie nah muss das Gewitter sein?", `${scope}:lightning_km`, "Blitze, die weiter weg sind, zählen nicht. Standard: 15 km.")
+          + `<div class="num-row"><input class="field" type="number" inputmode="numeric" min="1" max="100" step="1" data-scope="${scope}" data-num="lightning_km" value="${numOf(c.lightning_km) ?? 15}"/>`
+          + `<span class="num-unit">km</span></div>`;
+        const near = lightningNear(c, this._hass);
+        if (near !== null) sum.push(near ? "⚡ Gewitter nah" : "⚡ kein Gewitter");
       }
     }
     if (ev === "seasons") {
@@ -5418,6 +5876,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
         </div>${this._hint("convert", "Macht aus dieser Karte eine Liste. Dieser Effekt bleibt mit allen Einstellungen drin, weitere kannst du dazunehmen - jeder mit eigenem „Wann anzeigen?“.")}</div>`;
       if (PREVIEW_PLAY_TEXT[c.event]) playText = PREVIEW_PLAY_TEXT[c.event];
     }
+    html += this._panel("neu", "🆕", "Was ist neu", `v${CARD_VERSION}`, newsHtml());
     html += this._panel("ueber", "💙", "Über die Karte", `v${CARD_VERSION} · Mister-M`, creditsHtml());
 
     // Beim Neuaufbau nicht springen: Höhe kurz festhalten und Scroll-Stelle merken
@@ -6005,6 +6464,13 @@ class AmbientOverlayCardEditor extends HTMLElement {
     return { parts: [RENDERERS[event](c, this._hass, this)], label: `${em} ${name} (ab ${when})` };
   }
 
+  // Warum zeigt die Vorschau beim Wetter nichts?
+  _weatherEmpty(cfg) {
+    if (!cfg.weather_entity) return "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.";
+    if (entityTrouble(this._hass, cfg.weather_entity, "weather_entity")) return "ⓘ Der Wetter-Sensor ist gerade nicht verfügbar - siehe ⚙️ Einstellungen.";
+    return "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag).";
+  }
+
   _updatePreview() {
     const stage = this.shadowRoot.querySelector(".pv-stage");
     const msg = this.shadowRoot.querySelector(".pv-msg");
@@ -6027,7 +6493,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
         const nx = !parts.length && this._previewNextHoliday(cfg);
         if (nx) { parts = nx.parts; tag.textContent = `Heute kein Feiertag · Vorschau: ${nx.label}`; }
         if (!parts.length) empty = cfg.event === "weather_auto"
-          ? (cfg.weather_entity ? "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag)." : "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.")
+          ? this._weatherEmpty(cfg)
           : (cfg.event === "seasons" && !cfg.season_entity) ? "Bitte unter ⚙️ Einstellungen den Jahreszeiten-Sensor wählen."
           : "Keine Vorschau.";
       } else {
@@ -6046,7 +6512,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
         const nx = !parts.length && this._previewNextHoliday(c);
         if (nx) { parts = nx.parts; tag.textContent = `Heute kein Feiertag · Vorschau: ${nx.label}`; }
         if (!parts.length && c.event === "weather_auto") {
-          empty = c.weather_entity ? "Gerade kein Wetter-Effekt (z. B. bewölkt am Tag)." : "Bitte unter ⚙️ Einstellungen einen Wetter-Sensor wählen.";
+          empty = this._weatherEmpty(c);
         } else if (!parts.length && RETIRED_EVENTS[c.event]) {
           empty = "Diesen Effekt gibt es nicht mehr allein - siehe oben.";
         } else if (!parts.length && c.event === "seasons" && !c.season_entity) {

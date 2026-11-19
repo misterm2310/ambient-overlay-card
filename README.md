@@ -27,7 +27,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 
 ## ✨ Was kann das Ding?
 
-- 🌦️ **Echtes Wetter** von deiner `weather.*`-Entity: Regen, Schnee, Blitz, Nebel, Sonne – plus 🌙 Mond mit echter Mondphase.
+- 🌦️ **Echtes Wetter** von deiner `weather.*`-Entity: Regen, Schnee, Blitz, Nebel, Sonne – plus 🌙 Mond mit echter Mondphase, echter Regenstärke, schrägem Regen bei Wind, Regen-Vorbote und ⚡ Blitzortung.
 - 🚂 **Dampflok** mit deiner Familie als Waggons (nur wer zuhause ist), Gästen und Schlusswagen.
 - 🐕 **Tiere:** Labrador, 🦉 Eule & Vogelhäuschen, 🕷️ Spinne.
 - 🍂 **Jahreszeiten** von selbst: Blüten, Bienen, Laub, winzige Eiszapfen.
@@ -55,6 +55,12 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 | 🕷️ **Spinne** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen). |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
 | 🥶 **Frost-Ränder** | Ist es draußen unter 0 °C, vereisen die Ränder vom Bildschirm – je kälter, desto stärker. Läuft in der Wetter-Automatik bei jedem Wetter mit. |
+| 🌧️ **Echte Regenstärke** | Nieselregen = wenige kurze, zarte Fäden. Starkregen = viele lange, schnelle Striche. Woher die Karte das weiß: eigener Regen-Sensor (mm/h), sonst die Regenmenge vom Wetter-Sensor bzw. seiner stündlichen Vorhersage, sonst „Starkregen“ vom Wetterdienst. |
+| 🌬️ **Echter Wind** | Regen, Schnee und Hagel fallen schräg – je stärker der Wind laut Wetter-Sensor, desto schräger (ab ca. 10 km/h). Die Windrichtung entscheidet, ob nach links oder rechts. |
+| ☔ **Eigener Regen-Sensor** | Optional, z. B. der Regenmelder im Garten (an/aus) oder die Regenrate deiner Wetterstation (mm/h). Er hat Vorrang: nass = Regen, trocken = kein Regen. Kein Sensor oder nicht verfügbar? Dann entscheidet einfach der Wetter-Sensor – einrichten musst du nichts. |
+| 💧 **Regen-Vorbote** | Kommt laut stündlicher Vorhersage in den nächsten etwa 30 Minuten Regen, rinnen schon mal ein paar zarte Tropfen am linken und rechten Rand herunter. Braucht einen Wetter-Sensor mit stündlicher Vorhersage (z. B. Met.no, DWD). |
+| ⚡ **Gewitter in der Nähe** | Optional mit der Integration „Blitzortung“: Sensor „Lightning distance“ wählen. Dann blitzt es nur, wenn in den letzten 15 Minuten ein Blitz näher als 15 km (einstellbar) war – egal was der Wetterdienst sagt. Ohne Sensor oder bei „nicht verfügbar“ entscheidet der Wetter-Sensor. |
+| ⓘ **Sensor fehlt?** | Fehlt ein gewählter Sensor oder ist er „nicht verfügbar“, steht im Editor direkt darunter ein oranger ⓘ-Hinweis, was die Karte jetzt macht. In der Liste gibt's einen roten Punkt. |
 | 🌫️ **Sanft statt hart** | Wechselt das Wetter von selbst, blendet der alte Effekt weich aus. |
 | 🧺 **Alles in einer Karte** | Alle Effekte in einer einzigen Karte, jeder mit eigenem **„🕒 Wann anzeigen?“** – zum Antippen statt YAML: nur nachts, Zeitraum im Jahr, Uhrzeit, Schalter, Person zuhause, Wetter … plus ODER-/UND-Gruppen. Grüne und graue Punkte zeigen, was gerade läuft und warum etwas wartet. |
 | 👁️ **Editor mit Live-Vorschau** | Effekte als Kacheln zum Antippen, aufklappbare Bereiche, Schiebeschalter und Suchfelder wie in Home Assistant. Oben eine Vorschau mit Knopf „▶ Jetzt vorbeifliegen lassen“ – so musst du nicht minutenlang auf Hexe, Zug oder Hund warten. |
@@ -360,6 +366,12 @@ leaf_colors:
 | `weather_entity` | – | `weather.*`-Entity für die Automatik, beim Hund fürs Schütteln |
 | `frost_edges` | `true` | Wetter-Automatik: 🥶 Frost-Ränder unter 0 °C an/aus |
 | `temperature_entity` | – | Wetter-Automatik: eigener Temperatur-Sensor für den Frost (°C oder °F). Leer = Temperatur aus `weather_entity` |
+| `rain_intensity` | `true` | Wetter-Automatik: 🌧️ echte Regenstärke (Niesel/Regen/Starkregen) an/aus |
+| `wind_effects` | `true` | Wetter-Automatik: 🌬️ Regen, Schnee und Hagel fallen je nach Wind schräg |
+| `rain_entity` | – | Wetter-Automatik: ☔ eigener Regen-Sensor (`binary_sensor`/`input_boolean` an/aus oder `sensor` in mm/h). Fehlt er oder ist er nicht verfügbar, entscheidet `weather_entity` |
+| `rain_hint` | `true` | Wetter-Automatik: 💧 Regen-Vorbote (braucht stündliche Vorhersage) |
+| `lightning_entity` | – | Wetter-Automatik: ⚡ Sensor „Lightning distance“ der Integration Blitzortung. Gesetzt = Blitz nur bei nahem Gewitter. Nicht verfügbar = `weather_entity` entscheidet |
+| `lightning_km` | `15` | Wie nah ein Blitz sein muss (km) |
 | `birthday_text` | `Happy Birthday!` | Text auf der Wimpelkette (wird gegen Schadcode abgesichert) |
 | `birthday_text_top` | `26` | Höhe des Schriftzugs: Abstand vom oberen Rand in Pixeln (0–600). Die Wimpelkette bleibt oben |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Teile des Geburtstags-Modus einzeln an/aus |

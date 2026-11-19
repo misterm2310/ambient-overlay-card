@@ -29,7 +29,7 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 
 ## ✨ What can it do?
 
-- 🌦️ **Real weather** from your `weather.*` entity: rain, snow, lightning, fog, sun – plus a 🌙 moon with the real moon phase.
+- 🌦️ **Real weather** from your `weather.*` entity: rain, snow, lightning, fog, sun – plus a 🌙 moon with the real moon phase, real rain intensity, slanted rain in the wind, a rain heads-up and ⚡ Blitzortung.
 - 🚂 **Steam train** with your family as wagons (only who is home), guests and a tail car.
 - 🐕 **Animals:** Labrador, 🦉 owl & birdhouse, 🕷️ spider.
 - 🍂 **Seasons** by themselves: blossoms, bees, leaves, tiny icicles.
@@ -57,6 +57,12 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 | 🕷️ **Spider** | A spider in its web (loses its grip for a moment and then acts as if nothing happened). |
 | ☃️ **Growing snow layer** | If it snows for a while, a thin layer of snow slowly builds up at the bottom. |
 | 🥶 **Frosty edges** | Below 0 °C outside, the edges of the screen ice over – the colder, the stronger. Runs in the weather automation whatever the weather. |
+| 🌧️ **Real rain intensity** | Drizzle = a few short, delicate threads. Heavy rain = lots of long, fast streaks. Source: your own rain sensor (mm/h), else the precipitation of the weather entity or its hourly forecast, else "pouring" from the weather service. |
+| 🌬️ **Real wind** | Rain, snow and hail fall at an angle – the stronger the wind according to the weather entity, the steeper (from about 10 km/h). The wind direction decides left or right. |
+| ☔ **Own rain sensor** | Optional, e.g. the rain detector in the garden (on/off) or the rain rate of your weather station (mm/h). It wins: wet = rain, dry = no rain. No sensor or unavailable? Then the weather entity decides as before – nothing to set up. |
+| 💧 **Rain heads-up** | If the hourly forecast says rain within about 30 minutes, a few delicate drops already run down the left and right edges. Needs a weather entity with hourly forecast (e.g. Met.no, DWD). |
+| ⚡ **Thunderstorm nearby** | Optional with the "Blitzortung" integration: pick the "Lightning distance" sensor. Then it only flashes if a strike within the last 15 minutes was closer than 15 km (adjustable) – whatever the weather service says. No sensor or unavailable = the weather entity decides. |
+| ⓘ **Sensor missing?** | If a chosen sensor is gone or "unavailable", the editor shows an orange ⓘ note right below it, saying what the card does now. In the list you get a red dot. |
 | 🌫️ **Soft, not hard** | When the weather changes by itself, the old effect fades out gently. |
 | 🧺 **All in one card** | All effects in one single card, each with its own **“🕒 When to show?”** – tap instead of YAML: only at night, period of the year, time of day, switch, person at home, weather … plus OR/AND groups. Green and grey dots show what is running right now and why something is waiting. |
 | 👁️ **Editor with live preview** | Effects as tiles to tap, collapsible sections, toggle switches and the same entity search as in Home Assistant. A preview at the top with a “▶ Let it fly past now” button – no need to wait minutes for the witch, train or dog. |
@@ -362,6 +368,12 @@ leaf_colors:
 | `weather_entity` | – | `weather.*` entity for the automation, and for the dog’s shaking |
 | `frost_edges` | `true` | Weather automation: 🥶 frosty edges below 0 °C on/off |
 | `temperature_entity` | – | Weather automation: your own temperature sensor for the frost (°C or °F). Empty = temperature from `weather_entity` |
+| `rain_intensity` | `true` | Weather automation: 🌧️ real rain intensity (drizzle/rain/heavy) on/off |
+| `wind_effects` | `true` | Weather automation: 🌬️ rain, snow and hail slant with the wind |
+| `rain_entity` | – | Weather automation: ☔ own rain sensor (`binary_sensor`/`input_boolean` on/off or `sensor` in mm/h). Missing or unavailable = `weather_entity` decides |
+| `rain_hint` | `true` | Weather automation: 💧 rain heads-up (needs hourly forecast) |
+| `lightning_entity` | – | Weather automation: ⚡ "Lightning distance" sensor of the Blitzortung integration. Set = flashes only for a nearby storm. Unavailable = `weather_entity` decides |
+| `lightning_km` | `15` | How close a strike has to be (km) |
 | `birthday_text` | `Happy Birthday!` | Text on the bunting (protected against malicious code) |
 | `birthday_text_top` | `26` | Height of the text: distance from the top edge in pixels (0–600). The bunting stays at the top |
 | `birthday_balloons` / `birthday_confetti` / `birthday_banner` / `birthday_lights` | `true` | Parts of the birthday mode on/off |
