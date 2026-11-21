@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.4";
+const CARD_VERSION = "1.0.19-beta.5";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -926,23 +926,38 @@ function renderStorm(cfg, hass, hostEl) {
   return { css, html: `<div class="storm-container" aria-hidden="true">${gustHTML}</div>` };
 }
 
+// 🎅 Weihnachtsmann: klassischer Schlitten mit VIER Rentieren, alle in
+// einer Reihe hintereinander am roten Zuggeschirr. Vorne links läuft Rudi mit roter,
+// leise glühender Nase. Der Schlitten fliegt nicht stur geradeaus, sondern
+// in einer sanften Welle, die Rentiere „galoppieren“ (wippen versetzt),
+// und hinten sprühen die Kufen Funken.
+//
+// Fire-TV-schonend: Die große Bewegung ist EINE transform-Animation auf
+// dem Kasten (aus der Uhrzeit, wie bisher). Dazu kommen nur kleine
+// Wipp-Animationen (4 Rentiere, Nase, 2 Funken-Gruppen) - kein Filter, kein
+// Schatten, keine Zufallszahlen pro Bild.
 function renderSanta(cfg, hass, hostEl) {
   const opacity = getOpacityValue(cfg.opacity_preset || "medium");
   const isHigh = (cfg.opacity_preset || "medium") === "high";
   const finalOpacity = isHigh ? 1 : opacity;
   const interval = { low: 340, medium: 210, high: 100 }[cfg.count_preset || "medium"] || 210;
-  const flightPct = Math.min(30, (18 / interval) * 100);
+  const flightPct = Math.min(30, (PERIODIC_FLIGHT_SEC.santa / interval) * 100);
   const nowSec = Date.now() / 1000;
   const delaySec = periodicDelaySec(interval, "santa");
 
   // Gelegentlich (etwa jeder 3. Durchflug) verliert der Schlitten ein
-  // Geschenk, das runterfällt - deterministisch nach Durchflug-Nummer
-  // bestimmt, damit ein Neu-Rendern mitten im Flug nicht plötzlich das
-  // Geschenk verschwinden/auftauchen lässt.
+  // Päckchen vom Stapel - deterministisch nach Durchflug-Nummer, damit
+  // ein Neu-Rendern mitten im Flug es nicht plötzlich verschwinden lässt.
   const flightNumber = Math.floor(nowSec / interval);
   const dropsGift = flightNumber % 3 === 0;
   const giftStartPct = (flightPct * 0.35).toFixed(2);
   const giftEndPct = (flightPct * 0.85).toFixed(2);
+
+  // Flugbahn als sanfte Welle: [Anteil der Strecke, Höhe in px, Neigung]
+  const WAVE = [[0, 0, 0], [0.2, -22, 2], [0.45, 4, -2], [0.7, -26, 2], [1, -12, 0]];
+  const path = WAVE.map(([p, y, r]) =>
+    `${(flightPct * p).toFixed(2)}% { transform: translateX(calc((-100vw - 640px) * ${p})) translateY(${y}px) rotate(${r}deg); }`
+  ).join("\n      ");
 
   const css = `
     .santa-container {
@@ -950,14 +965,22 @@ function renderSanta(cfg, hass, hostEl) {
       pointer-events: none; z-index: 9999; overflow: hidden;
     }
     .santa-sleigh-box {
-      position: absolute; top: 8vh; right: -250px; width: 220px; height: 62px;
+      position: absolute; top: 8vh; right: -510px; width: 466px; height: 82px;
       animation: santa-fly ${interval}s linear infinite; animation-delay: ${delaySec}s; will-change: transform;
     }
+    .santa-sleigh-box svg { width: 100%; height: 100%; overflow: visible; }
     @keyframes santa-fly {
-      0% { transform: translateX(0) translateY(0); }
-      ${flightPct.toFixed(2)}% { transform: translateX(calc(-100vw - 300px)) translateY(-15px); }
-      100% { transform: translateX(calc(-100vw - 300px)) translateY(-15px); }
+      ${path}
+      100% { transform: translateX(calc(-100vw - 640px)) translateY(-12px) rotate(0deg); }
     }
+    /* Galopp: jedes Rentier wippt, versetzt - sieht aus wie Laufen in der Luft */
+    .santa-gallop { animation: santa-gallop .6s ease-in-out infinite; }
+    @keyframes santa-gallop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+    .santa-nose-glow { animation: santa-glow 1.4s ease-in-out infinite; }
+    @keyframes santa-glow { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+    .santa-trail { animation: santa-spark .36s steps(1, end) infinite; }
+    .santa-trail2 { animation-delay: -.18s; }
+    @keyframes santa-spark { 0% { opacity: 1; } 50% { opacity: .15; } }
     ${dropsGift ? `
     .santa-gift {
       animation: santa-gift-fall ${interval}s linear infinite; animation-delay: ${delaySec}s;
@@ -966,50 +989,117 @@ function renderSanta(cfg, hass, hostEl) {
     @keyframes santa-gift-fall {
       0%, ${giftStartPct}% { opacity: 0; transform: translateY(0) rotate(0deg); }
       ${(parseFloat(giftStartPct) + 2).toFixed(2)}% { opacity: 1; transform: translateY(0) rotate(0deg); }
-      ${giftEndPct}% { opacity: 0; transform: translateY(42px) rotate(140deg); }
-      100% { opacity: 0; transform: translateY(42px) rotate(140deg); }
+      ${giftEndPct}% { opacity: 0; transform: translateY(60px) rotate(160deg); }
+      100% { opacity: 0; transform: translateY(60px) rotate(160deg); }
     }
     ` : ""}
   `;
 
+  // Ein Rentier (schaut nach links), im Sprung: Vorderbeine nach vorn,
+  // Hinterbeine nach hinten gestreckt.
+  const deer = `
+    <g id="aoc-santa-deer">
+      <path d="M25,30 L15,37 L9,35 M29,31 L20,40 L13,41 M45,30 L55,36 L62,33 M42,31 L50,40 L57,42"
+            fill="none" stroke="var(--deer2,#5a3a1a)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <ellipse cx="53" cy="20" rx="4" ry="2.5" fill="#f5ecd9" transform="rotate(-25 53 20)"/>
+      <ellipse cx="36" cy="25" rx="18" ry="9" fill="var(--deer,#8b5a2b)"/>
+      <ellipse cx="35" cy="29.5" rx="12" ry="3.5" fill="#c89a6a"/>
+      <path d="M22,22 Q15,16 12,9" fill="none" stroke="var(--deer,#8b5a2b)" stroke-width="8" stroke-linecap="round"/>
+      <ellipse cx="9" cy="7" rx="7.5" ry="5.5" fill="var(--deer,#8b5a2b)" transform="rotate(-15 9 7)"/>
+      <ellipse cx="2.5" cy="9.5" rx="4.2" ry="3.2" fill="#c89a6a"/>
+      <circle cx="-1" cy="9" r="1.8" fill="#2b1a0e"/>
+      <circle cx="7" cy="5" r="1.1" fill="#1a1a1a"/>
+      <ellipse cx="15" cy="4" rx="3.5" ry="1.8" fill="var(--deer2,#5a3a1a)" transform="rotate(-30 15 4)"/>
+      <path d="M10,2 L7,-8 L3,-12 M7,-8 L9,-13 M8.5,-4 L4,-6 M13,2 L15,-8 L13,-13 M15,-8 L19,-12 M14,-4 L18,-5"
+            fill="none" stroke="#e3cfa8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M17,17 Q21,24 25,18 M30,16.5 Q31.5,25 30,33.5" fill="none" stroke="#b91c1c" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="20.5" cy="22" r="1.9" fill="#f5c542"/><circle cx="24" cy="21" r="1.6" fill="#f5c542"/>
+    </g>`;
+
+  // Vier Rentiere in einer Reihe; jedes wippt etwas versetzt (Galopp-Welle)
+  const DEER_X = [0, 64, 128, 192];
+  const deerHtml = DEER_X.map((x, i) =>
+    `<g transform="translate(${x},0)"><g class="santa-gallop" style="animation-delay:${(-0.15 * i).toFixed(2)}s"><use href="#aoc-santa-deer"/></g></g>`
+  ).join("");
+
   const html = `
     <div class="santa-container" style="opacity:${finalOpacity};" aria-hidden="true">
       <div class="santa-sleigh-box">
-        <svg viewBox="0 -20 320 90" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="-16 -28 510 90" preserveAspectRatio="xMidYMid meet">
           <defs>
-            <g id="santa-reindeer">
-              <ellipse cx="35" cy="28" rx="17" ry="9" fill="#8b5a2b"/>
-              <path d="M20,24 Q10,18 8,14" fill="none" stroke="#8b5a2b" stroke-width="7" stroke-linecap="round"/>
-              <ellipse cx="8" cy="14" rx="7" ry="6" fill="#8b5a2b"/>
-              <circle cx="2" cy="16" r="2.3" fill="#4a2f18"/>
-              <path d="M8,9 L4,-3 M4,-3 L0,-7 M4,-3 L2,1 M8,9 L13,-4 M13,-4 L17,-8 M13,-4 L15,0"
-                    fill="none" stroke="#4a2f18" stroke-width="2" stroke-linecap="round"/>
-              <path d="M22,35 Q16,44 12,50 M28,36 Q24,44 20,50 M46,36 Q54,42 58,50 M40,36 Q46,44 50,50"
-                    fill="none" stroke="#5a3a1a" stroke-width="3" stroke-linecap="round"/>
-              <path d="M52,24 Q57,20 55,27" fill="none" stroke="#8b5a2b" stroke-width="2" stroke-linecap="round"/>
-            </g>
+            ${deer}
+            <radialGradient id="aoc-santa-glow"><stop offset="0" stop-color="#ff3030" stop-opacity="1"/><stop offset=".35" stop-color="#ff3030" stop-opacity=".55"/><stop offset="1" stop-color="#ff4d4d" stop-opacity="0"/></radialGradient>
           </defs>
-          <use href="#santa-reindeer"/>
-          <use href="#santa-reindeer" transform="translate(68,0)"/>
-          <path d="M60,18 Q100,22 148,26 M128,18 Q140,22 148,26" fill="none" stroke="#3a2a1a" stroke-width="1.2" opacity="0.8"/>
-          <path d="M148,44 Q142,30 154,20 Q162,13 172,13 L212,13 Q224,13 224,25 L224,37 Q224,44 214,44 Z"
-                fill="#b91c1c" stroke="#d4af37" stroke-width="2"/>
-          <ellipse cx="182" cy="27" rx="12" ry="14" fill="#c41e3a"/>
-          <ellipse cx="182" cy="40" rx="12" ry="3" fill="#ffffff"/>
-          <rect x="172" y="29" width="20" height="3" fill="#1a1a1a"/>
-          <rect x="180" y="28.5" width="4" height="4" fill="#d4af37"/>
-          <circle cx="182" cy="10" r="7" fill="#f4c2a1"/>
-          <path d="M175,12 Q182,24 189,12 Q188,18 182,20 Q176,18 175,12 Z" fill="#ffffff"/>
-          <path d="M175,5 Q165,-8 179,-13 Q184,-12 180,-6 Q177,-1 175,5 Z" fill="#c41e3a"/>
-          <ellipse cx="180" cy="4" rx="7" ry="2.5" fill="#ffffff"/>
-          <circle cx="179" cy="-13" r="2.5" fill="#ffffff"/>
+          <!-- Funken an den Kufen hinten: zwei Gruppen blinken abwechselnd,
+               dadurch sieht es aus, als würden die Kufen durch die Luft sprühen -->
+          <g transform="translate(180,0) translate(306,58) scale(1.6) translate(-306,-58)">
+            <g class="santa-trail">
+              <path d="M308,57 L326,54 M309,59 L330,60 M307,61 L322,65" stroke="#ffd34d" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="334" cy="53" r="1.8" fill="#fff3b0"/><circle cx="344" cy="61" r="1.4" fill="#ffb347"/>
+              <circle cx="356" cy="56" r="1.1" fill="#ffd34d"/><circle cx="368" cy="63" r=".9" fill="#ff8c42"/>
+              <path d="M338,64 l1.4,-3.6 l1.4,3.6 l3.6,1.4 l-3.6,1.4 l-1.4,3.6 l-1.4,-3.6 l-3.6,-1.4 Z" fill="#fff6c8"/>
+            </g>
+            <g class="santa-trail santa-trail2">
+              <path d="M308,58 L324,58 M308,60 L319,63" stroke="#ff9f1c" stroke-width="1.2" stroke-linecap="round"/>
+              <circle cx="328" cy="57" r="1.5" fill="#ffd34d"/><circle cx="339" cy="52" r="1.2" fill="#fff3b0"/>
+              <circle cx="350" cy="64" r="1.3" fill="#ffb347"/><circle cx="362" cy="58" r="1" fill="#fff3b0"/>
+              <circle cx="375" cy="55" r=".8" fill="#ffd34d"/>
+              <path d="M352,51 l1.2,-3 l1.2,3 l3,1.2 l-3,1.2 l-1.2,3 l-1.2,-3 l-3,-1.2 Z" fill="#ffe27a"/>
+            </g>
+          </g>
+          <!-- Rentiere 1,3-fach vergrößert, damit sie zum Schlitten passen -->
+          <g transform="translate(0,-6) scale(1.3)">
+          <!-- Rotes Zuggeschirr: von Rudi durch alle Rentiere bis zum Schlitten -->
+          <path d="M30,25 Q62,30 94,25 Q126,30 158,25 Q190,30 222,25 Q248,30 272,35" fill="none" stroke="#c62828" stroke-width="1.6"/>
+          ${deerHtml}
+          <!-- Rudi (vorderstes Rentier): große rote Nase, die kräftig leuchtet -->
+          <circle class="santa-nose-glow" cx="-1" cy="9" r="13" fill="url(#aoc-santa-glow)"/>
+          <circle cx="-1" cy="9" r="3.6" fill="#ff1a1a"/><circle cx="-2" cy="7.9" r="1.1" fill="#ffd0d0"/>
+          </g>
+          <!-- Zügel von Santas Hand bis zu Rudi -->
+          <path d="M386,17 Q210,-4 18,10" fill="none" stroke="#7a1d1d" stroke-width="1" opacity=".85"/>
+          <!-- Ab hier: Schlitten-Teil, um 180 nach rechts geschoben (hinter den Rentieren) -->
+          <g transform="translate(180,0)">
+          <!-- Geschenke-Stapel hinten (statt Sack): bunte Päckchen mit Schleifen -->
+          <rect x="248" y="12" width="15" height="18" rx="1" fill="#2e8b57"/><path d="M255.5,12 V30" stroke="#f5c542" stroke-width="2"/>
+          <rect x="262" y="4" width="14" height="26" rx="1" fill="#1e5bb8"/><path d="M262,14 H276" stroke="#ffffff" stroke-width="2"/>
+          <rect x="275" y="9" width="15" height="21" rx="1" fill="#f5c542"/><path d="M282.5,9 V30" stroke="#c62828" stroke-width="2"/>
+          <rect x="253" y="-3" width="12" height="13" rx="1" fill="#e75480" transform="rotate(-10 259 3)"/><path d="M259,-3 V10" stroke="#ffffff" stroke-width="1.6" transform="rotate(-10 259 3)"/>
+          <rect x="268" y="-9" width="13" height="14" rx="1" fill="#c62828" transform="rotate(8 274 -2)"/><path d="M268,-2 H281" stroke="#f5c542" stroke-width="1.6" transform="rotate(8 274 -2)"/>
+          <path d="M270,-10 Q274,-16 275,-10 Q278,-16 280,-9" fill="none" stroke="#f5c542" stroke-width="1.6"/>
+          <path d="M276,9 Q280,4 282,9 Q285,4 288,9" fill="none" stroke="#c62828" stroke-width="1.6"/>
+          <!-- Weihnachtsmann: roter Mantel mit Fellbesatz, Rauschebart, Mütze weht nach hinten -->
+          <path d="M222,20 Q212,22 206,17" fill="none" stroke="#c41e3a" stroke-width="6.5" stroke-linecap="round"/>
+          <circle cx="211" cy="19.5" r="3.4" fill="#ffffff"/>
+          <circle cx="205" cy="16.5" r="3" fill="#1a1a1a"/>
+          <ellipse cx="234" cy="22" rx="15" ry="14" fill="#c41e3a"/>
+          <path d="M234,9 L234,30" stroke="#ffffff" stroke-width="3"/>
+          <circle cx="235" cy="0" r="8" fill="#f4c2a1"/>
+          <circle cx="229.5" cy="1.5" r="1.8" fill="#f2a08a"/>
+          <circle cx="232" cy="-2" r="1" fill="#1a1a1a"/>
+          <path d="M226,2 Q226,20 235,24 Q245,20 244,2 Q240,8 235,7 Q230,8 226,2 Z" fill="#ffffff"/>
+          <path d="M228,4 Q231,1 235,4 Q239,1 242,4" fill="none" stroke="#e8e8e8" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M227,-5 Q231,-20 248,-17 Q253,-15 249,-10 L242,-6 Z" fill="#c41e3a"/>
+          <ellipse cx="235" cy="-5" rx="9" ry="3" fill="#ffffff"/>
+          <circle cx="251" cy="-12" r="3.2" fill="#ffffff"/>
+          <!-- Schlitten: runde rote Wanne mit hohem Rücken, Schnörkel vorne, goldene Kufen -->
+          <path d="M172,30 Q166,31 167,38 Q170,50 188,51 L274,51 Q294,50 298,32 Q301,13 290,6 Q281,2 279,12 L277,30 Z"
+                fill="#c62828" stroke="#d4af37" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M172,30 Q163,25 168,19 Q174,15 177,21 Q178,25 174,26" fill="none" stroke="#d4af37" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M172,30 L277,30" stroke="#d4af37" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M290,10 Q295,14 292,20" fill="none" stroke="#f0d278" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M196,40 Q214,34 232,40 Q250,46 268,40" fill="none" stroke="#d4af37" stroke-width="1.6"/>
+          <path d="M194,51 L192,58 M284,50 L286,58" stroke="#d4af37" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M306,52 Q308,58 298,58 L178,58 Q158,58 155,48 Q153,40 161,40 Q167,41 165,47"
+                fill="none" stroke="#d4af37" stroke-width="3" stroke-linecap="round"/>
           ${dropsGift ? `
           <g class="santa-gift">
-            <rect x="206" y="34" width="13" height="11" fill="#e63946" stroke="#1a1a1a" stroke-width="1"/>
-            <path d="M206,38 L219,38 M212.5,34 L212.5,45" stroke="#ffffff" stroke-width="1.5"/>
-            <path d="M209,34 Q212.5,29 216,34" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+            <rect x="268" y="22" width="13" height="11" fill="#e63946" stroke="#1a1a1a" stroke-width="1"/>
+            <path d="M268,26 L281,26 M274.5,22 L274.5,33" stroke="#ffffff" stroke-width="1.5"/>
+            <path d="M271,22 Q274.5,17 278,22" fill="none" stroke="#ffffff" stroke-width="1.5"/>
           </g>
           ` : ""}
+          </g>
         </svg>
       </div>
     </div>
@@ -4837,14 +4927,13 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
-  "🌧️ Echte Regenstärke: Niesel sieht zart aus, Starkregen kräftig",
-  "🌬️ Echter Wind: Regen, Schnee und Hagel fallen schräg, je nach Windstärke und -richtung",
-  "☔ Eigener Regen-Sensor (optional) - ohne Sensor entscheidet wie bisher das Wetter",
-  "💧 Regen-Vorbote: kommt laut Vorhersage gleich Regen, tropft es schon am Rand",
-  "⚡ Gewitter in der Nähe: mit „Blitzortung“ blitzt es nur, wenn es wirklich nah ist",
-  "ⓘ Hinweis im Editor, wenn ein Sensor fehlt oder nicht verfügbar ist",
+  "🎅 Neuer Weihnachtsmann-Schlitten: 4 Rentiere hintereinander am roten Geschirr, vorne Rudi mit leuchtender roter Nase",
+  "🎅 Weihnachtsmann mit Rauschebart, Mütze weht im Wind",
+  "🦌 Die Rentiere galoppieren, der Schlitten fliegt in einer sanften Welle, hinten sprühen die Kufen Funken",
+  "🛷 Neuer Schlitten: runde rote Wanne mit goldenen Schnörkel-Kufen und buntem Geschenke-Stapel - ab und zu fällt ein Päckchen heraus",
 ];
 const AOC_NEWS = [
+  ["1.0.19-beta.4", "🌧️ Echte Regenstärke, 🌬️ Wind, ☔ Regen-Sensor, 💧 Regen-Vorbote, ⚡ Blitzortung"],
   ["1.0.19-beta.3", "🔄 „Neue Version da“-Hinweis mit Knopf „Neu laden“"],
   ["1.0.19-beta.2", "🍂 Jahreszeiten nur noch mit Sensor"],
   ["1.0.19-beta.1", "🍂 Jahreszeiten und 🎉 Feiertage"],
