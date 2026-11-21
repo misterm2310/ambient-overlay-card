@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.7";
+const CARD_VERSION = "1.0.19-beta.8";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -436,6 +436,15 @@ function isHalloweenTime(cfg, hass) {
   if (sensor && hass?.states?.[sensor]?.state === "on") return true;
   const now = new Date();
   return now.getMonth() === 9 && now.getDate() === 31;
+}
+
+// 🎄 Weihnachts-Look bei Eule & Vogelhäuschen? Ja, solange der Weihnachts-Schalter
+// (santa_sensor, derselbe wie beim Weihnachtsmann und der Dampflok) "an" ist.
+// Ganz bewusst ohne festes Datum. Halloween hat Vorrang (beides gleichzeitig wäre Kostüm-Chaos).
+function isOwlChristmasTime(cfg, hass) {
+  if (isHalloweenTime(cfg, hass)) return false;
+  const sensor = cfg && cfg.santa_sensor;
+  return !!sensor && hass?.states?.[sensor]?.state === "on";
 }
 
 const WEATHER_STATE_MAP = {
@@ -1940,6 +1949,9 @@ function renderBirdhouse(cfg, hass, hostEl) {
   // 🎃 An Halloween: Kürbis vor dem Häuschen, Spinnwebe unterm Dach,
   // und der Vogel fliegt mit Mini-Hexenhut vorbei.
   const spooky = isHalloweenTime(cfg, hass);
+  // 🎄 Weihnachten (Weihnachts-Schalter an): Schnee auf dem Dach, blinkende
+  // Lichterkette unterm Dach, und der Vogel trägt eine Mini-Nikolausmütze.
+  const xmas = isOwlChristmasTime(cfg, hass);
   // Anteil des Zyklus für den kompletten Anflug+Vorbeiflug (Rest ist Pause,
   // in der der Vogel unsichtbar wartet).
   const flightPct = Math.min(35, (9 / interval) * 100).toFixed(2);
@@ -1983,6 +1995,11 @@ function renderBirdhouse(cfg, hass, hostEl) {
       0% { opacity: 1; } 13% { opacity: 0.65; } 21% { opacity: 0.95; } 34% { opacity: 0.55; }
       45% { opacity: 1; } 61% { opacity: 0.75; } 72% { opacity: 0.5; } 84% { opacity: 0.9; } 100% { opacity: 1; }
     }` : ""}
+    ${xmas ? `
+    /* 🎄 Lichterkette: zwei Gruppen blinken abwechselnd (nur Deckkraft = schont den Fire TV) */
+    .birdhouse-box .bh-xl-a { animation: bh-xl-blink 1.6s steps(1) infinite; }
+    .birdhouse-box .bh-xl-b { animation: bh-xl-blink 1.6s steps(1) infinite; animation-delay: -0.8s; }
+    @keyframes bh-xl-blink { 0% { opacity: 1; } 50% { opacity: 0.25; } 100% { opacity: 1; } }` : ""}
   `;
   const html = `
     <div class="birdhouse-box" style="opacity:${finalOpacity};" aria-hidden="true">
@@ -2001,6 +2018,19 @@ function renderBirdhouse(cfg, hass, hostEl) {
           <path d="M51,23 L46,22.5 L42,19 L40.5,13" stroke-width="0.6"/>
         </g>
         <g transform="translate(36,51) scale(0.3)">${pumpkinShapes(true)}</g>` : ""}
+        ${xmas ? `
+        <path d="M5,9.5 L29,-5.5 L53,9.5" fill="none" stroke="#f8fbff" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M12,6 Q12.6,9.5 13.4,6.6 M41,3.6 Q41.8,8 42.6,4.4 M24,-2.5 Q24.6,1 25.3,-1.8" fill="none" stroke="#f8fbff" stroke-width="2" stroke-linecap="round"/>
+        <path d="M-5,68.5 Q26,61 61,68.5" fill="none" stroke="#f8fbff" stroke-width="3" stroke-linecap="round"/>
+        <path d="M8,13 Q14,18 20,14 Q26,19 32,14 Q38,18 44,14 Q48,17 50,13" fill="none" stroke="#2e4a2e" stroke-width="0.9"/>
+        <g class="bh-xl-a">
+          <circle cx="11" cy="15.6" r="1.9" fill="#ff3b3b"/><circle cx="23" cy="16.2" r="1.9" fill="#3bd16f"/>
+          <circle cx="35" cy="16.2" r="1.9" fill="#ffd23f"/><circle cx="47" cy="15.4" r="1.9" fill="#3b9bff"/>
+        </g>
+        <g class="bh-xl-b">
+          <circle cx="17" cy="16.4" r="1.9" fill="#ffd23f"/><circle cx="29" cy="15.8" r="1.9" fill="#ff3b3b"/>
+          <circle cx="41" cy="16.4" r="1.9" fill="#3b9bff"/>
+        </g>` : ""}
         </g>
       </svg>
     </div>
@@ -2016,6 +2046,10 @@ function renderBirdhouse(cfg, hass, hostEl) {
           <path d="M20.5,5.5 L23,-4 Q24,-7 19,-8 Q26,-7.5 25.5,-3 L27.5,5.5 Z" fill="#1f1a2a" stroke="#000" stroke-width="0.6"/>
           <path d="M21,3.6 L27,3.6 L27.3,5.2 L20.7,5.2 Z" fill="#8a2a8a"/>
           <ellipse cx="24" cy="5.6" rx="5.6" ry="1.3" fill="#1f1a2a" stroke="#000" stroke-width="0.5"/>` : ""}
+          ${xmas ? `
+          <path d="M20.3,5.6 Q21.5,-1.5 26.5,-2.2 Q30.6,-2.4 31.6,2.2 Q29.6,0.6 27.6,1.6 L27.8,5.6 Z" fill="#d32f2f" stroke="#8e1a1a" stroke-width="0.5"/>
+          <circle cx="31.6" cy="2.6" r="1.5" fill="#ffffff"/>
+          <rect x="19.6" y="4.4" width="8.8" height="2.4" rx="1.2" fill="#ffffff"/>` : ""}
         </svg>
       </div>
     </div>
@@ -2174,6 +2208,8 @@ function renderOwl(cfg, hass, hostEl) {
   const finalOpacity = isHigh ? 1 : opacity;
   // 🎃 An Halloween trägt die Eule einen Hexenhut (dreht sich mit dem Kopf).
   const witchHat = isHalloweenTime(cfg, hass);
+  // 🎄 Weihnachts-Schalter an: Nikolausmütze (dreht sich mit dem Kopf), kleiner Schneehaufen auf dem Ast.
+  const santaHat = isOwlChristmasTime(cfg, hass);
 
   const css = `
     .owl-container {
@@ -2225,6 +2261,7 @@ function renderOwl(cfg, hass, hostEl) {
         <path d="M92,10 A14,14 0 1,0 92,38 A11,11 0 1,1 92,10 Z" fill="#f4ecd8" opacity="0.8"/>
         <path d="M0,112 Q60,102 120,112 L120,120 Q60,110 0,120 Z" fill="#5a3d24"/>
         <path d="M14,108 L4,100 M100,108 L112,100" stroke="#5a3d24" stroke-width="3" stroke-linecap="round"/>
+        ${santaHat ? `<path d="M2,111.5 Q60,100.5 118,111.5" fill="none" stroke="#f8fbff" stroke-width="4" stroke-linecap="round"/>` : ""}
         <g class="owl-body">
           <path d="M28,58 Q16,78 24,103 Q30,105 36,98 Q32,78 38,60 Z" fill="#5a3d24"/>
           <path d="M92,58 Q104,78 96,103 Q90,105 84,98 Q88,78 82,60 Z" fill="#5a3d24"/>
@@ -2256,6 +2293,10 @@ function renderOwl(cfg, hass, hostEl) {
           <path d="M43,15 L77,15 L79,21 L41,21 Z" fill="#8a2a8a"/>
           <rect x="56" y="14" width="8" height="8" fill="#ffd23f" stroke="#a87a10" stroke-width="1"/>
           <ellipse cx="60" cy="22" rx="32" ry="6" fill="#1f1a2a" stroke="#000" stroke-width="2"/>` : ""}
+          ${santaHat ? `
+          <path d="M29,24 Q32,-8 63,-14 Q88,-16 93,8 Q87,5 83,11 L91,24 Z" fill="#d32f2f" stroke="#8e1a1a" stroke-width="2"/>
+          <circle cx="92" cy="10" r="7" fill="#ffffff" stroke="#d8dde3" stroke-width="1.2"/>
+          <rect x="27" y="17" width="66" height="11" rx="5.5" fill="#ffffff" stroke="#d8dde3" stroke-width="1.2"/>` : ""}
         </g>
         </g>
       </svg>
@@ -4908,9 +4949,10 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
-  "🎅 Weihnachtsmann-Zug halb so groß: der Weihnachtsmann ist jetzt etwa so groß wie die Hexe",
+  "🎄 Eule & Vogelhäuschen im Weihnachts-Look: Ist der Weihnachts-Schalter an, trägt die Eule eine Nikolausmütze, auf dem Häuschen liegt Schnee, unterm Dach blinkt eine Lichterkette und der Vogel trägt eine Mini-Mütze",
 ];
 const AOC_NEWS = [
+  ["1.0.19-beta.7", "🎅 Weihnachtsmann-Zug halb so groß: der Weihnachtsmann ist jetzt etwa so groß wie die Hexe"],
   ["1.0.19-beta.6", "✨ Funken an den Kufen entfernt"],
   ["1.0.19-beta.5", "🎅 Neuer Weihnachtsmann-Schlitten mit 4 Rentieren, vorne Rudi mit leuchtender roter Nase"],
   ["1.0.19-beta.4", "🌧️ Echte Regenstärke, 🌬️ Wind, ☔ Regen-Sensor, 💧 Regen-Vorbote, ⚡ Blitzortung"],
@@ -5572,6 +5614,10 @@ class AmbientOverlayCardEditor extends HTMLElement {
     }
     if (ev === "holidays" && c.holiday_christmas !== false) {
       set += this._picker(scope, "🎅 Weihnachts-Schalter", "santa_sensor", B, "Der Weihnachtsmann fliegt nur, solange dieser Schalter 'an' ist - ganz ohne festes Datum. Ohne Schalter kommt er gar nicht.", "Schalter suchen, z. B. Weihnachten");
+      if (c.santa_sensor) sum.push("Weihnachten");
+    }
+    if (ev === "owl_birdhouse") {
+      set += this._picker(scope, "🎄 Weihnachts-Schalter", "santa_sensor", B, "Ist er 'an', trägt die Eule nachts eine Nikolausmütze. Tagsüber liegt Schnee auf dem Vogelhäuschen, unterm Dach blinkt eine Lichterkette und der Vogel fliegt mit Mini-Mütze vorbei. Ganz ohne festes Datum. Halloween hat Vorrang.", "Schalter suchen, z. B. Weihnachten");
       if (c.santa_sensor) sum.push("Weihnachten");
     }
     if (ev === "dog") {

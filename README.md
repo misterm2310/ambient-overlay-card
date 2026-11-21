@@ -51,6 +51,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 | 🎂 **Geburtstags-Modus** | Luftballons, Konfetti, Wimpelkette mit eigenem Text (Höhe einstellbar) und Lichterkette – jedes Teil einzeln an- und abwählbar. |
 | 🍂 **Jahreszeiten** | Wechselt von selbst: 🌸 Frühling = Blüten in Rosa, Weiß und Flieder · 🐝 Sommer = Bienen · 🍂 Herbst = Laub, das ab und zu durchs Bild weht · 🧊 Winter = winzige Eiszapfen ganz oben (mit Tropfen) und glitzernde Eiskristalle. Welche Jahreszeit ist, sagt der Sensor der HA-Integration „Season“ – ohne Sensor bleibt der Effekt leer. Jede Jahreszeit einzeln abschaltbar. |
 | 🎉 **Feiertage** | Jeder Feiertag nur an seinen Tagen, jeder einzeln abschaltbar: 🎃 Halloween (29.–31.10. oder per Schalter: Kürbisse, Gespenst, Hexe, Spinnweben, Fledermäuse – jedes Teil einzeln) · 🏮 Martini (10.–11.11.: Laternenumzug unten, hinter dem Zug) · 👢 Nikolaus (5.–6.12.: gefüllte Stiefel in den unteren Ecken) · 🎅 Weihnachtsmann (nur solange dein Weihnachts-Schalter an ist: roter Schlitten mit Geschenke-Stapel und 4 Rentieren hintereinander, vorne Rudi mit leuchtend roter Nase, ab und zu fällt ein Geschenk heraus) · 🎆 Silvester (31.12.–1.1.: Feuerwerk in der oberen Hälfte) · 💕 Valentinstag (13.–14.2.: aufsteigende Herzen) · 🐰 Ostern (Palmsonntag bis Ostermontag, rechnet die Karte selbst aus: Gras mit Eiern und hoppelnder Osterhase, hinter dem Zug). |
+| 🎄 **Weihnachts-Look** | Solange dein Weihnachts-Schalter (`santa_sensor`) an ist: Weihnachtsmann-Schlitten bei den Feiertagen, festlich beladene Dampflok, Eule mit Nikolausmütze, Vogelhäuschen mit Schnee und blinkender Lichterkette (der Vogel trägt eine Mini-Mütze). Kein festes Datum. |
 | 👻 **Halloween-Look** | Am 31. Oktober ganz von selbst (oder per Schalter): Zug mit Kürbissen, Hexenkessel, Sarg und Süßigkeiten, Labrador mit Teufelshörnchen, Eule mit Hexenhut, Vogelhäuschen mit Kürbis und Spinnwebe (der Vogel trägt einen Mini-Hexenhut) und ein oranger Mond (in seiner echten Mondphase). |
 | 🕷️ **Spinne** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen). |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
@@ -285,6 +286,7 @@ weather_entity: weather.home
 type: custom:ambient-overlay-card
 event: owl_birdhouse
 opacity_preset: high
+santa_sensor: input_boolean.weihnachtszeit   # optional: 🎄 Weihnachts-Look
 ```
 
 **Geburtstag mit eigenem Text**
@@ -379,7 +381,7 @@ leaf_colors:
 | `season_entity` | – | Jahreszeiten: Sensor der Integration „Season“ (`spring`/`summer`/`autumn`/`winter`). Pflicht – ohne Sensor bleibt der Effekt leer |
 | `season_spring` / `season_summer` / `season_autumn` / `season_winter` | `true` | Jahreszeiten einzeln an/aus |
 | `holiday_halloween` / `holiday_martini` / `holiday_nikolaus` / `holiday_christmas` / `holiday_silvester` / `holiday_valentin` / `holiday_easter` | `true` | Feiertage einzeln an/aus |
-| `santa_sensor` | – | Schalter (`input_boolean`/`binary_sensor`/`switch`): an = Weihnachts-Ladung im Zug bzw. bei den Feiertagen: der Weihnachtsmann fliegt |
+| `santa_sensor` | – | Schalter (`input_boolean`/`binary_sensor`/`switch`): an = Weihnachts-Ladung im Zug, bei den Feiertagen fliegt der Weihnachtsmann, bei Eule & Vogelhäuschen der Weihnachts-Look |
 | `dinner_sensor` | – | Schalter: an = Abendessen-Ladung im Zug (Weihnachten hat Vorrang) |
 | `halloween_pumpkins` / `halloween_ghost` / `halloween_witch` / `halloween_webs` / `halloween_bats` | `true` | Feiertage: Teile von Halloween einzeln an/aus |
 | `halloween_sensor` | – | Schalter: an = Halloween-Look bei Zug, Hund, Eule und Mond (sonst nur am 31. Oktober), bei den Feiertagen: Halloween auch außerhalb vom 29.–31.10. |
