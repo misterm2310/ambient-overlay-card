@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.6";
+const CARD_VERSION = "1.0.19-beta.7";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -931,7 +931,7 @@ function renderStorm(cfg, hass, hostEl) {
 // leise glühender Nase. Der Schlitten fliegt nicht stur geradeaus, sondern
 // in einer sanften Welle, die Rentiere „galoppieren“ (wippen versetzt),
 // und ab und zu fällt ein Päckchen vom Stapel.
-// Größe: Schlitten mit Weihnachtsmann etwa so hoch wie die Hexe (~90 px).
+// Größe: ganzer Zug ~290 × 52 px - der Weihnachtsmann ist damit etwa so groß wie die Hexe.
 //
 // Fire-TV-schonend: Die große Bewegung ist EINE transform-Animation auf
 // dem Kasten (aus der Uhrzeit, wie bisher). Dazu kommen nur kleine
@@ -955,9 +955,9 @@ function renderSanta(cfg, hass, hostEl) {
   const giftEndPct = (flightPct * 0.85).toFixed(2);
 
   // Flugbahn als sanfte Welle: [Anteil der Strecke, Höhe in px, Neigung]
-  const WAVE = [[0, 0, 0], [0.2, -22, 2], [0.45, 4, -2], [0.7, -26, 2], [1, -12, 0]];
+  const WAVE = [[0, 0, 0], [0.2, -12, 2], [0.45, 3, -2], [0.7, -14, 2], [1, -6, 0]];
   const path = WAVE.map(([p, y, r]) =>
-    `${(flightPct * p).toFixed(2)}% { transform: translateX(calc((-100vw - 660px) * ${p})) translateY(${y}px) rotate(${r}deg); }`
+    `${(flightPct * p).toFixed(2)}% { transform: translateX(calc((-100vw - 340px) * ${p})) translateY(${y}px) rotate(${r}deg); }`
   ).join("\n      ");
 
   const css = `
@@ -966,7 +966,7 @@ function renderSanta(cfg, hass, hostEl) {
       pointer-events: none; z-index: 9999; overflow: hidden;
     }
     .santa-sleigh-box {
-      position: absolute; top: 8vh; right: -620px; width: 585px; height: 104px;
+      position: absolute; top: 8vh; right: -310px; width: 292px; height: 52px;
       animation: santa-fly ${interval}s linear infinite; animation-delay: ${delaySec}s; will-change: transform;
     }
     .santa-sleigh-box svg { width: 100%; height: 100%; overflow: visible; }
@@ -4908,10 +4908,10 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
-  "🎅 Weihnachtsmann größer: Schlitten mit Weihnachtsmann jetzt etwa so groß wie die Hexe",
-  "✨ Funken an den Kufen entfernt - ruhigerer Flug",
+  "🎅 Weihnachtsmann-Zug halb so groß: der Weihnachtsmann ist jetzt etwa so groß wie die Hexe",
 ];
 const AOC_NEWS = [
+  ["1.0.19-beta.6", "✨ Funken an den Kufen entfernt"],
   ["1.0.19-beta.5", "🎅 Neuer Weihnachtsmann-Schlitten mit 4 Rentieren, vorne Rudi mit leuchtender roter Nase"],
   ["1.0.19-beta.4", "🌧️ Echte Regenstärke, 🌬️ Wind, ☔ Regen-Sensor, 💧 Regen-Vorbote, ⚡ Blitzortung"],
   ["1.0.19-beta.3", "🔄 „Neue Version da“-Hinweis mit Knopf „Neu laden“"],
