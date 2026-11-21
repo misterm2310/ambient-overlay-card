@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.5";
+const CARD_VERSION = "1.0.19-beta.6";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -930,11 +930,12 @@ function renderStorm(cfg, hass, hostEl) {
 // einer Reihe hintereinander am roten Zuggeschirr. Vorne links läuft Rudi mit roter,
 // leise glühender Nase. Der Schlitten fliegt nicht stur geradeaus, sondern
 // in einer sanften Welle, die Rentiere „galoppieren“ (wippen versetzt),
-// und hinten sprühen die Kufen Funken.
+// und ab und zu fällt ein Päckchen vom Stapel.
+// Größe: Schlitten mit Weihnachtsmann etwa so hoch wie die Hexe (~90 px).
 //
 // Fire-TV-schonend: Die große Bewegung ist EINE transform-Animation auf
 // dem Kasten (aus der Uhrzeit, wie bisher). Dazu kommen nur kleine
-// Wipp-Animationen (4 Rentiere, Nase, 2 Funken-Gruppen) - kein Filter, kein
+// Wipp-Animationen (4 Rentiere, Nase) - kein Filter, kein
 // Schatten, keine Zufallszahlen pro Bild.
 function renderSanta(cfg, hass, hostEl) {
   const opacity = getOpacityValue(cfg.opacity_preset || "medium");
@@ -956,7 +957,7 @@ function renderSanta(cfg, hass, hostEl) {
   // Flugbahn als sanfte Welle: [Anteil der Strecke, Höhe in px, Neigung]
   const WAVE = [[0, 0, 0], [0.2, -22, 2], [0.45, 4, -2], [0.7, -26, 2], [1, -12, 0]];
   const path = WAVE.map(([p, y, r]) =>
-    `${(flightPct * p).toFixed(2)}% { transform: translateX(calc((-100vw - 640px) * ${p})) translateY(${y}px) rotate(${r}deg); }`
+    `${(flightPct * p).toFixed(2)}% { transform: translateX(calc((-100vw - 660px) * ${p})) translateY(${y}px) rotate(${r}deg); }`
   ).join("\n      ");
 
   const css = `
@@ -965,22 +966,19 @@ function renderSanta(cfg, hass, hostEl) {
       pointer-events: none; z-index: 9999; overflow: hidden;
     }
     .santa-sleigh-box {
-      position: absolute; top: 8vh; right: -510px; width: 466px; height: 82px;
+      position: absolute; top: 8vh; right: -620px; width: 585px; height: 104px;
       animation: santa-fly ${interval}s linear infinite; animation-delay: ${delaySec}s; will-change: transform;
     }
     .santa-sleigh-box svg { width: 100%; height: 100%; overflow: visible; }
     @keyframes santa-fly {
       ${path}
-      100% { transform: translateX(calc(-100vw - 640px)) translateY(-12px) rotate(0deg); }
+      100% { transform: translateX(calc(-100vw - 660px)) translateY(-12px) rotate(0deg); }
     }
     /* Galopp: jedes Rentier wippt, versetzt - sieht aus wie Laufen in der Luft */
     .santa-gallop { animation: santa-gallop .6s ease-in-out infinite; }
     @keyframes santa-gallop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
     .santa-nose-glow { animation: santa-glow 1.4s ease-in-out infinite; }
     @keyframes santa-glow { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
-    .santa-trail { animation: santa-spark .36s steps(1, end) infinite; }
-    .santa-trail2 { animation-delay: -.18s; }
-    @keyframes santa-spark { 0% { opacity: 1; } 50% { opacity: .15; } }
     ${dropsGift ? `
     .santa-gift {
       animation: santa-gift-fall ${interval}s linear infinite; animation-delay: ${delaySec}s;
@@ -1025,28 +1023,11 @@ function renderSanta(cfg, hass, hostEl) {
   const html = `
     <div class="santa-container" style="opacity:${finalOpacity};" aria-hidden="true">
       <div class="santa-sleigh-box">
-        <svg viewBox="-16 -28 510 90" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="-16 -28 506 90" preserveAspectRatio="xMidYMid meet">
           <defs>
             ${deer}
             <radialGradient id="aoc-santa-glow"><stop offset="0" stop-color="#ff3030" stop-opacity="1"/><stop offset=".35" stop-color="#ff3030" stop-opacity=".55"/><stop offset="1" stop-color="#ff4d4d" stop-opacity="0"/></radialGradient>
           </defs>
-          <!-- Funken an den Kufen hinten: zwei Gruppen blinken abwechselnd,
-               dadurch sieht es aus, als würden die Kufen durch die Luft sprühen -->
-          <g transform="translate(180,0) translate(306,58) scale(1.6) translate(-306,-58)">
-            <g class="santa-trail">
-              <path d="M308,57 L326,54 M309,59 L330,60 M307,61 L322,65" stroke="#ffd34d" stroke-width="1.4" stroke-linecap="round"/>
-              <circle cx="334" cy="53" r="1.8" fill="#fff3b0"/><circle cx="344" cy="61" r="1.4" fill="#ffb347"/>
-              <circle cx="356" cy="56" r="1.1" fill="#ffd34d"/><circle cx="368" cy="63" r=".9" fill="#ff8c42"/>
-              <path d="M338,64 l1.4,-3.6 l1.4,3.6 l3.6,1.4 l-3.6,1.4 l-1.4,3.6 l-1.4,-3.6 l-3.6,-1.4 Z" fill="#fff6c8"/>
-            </g>
-            <g class="santa-trail santa-trail2">
-              <path d="M308,58 L324,58 M308,60 L319,63" stroke="#ff9f1c" stroke-width="1.2" stroke-linecap="round"/>
-              <circle cx="328" cy="57" r="1.5" fill="#ffd34d"/><circle cx="339" cy="52" r="1.2" fill="#fff3b0"/>
-              <circle cx="350" cy="64" r="1.3" fill="#ffb347"/><circle cx="362" cy="58" r="1" fill="#fff3b0"/>
-              <circle cx="375" cy="55" r=".8" fill="#ffd34d"/>
-              <path d="M352,51 l1.2,-3 l1.2,3 l3,1.2 l-3,1.2 l-1.2,3 l-1.2,-3 l-3,-1.2 Z" fill="#ffe27a"/>
-            </g>
-          </g>
           <!-- Rentiere 1,3-fach vergrößert, damit sie zum Schlitten passen -->
           <g transform="translate(0,-6) scale(1.3)">
           <!-- Rotes Zuggeschirr: von Rudi durch alle Rentiere bis zum Schlitten -->
@@ -4927,12 +4908,11 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
-  "🎅 Neuer Weihnachtsmann-Schlitten: 4 Rentiere hintereinander am roten Geschirr, vorne Rudi mit leuchtender roter Nase",
-  "🎅 Weihnachtsmann mit Rauschebart, Mütze weht im Wind",
-  "🦌 Die Rentiere galoppieren, der Schlitten fliegt in einer sanften Welle, hinten sprühen die Kufen Funken",
-  "🛷 Neuer Schlitten: runde rote Wanne mit goldenen Schnörkel-Kufen und buntem Geschenke-Stapel - ab und zu fällt ein Päckchen heraus",
+  "🎅 Weihnachtsmann größer: Schlitten mit Weihnachtsmann jetzt etwa so groß wie die Hexe",
+  "✨ Funken an den Kufen entfernt - ruhigerer Flug",
 ];
 const AOC_NEWS = [
+  ["1.0.19-beta.5", "🎅 Neuer Weihnachtsmann-Schlitten mit 4 Rentieren, vorne Rudi mit leuchtender roter Nase"],
   ["1.0.19-beta.4", "🌧️ Echte Regenstärke, 🌬️ Wind, ☔ Regen-Sensor, 💧 Regen-Vorbote, ⚡ Blitzortung"],
   ["1.0.19-beta.3", "🔄 „Neue Version da“-Hinweis mit Knopf „Neu laden“"],
   ["1.0.19-beta.2", "🍂 Jahreszeiten nur noch mit Sensor"],
