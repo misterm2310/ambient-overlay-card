@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.8";
+const CARD_VERSION = "1.0.19-beta.9";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -604,7 +604,33 @@ function renderRain(cfg, hass, hostEl) {
       100% { transform: translate(${drift}vh, 120vh) rotate(${angle}deg); } 
     }
   `;
-  return { css, html: `<div class="rain" aria-hidden="true">${dropHTML}</div>` };
+  return { css: css + puddleCss(cfg, color, wx.rain || 2), html: `<div class="rain" aria-hidden="true">${dropHTML}${puddleHtml(cfg, wx.rain || 2)}</div>` };
+}
+
+// 🫧 Spritzer am Boden: ganz unten, wo die Tropfen aufkommen, gehen
+// kleine flache Ringe auf und verblassen - keine Pfützen-Flächen.
+// Nur transform + opacity, das schafft auch der Fire TV.
+// Niesel = wenige, langsame Ringe, Starkregen = mehr und schnellere.
+const SPLASH_X = [4, 11, 19, 26, 33, 41, 48, 56, 63, 71, 78, 86, 93];
+function puddleHtml(cfg, lvl) {
+  if (cfg.rain_puddles === false) return "";
+  const base = { low: 5, medium: 8, high: 11 }[cfg.count_preset || "medium"] || 8;
+  const n = Math.min(SPLASH_X.length, Math.round(base * (lvl === 1 ? 0.6 : lvl === 3 ? 1.2 : 1)));
+  const speed = lvl === 3 ? 0.9 : lvl === 1 ? 1.8 : 1.2;
+  return spreadSample(SPLASH_X, n).map((x, i) =>
+    `<i class="splash" style="left:${x}vw; animation-duration:${speed}s; animation-delay:${(-((i * 0.37) % speed)).toFixed(2)}s"></i>`).join("");
+}
+function puddleCss(cfg, color, lvl) {
+  if (cfg.rain_puddles === false) return "";
+  return `
+    .rain .splash { position: absolute; bottom: 0.6vh; width: 26px; height: 7px; margin-left: -13px;
+      border: 1.5px solid ${color}; border-radius: 50%; opacity: 0;
+      animation: rain-splash ease-out infinite; will-change: transform, opacity; }
+    @keyframes rain-splash {
+      0% { transform: scale(0.15); opacity: 0.9; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+  `;
 }
 
 // 💧 Regen-Vorbote: Laut Vorhersage kommt gleich Regen - dann rinnen ein
@@ -1208,6 +1234,56 @@ function renderSpider(cfg, hass, hostEl) {
 
 
 
+// 🗑️ Müllabfuhr: Wann fährt der Müll-Waggon mit und welche Tonne?
+// Geht mit einem Kalender (z. B. Abfall-Kalender: Name des nächsten
+// Termins + Startzeit), mit einem an/aus-Schalter oder einem Sensor, der
+// die Tage bis zur Abholung zählt (1 = morgen, 0 = heute).
+// Aktiv = ab 12 Uhr am Tag vorher bis 12 Uhr am Abholtag.
+const GARBAGE_KINDS = [
+  ["yellow", /gelb|wertstoff|verpackung|plastik|leichtverp/i],
+  ["paper", /papier|pappe|blau/i],
+  ["bio", /bio|kompost|braun/i],
+  ["glass", /glas/i],
+];
+function garbageKindOf(text) {
+  const row = GARBAGE_KINDS.find(([, re]) => re.test(String(text || "")));
+  return row ? row[0] : "rest";
+}
+function garbageInfo(cfg, hass, now = new Date()) {
+  const st = cfg?.garbage_entity ? hass?.states?.[cfg.garbage_entity] : null;
+  if (!st || ["unknown", "unavailable"].includes(String(st.state).toLowerCase())) return null;
+  const name = st.attributes?.message || st.attributes?.friendly_name || "";
+  const noon = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+  if (cfg.garbage_entity.startsWith("calendar.")) {
+    const raw = st.attributes?.start_time;
+    if (!raw) return null;
+    const start = new Date(String(raw).replace(" ", "T"));
+    if (isNaN(start)) return null;
+    const dayBefore = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1);
+    if (now >= noon(dayBefore) && now < noon(start)) return { kind: garbageKindOf(name), name };
+    return null;
+  }
+  const n = numOf(st.state);
+  if (n !== null) {
+    if ((n === 1 && now >= noon(now)) || (n === 0 && now < noon(now))) return { kind: garbageKindOf(name), name };
+    return null;
+  }
+  return st.state === "on" ? { kind: garbageKindOf(name), name } : null;
+}
+// Ladung: zwei Tonnen in der passenden Farbe - beim gelben Sack drei Säcke
+function garbageCargo(kind) {
+  if (kind === "yellow") {
+    const sack = (x, h) => `<path d="M${x},32 Q${x - 3},${32 - h * 0.6} ${x + 3},${32 - h} L${x + 7},${30 - h} L${x + 11},${32 - h} Q${x + 17},${32 - h * 0.6} ${x + 14},32 Z" fill="#f5d000" stroke="#8a7400" stroke-width="1.6"/>
+      <path d="M${x + 5},${31 - h} l2,-5 2,5" fill="none" stroke="#8a7400" stroke-width="1.4"/>`;
+    return `${sack(10, 22)}${sack(34, 26)}${sack(58, 21)}`;
+  }
+  const col = { rest: ["#5b6168", "#3a3f44"], paper: ["#1e5bb8", "#123a78"], bio: ["#7a4e2a", "#4a2f18"], glass: ["#2e8b57", "#1b5a37"] }[kind] || ["#5b6168", "#3a3f44"];
+  const bin = (x) => `<rect x="${x}" y="6" width="28" height="26" rx="2" fill="${col[0]}" stroke="${col[1]}" stroke-width="1.8"/>
+    <rect x="${x - 2}" y="1" width="32" height="6" rx="2" fill="${col[1]}"/>
+    <path d="M${x + 7},12 L${x + 7},28 M${x + 14},12 L${x + 14},28 M${x + 21},12 L${x + 21},28" stroke="${col[1]}" stroke-width="1.2" opacity=".6"/>`;
+  return `${bin(12)}${bin(48)}`;
+}
+
 function renderTrain(cfg, hass, hostEl) {
   // Dampflok mit variabler Waggon-Anzahl: vier feste Alltags-/Fest-Waggons,
   // dazu optional ein Waggon pro zuhause befindlicher Person (aus
@@ -1327,7 +1403,14 @@ function renderTrain(cfg, hass, hostEl) {
   // die ANZAHL wird hier gebraucht (für Positionen/Breite) - welche
   // konkrete Ladung in den ersten vier Waggons steckt, kommt erst weiter
   // unten dazu (CARGO-Objekt ist an dieser Stelle noch nicht definiert).
-  const wagonCount = 4 + personCargoList.length + customCargoList.length + 1;
+  // 🗑️ Müll-Waggon: am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag
+  // 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen) ein Waggon mit der passenden Tonne mit.
+  const garbage = garbageInfo(cfg, hass);
+  // 🔦 Nachts (Sonne unter dem Horizont) fährt der Zug mit Licht: Lichtkegel
+  // vor der Lok, warmer Schein ums Führerhaus, hellere Schlusslichter.
+  // Alles feste Farbverläufe, die mitfahren - keine eigene Animation.
+  const nightLights = hass?.states?.["sun.sun"]?.state === "below_horizon";
+  const wagonCount = 4 + personCargoList.length + customCargoList.length + 1 + (garbage ? 1 : 0);
   const WAGON_GAP = 93;
   const WAGON_X = Array.from({ length: wagonCount }, (_, i) => 4 + i * WAGON_GAP);
   const LOCO_X = 4 + wagonCount * WAGON_GAP + 8;
@@ -1550,6 +1633,7 @@ function renderTrain(cfg, hass, hostEl) {
   // Gesamte Waggon-Inhalts-Liste: vier feste + Personen + optional
   // Freitext (Anzahl/Positionen wurden weiter oben schon berechnet).
   const endMarkerCargo = `
+    ${nightLights ? `<circle cx="28" cy="20" r="15" fill="url(#aoc-tr-tail)"/><circle cx="55" cy="20" r="15" fill="url(#aoc-tr-tail)"/>` : ""}
     <rect x="15" y="10" width="53" height="20" rx="3" fill="#3a3a3a" stroke="#1a1a1a" stroke-width="1.5"/>
     <circle class="end-lamp-a" cx="28" cy="20" r="7" fill="#ff2222" stroke="#1a1a1a" stroke-width="1.5"/>
     <circle class="end-lamp-b" cx="55" cy="20" r="7" fill="#22cc44" stroke="#1a1a1a" stroke-width="1.5"/>
@@ -1559,6 +1643,7 @@ function renderTrain(cfg, hass, hostEl) {
 
   const allCargo = [
     { cargo: endMarkerCargo, window: "", wheels: 2 },
+    ...(garbage ? [{ cargo: garbageCargo(garbage.kind), window: "" }] : []),
     ...customCargoList,
     ...[...personCargoList].reverse(),
     { cargo: CARGO[cargo0], window: "" },
@@ -1597,12 +1682,14 @@ function renderTrain(cfg, hass, hostEl) {
       <!-- Roter Kessel -->
       <rect x="2" y="18" width="60" height="26" rx="10" fill="#ee1c1c" stroke="#1a1a1a" stroke-width="2.5"/>
       <path d="M18,18 L18,8 M25,18 L23,10" stroke="#ee1c1c" stroke-width="2.5" stroke-linecap="round"/>
+      ${nightLights ? `<ellipse cx="46" cy="17" rx="30" ry="24" fill="url(#aoc-tr-glow)"/>` : ""}
       <!-- Kabinen-Aufbau mit Fähnchen -->
       <path d="M56,8 L56,2 L62,8 Z" fill="#ee1c1c"/>
       <rect x="34" y="6" width="24" height="22" rx="2" fill="#ffd966" stroke="#1a1a1a" stroke-width="2.5"/>
       <path d="M38,22 L42,12" stroke="#c9a227" stroke-width="2"/>
       <!-- Schwarze runde Nase -->
       <path d="M60,18 Q86,13 100,24 Q100,37 90,42 Q72,44 60,40 Z" fill="#1a1a1a"/>
+      ${nightLights ? `<path d="M97,25 L230,-6 L230,58 Z" fill="url(#aoc-tr-beam)"/>` : ""}
       <!-- Kleine Frontlampe -->
       <circle cx="97" cy="25" r="4" fill="#fff3c4" stroke="#c9a227" stroke-width="1.3"/>
       <circle cx="97" cy="25" r="1.6" fill="#ffffff"/>
@@ -1628,7 +1715,12 @@ function renderTrain(cfg, hass, hostEl) {
   const html = `
     <div class="train-container" style="opacity:${finalOpacity};" aria-hidden="true">
       <div class="train-box" style="width:${boxWidth}px; height:${boxHeight}px; left:-${boxWidth + 24}px;">
-        <svg viewBox="0 ${svgTop} ${svgWidth} ${svgHeight}" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="0 ${svgTop} ${svgWidth} ${svgHeight}" preserveAspectRatio="xMidYMid meet" style="overflow:visible">
+          ${nightLights ? `<defs>
+            <linearGradient id="aoc-tr-beam" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#fff3b0" stop-opacity=".75"/><stop offset="1" stop-color="#fff3b0" stop-opacity="0"/></linearGradient>
+            <radialGradient id="aoc-tr-glow"><stop offset="0" stop-color="#ffd966" stop-opacity=".7"/><stop offset="1" stop-color="#ffd966" stop-opacity="0"/></radialGradient>
+            <radialGradient id="aoc-tr-tail"><stop offset="0" stop-color="#ffffff" stop-opacity=".8"/><stop offset=".4" stop-color="#ffe9e9" stop-opacity=".35"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+          </defs>` : ""}
           <!-- Boden-/Gleislinie -->
           <path d="M2,58 L${svgWidth - 4},58" stroke="#1a1a1a" stroke-width="2"/>
 
@@ -3246,6 +3338,9 @@ function weatherInfo(cfg, hass, now = Date.now()) {
   // ❄️ Frost-Ränder unter 0 °C - egal welches Wetter gerade ist
   if (frostLevel(cfg, hass) > 0) events.push("frost");
 
+  // 🌫️ Morgentau: früh morgens, feuchte Luft, kein Frost, kein Regen
+  if (cfg.dew !== false && dewNow(cfg, hass, w, events, now)) events.push("dew");
+
   const fc = (cfg.rain_hint !== false || cfg.rain_intensity !== false) ? forecastNow(cfg, now) : { cur: null, soon: false };
 
   // 🌧️ Wie stark regnet es? Reihenfolge: eigener Sensor (mm/h), Attribut
@@ -3275,6 +3370,24 @@ function weatherInfo(cfg, hass, now = Date.now()) {
   return out;
 }
 
+// 🌫️ Ist gerade Morgentau? Morgens = die Sonne ist schon auf und steigt
+// noch, ist aber unter 20° hoch (ohne sun.sun: 5 bis 10 Uhr). Feucht = die
+// Wetter-Entität meldet mindestens 85 % Luftfeuchtigkeit. Bei Frost gibt's
+// Eis statt Tau, bei Regen/Schnee/Hagel ist eh alles nass.
+function dewNow(cfg, hass, w, events, now = Date.now()) {
+  if (!w) return false;
+  const hum = numOf(w.attributes?.humidity);
+  if (hum === null || hum < 85) return false;
+  if (events.some((e) => e === "rain" || e === "snow" || e === "hail" || e === "frost")) return false;
+  const sun = hass?.states?.["sun.sun"];
+  if (sun) {
+    const el = numOf(sun.attributes?.elevation);
+    return sun.state === "above_horizon" && sun.attributes?.rising !== false && el !== null && el < 20;
+  }
+  const h = new Date(now).getHours();
+  return h >= 5 && h < 10;
+}
+
 // Kurzer "Fingerabdruck" - ändert er sich, muss neu gezeichnet werden
 function weatherSig(cfg, hass) {
   if (cfg?.event !== "weather_auto") return "";
@@ -3288,6 +3401,29 @@ function wxFor(cfg, hass) {
   if (cfg?._wx) return cfg._wx;
   const i = weatherInfo(cfg, hass);
   return { rain: i.rain, wind: i.wind };
+}
+
+// 🌫️ Morgentau: ein paar Tröpfchen an den Rändern, die abwechselnd
+// glitzern. Feste Plätze, nur Deckkraft blinkt (2 Gruppen, steps) = sparsam.
+const DEW_SPOTS = [
+  [1.5, 86, 13], [3, 68, 10], [2, 50, 12], [8, 93, 10], [16, 95, 12], [28, 94, 9], [41, 95, 11],
+  [57, 94, 12], [70, 95, 9], [83, 93, 12], [91, 90, 10], [96, 72, 13], [97, 54, 10], [96, 36, 9],
+  [1, 30, 9], [50, 95, 9],
+];
+function renderDew(cfg, hass, hostEl) {
+  const n = { low: 8, medium: 12, high: 16 }[cfg.count_preset || "medium"] || 12;
+  const op = layerOpacity(cfg);
+  const html = spreadSample(DEW_SPOTS, n).map(([x, y, r], i) =>
+    `<i class="dew-drop ${i % 2 ? "b" : "a"}" style="left:${x}vw; top:${y}vh; width:${r}px; height:${Math.round(r * 1.15)}px"></i>`).join("");
+  const css = `
+    ${overlayBaseCss("dew", `opacity:${op};`)}
+    .dew .dew-drop { position: absolute; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      background: radial-gradient(circle at 35% 30%, #ffffff 0 16%, rgba(205,232,255,.85) 28%, rgba(140,190,235,.5) 62%, rgba(90,140,200,.35) 70%, transparent 72%); }
+    .dew .dew-drop.a { animation: dew-glint 2.6s steps(1, end) infinite; }
+    .dew .dew-drop.b { animation: dew-glint 2.6s steps(1, end) infinite; animation-delay: -1.3s; }
+    @keyframes dew-glint { 0% { opacity: 1; } 50% { opacity: .55; } }
+  `;
+  return { css, html: `<div class="dew" aria-hidden="true">${html}</div>` };
 }
 
 function renderFrost(cfg, hass, hostEl) {
@@ -3746,6 +3882,8 @@ const RENDERERS = {
   santa: renderSanta,
   spider: renderSpider,
   dog: renderDog,
+  dew: renderDew,
+
   train: renderTrain,
   bee: renderBee,
   birthday: renderBirthday,
@@ -4024,6 +4162,9 @@ const EFFECT_DEFAULTS = {
   wind_effects: true,
   rain_entity: "",
   rain_hint: true,
+  rain_puddles: true,
+  dew: true,
+  garbage_entity: "",
   lightning_entity: "",
   lightning_km: 15,
   birthday_text: "Happy Birthday!",
@@ -4063,7 +4204,7 @@ const EFFECT_DEFAULTS = {
 // Alle Entitäten, die ein Effekt-Eintrag selbst benutzt (Wetter, Schalter,
 // Personen, Gäste) - auch diese muss die Karte beobachten
 function entryEntities(cfg, out = new Set()) {
-  for (const k of ["weather_entity", "santa_sensor", "dinner_sensor", "halloween_sensor", "custom_wagon_entity", "season_entity"]) {
+  for (const k of ["weather_entity", "santa_sensor", "dinner_sensor", "halloween_sensor", "custom_wagon_entity", "season_entity", "garbage_entity"]) {
     if (cfg?.[k]) out.add(cfg[k]);
   }
   if (typeof cfg?.person_entities === "string") {
@@ -4461,6 +4602,7 @@ class AmbientOverlayCard extends HTMLElement {
         : `${eid}=${o.state}`;
     });
     parts.push(`hw=${isHalloweenTime(cfg, this._hass) ? 1 : 0}`);
+    parts.push(`gb=${garbageInfo(cfg, this._hass)?.kind || 0}`);
     return parts.join(",");
   }
 
@@ -4561,6 +4703,8 @@ class AmbientOverlayCard extends HTMLElement {
     const oldWx = this._lastWx;
     // 🍂🎉 Jahreszeit/Feiertag: wechselt um Mitternacht oder per Sensor
     const oldSeasonal = this._lastSeasonal;
+    // 🗑️ Müll-Waggon: hängt auch an der Uhrzeit (12 Uhr)
+    const oldGarbage = this._lastGarbage;
 
     this._hass = hass;
     const newWeatherState = weatherEntity ? hass?.states?.[weatherEntity]?.state : undefined;
@@ -4583,9 +4727,12 @@ class AmbientOverlayCard extends HTMLElement {
     const newSeasonal = isSeasonal ? eventsForConfig(this._config, hass).join("+") : "";
     this._lastSeasonal = newSeasonal;
     const seasonalChanged = oldSeasonal !== undefined && oldSeasonal !== newSeasonal;
+    const newGarbage = garbageInfo(this._config, hass)?.kind || "";
+    this._lastGarbage = newGarbage;
+    const garbageChanged = oldGarbage !== undefined && oldGarbage !== newGarbage;
 
     const weatherChanged = oldWeatherState !== newWeatherState || wxChanged;
-    const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged || halloweenChanged || frostChanged || seasonalChanged;
+    const sensorChanged = oldSantaState !== newSantaState || oldDinnerState !== newDinnerState || oldSunState !== newSunState || oldGuestState !== newGuestState || personsChanged || halloweenChanged || frostChanged || seasonalChanged || garbageChanged;
 
     // Sanftes Ausblenden nur bei einer ECHTEN automatischen Wetteränderung
     // (nicht beim allerersten Rendern - da gibt's ja noch nichts, von dem
@@ -4949,9 +5096,13 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
-  "🎄 Eule & Vogelhäuschen im Weihnachts-Look: Ist der Weihnachts-Schalter an, trägt die Eule eine Nikolausmütze, auf dem Häuschen liegt Schnee, unterm Dach blinkt eine Lichterkette und der Vogel trägt eine Mini-Mütze",
+  "🌫️ Morgentau: früh morgens bei feuchter Luft glitzern Tautropfen an den Rändern",
+  "🫧 Spritzer am Boden: bei Regen spritzen unten kleine Ringe auf, wo die Tropfen aufkommen",
+  "🔦 Zug nachts mit Licht: Lichtkegel vor der Lok, warmes Führerhaus-Fenster, hellere Schlusslichter",
+  "🗑️ Müll-Waggon: am Tag vor der Abholung fährt der Zug als vorletzten Wagen die passende Tonne spazieren (mit Abfall-Kalender)",
 ];
 const AOC_NEWS = [
+  ["1.0.19-beta.8", "🎄 Eule & Vogelhäuschen im Weihnachts-Look"],
   ["1.0.19-beta.7", "🎅 Weihnachtsmann-Zug halb so groß: der Weihnachtsmann ist jetzt etwa so groß wie die Hexe"],
   ["1.0.19-beta.6", "✨ Funken an den Kufen entfernt"],
   ["1.0.19-beta.5", "🎅 Neuer Weihnachtsmann-Schlitten mit 4 Rentieren, vorne Rudi mit leuchtender roter Nase"],
@@ -4988,6 +5139,7 @@ const MISSING_TEXT = {
   dinner_sensor: "Solange zählt er als „aus“.",
   halloween_sensor: "Solange zählt er als „aus“ (das Datum gilt trotzdem).",
   custom_wagon_entity: "Solange gilt der Gäste-Text darunter.",
+  garbage_entity: "Solange fährt kein Müll-Waggon mit.",
 };
 // Diese Entitäten beobachtet der Editor, damit der Hinweis von selbst kommt und geht
 const PICKER_KEYS = Object.keys(MISSING_TEXT);
@@ -5581,6 +5733,11 @@ class AmbientOverlayCardEditor extends HTMLElement {
       set += swRow("wind_effects", "🌬️", "Echter Wind",
         "Regen, Schnee und Hagel fallen schräg - je stärker der Wind laut Wetter-Sensor, desto schräger (ab ca. 10 km/h). Die Windrichtung bestimmt, ob nach links oder rechts. Das Laub gehört zu den 🍂 Jahreszeiten und kennt den Wind nicht.");
       if (c.wind_effects !== false && wx.wind.lvl > 0) sum.push(`Wind ${"▮".repeat(wx.wind.lvl)}`);
+      set += swRow("rain_puddles", "🫧", "Spritzer am Boden",
+        "Ganz unten, wo die Tropfen auf den Boden kommen, spritzen kleine Ringe auf. Niesel = wenige, Starkregen = mehr und schnellere.");
+      set += swRow("dew", "🌫️", "Morgentau",
+        "Früh morgens (die Sonne ist gerade aufgegangen und noch tief) und bei mindestens 85 % Luftfeuchtigkeit glitzern ein paar Tautropfen an den Rändern. Bei Frost gibt's stattdessen Eis, bei Regen ist eh alles nass.");
+      if (wx.events.includes("dew")) sum.push("🌫️ Tau");
       set += this._picker(scope, "☔ Eigener Regen-Sensor (optional)", "rain_entity", ["binary_sensor", "sensor", "input_boolean"],
         "Zum Beispiel der Regenmelder im Garten (an/aus) oder die Regenrate deiner Wetterstation in mm/h. Er hat Vorrang vor dem Wetterdienst: nass = Regen, trocken = kein Regen. Leer, fehlt er oder ist er nicht verfügbar, entscheidet einfach der Wetter-Sensor - du musst also nichts einrichten.",
         "Sensor suchen, z. B. Regensensor");
@@ -5629,6 +5786,13 @@ class AmbientOverlayCardEditor extends HTMLElement {
       set += this._picker(scope, "🍽️ Abendessen-Schalter", "dinner_sensor", B, "Ist er 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang.", "Schalter suchen, z. B. Abendessen");
       if (c.santa_sensor) sum.push("Weihnachten");
       if (c.dinner_sensor) sum.push("Abendessen");
+      set += this._picker(scope, "🗑️ Müll-Kalender", "garbage_entity", ["calendar", "binary_sensor", "input_boolean", "sensor"],
+        "Am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen mit den Lampen) ein Müll-Waggon mit. Die Tonne passt zum Namen im Kalender: Gelber Sack/Wertstoff = gelbe Säcke, Papier = blau, Bio = braun, Glas = grün, sonst graue Restmüll-Tonne. Geht auch mit einem an/aus-Schalter oder einem Sensor, der die Tage zählt (1 = morgen).",
+        "Kalender suchen, z. B. Abfall");
+      if (c.garbage_entity) {
+        const gb = garbageInfo(c, this._hass);
+        sum.push(gb ? `🗑️ ${gb.name || "Müll"}` : "Müll");
+      }
     }
     if (HALLOWEEN_HINTS[ev] && !(ev === "holidays" && c.holiday_halloween === false)) {
       set += this._picker(scope, "🎃 Halloween-Schalter", "halloween_sensor", B, HALLOWEEN_HINTS[ev], "Schalter suchen, z. B. Halloween");

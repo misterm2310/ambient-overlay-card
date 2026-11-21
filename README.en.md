@@ -45,7 +45,8 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 |---|---|
 | 🌦️ **Weather automation** | The card watches your `weather.*` entity and shows the matching effect by itself: rain, snow, hail, lightning, fog, storm, clouds, stars or sun. With “snowy-rainy” you get snow **and** rain at once, with “lightning-rainy” lightning **and** rain. |
 | 🌙 **Moon with real moon phase** | Appears top right as soon as the sun is down – also together with rain or snow. The phase is calculated from the date, no sensor needed. During the day, on “sunny”, the ☀️ sun sits there instead. |
-| 🚂 **Steam train** | Drives along the bottom: engine with steam, lit windows and a “TOOT”. Four wagons with everyday cargo – switchable to 🎅 Christmas or 🍽️ dinner. Very rarely the steam turns into a heart. |
+| 🚂 **Steam train** | Drives along the bottom: engine with steam, lit windows and a “TOOT”. Four wagons with everyday cargo – switchable to 🎅 Christmas or 🍽️ dinner. Very rarely the steam turns into a heart. At night (after sunset) it runs with 🔦 lights: a light beam in front of the engine, a warmly glowing cab and brighter tail lights. |
+| 🗑️ **Bin wagon** | Pick your waste calendar (`garbage_entity`): from 12:00 the day before collection until 12:00 on collection day a wagon with the matching bin rides as the second-to-last wagon (in front of the end wagon with the lamps) – yellow bag/recycling = yellow bags, paper = blue, bio = brown, glass = green, otherwise grey. Also works with an on/off switch or a sensor counting the days (1 = tomorrow). |
 | 👥 **Family on the train** | Every selected person who is currently **at home** gets their own wagon with their profile picture. Plus 🎟️ guest wagons from a sensor (e.g. “Grandma, Grandpa”) and a 🚦 blinking last wagon. |
 | 🐕 **Golden Labrador** | Walks with real leg movement, wags, sniffs for a moment and leaves paw prints. If your weather entity says rain, he shakes himself dry. |
 | 🦉🐦 **Owl & birdhouse** | Top left: the birdhouse with visitors during the day, at night the owl that blinks and turns its head. Switches via `sun.sun`. |
@@ -57,6 +58,8 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 | 👻 **Halloween look** | On 31 October all by itself (or via a switch): train with pumpkins, cauldron, coffin and sweets, Labrador with little devil horns, owl with a witch’s hat, birdhouse with a pumpkin and a cobweb (the bird wears a tiny witch’s hat) and an orange moon (in its real moon phase). |
 | 🕷️ **Spider** | A spider in its web (loses its grip for a moment and then acts as if nothing happened). |
 | ☃️ **Growing snow layer** | If it snows for a while, a thin layer of snow slowly builds up at the bottom. |
+| 🌫️ **Morning dew** | Early in the morning (the sun has just risen and is still low) and with at least 85 % humidity from the weather entity, a few dew drops glitter at the edges. Frost gives ice instead, rain makes everything wet anyway. Switch off: `dew: false`. |
+| 🫧 **Splashes on the ground** | When it rains, little rings splash up at the very bottom where the drops hit the ground (drizzle = few, heavy rain = more and faster). Switch off: `rain_puddles: false`. |
 | 🥶 **Frosty edges** | Below 0 °C outside, the edges of the screen ice over – the colder, the stronger. Runs in the weather automation whatever the weather. |
 | 🌧️ **Real rain intensity** | Drizzle = a few short, delicate threads. Heavy rain = lots of long, fast streaks. Source: your own rain sensor (mm/h), else the precipitation of the weather entity or its hourly forecast, else "pouring" from the weather service. |
 | 🌬️ **Real wind** | Rain, snow and hail fall at an angle – the stronger the wind according to the weather entity, the steeper (from about 10 km/h). The wind direction decides left or right. |
@@ -137,9 +140,9 @@ Add card → **Ambient Overlay Card** → in the editor. A new card starts with 
 3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky, seasons and holidays): every part has its own toggle. For the birthday you also enter the bunting text here and get a number field for the height of the text (in pixels). For the holidays, the Halloween parts follow below. If today is no holiday, the preview shows the next one.
 4. **🎨 Appearance (Aussehen):** amount (Wenig/Mittel/Viel = low/medium/high), opacity (Zart/Dezent/Kräftig = soft/subtle/strong) and for some effects the colour.
 5. **⚙️ Settings (Einstellungen)** – depending on the effect:
-   * **🌦️ Weather:** your `weather.*` entity (without it the section shows a red “Wetter fehlt!” = weather missing).
+   * **🌦️ Weather:** your `weather.*` entity (without it the section shows a red “Wetter fehlt!” = weather missing). Plus switches for frosty edges, rain intensity, wind, 🫧 splashes on the ground, 🌫️ morning dew and the rain heads-up.
    * **🐕 Labrador:** optionally the weather entity for shaking in the rain.
-   * **🚂 Steam train:** Christmas, dinner and Halloween switches, people to tap, guest sensor or fixed guest text. If several switches are on: Christmas beats dinner beats Halloween.
+   * **🚂 Steam train:** Christmas, dinner and Halloween switches, people to tap, guest sensor or fixed guest text and the 🗑️ waste calendar. If several switches are on: Christmas beats dinner beats Halloween.
    * **🍂 Seasons:** the season sensor (“Season” integration, reports `spring`/`summer`/`autumn`/`winter`). Without it the section shows a red “Sensor fehlt!” (sensor missing) and the effect stays empty.
    * **🎉 Holidays:** the Christmas switch (without it Santa never comes) and the Halloween switch (Halloween also outside Oct 29–31).
    * **🎃 Halloween switch** also exists for the steam train, Labrador, owl & birdhouse and the weather automation (for the moon). Without a switch the Halloween look only appears on 31 October. Found are `input_boolean.`, `binary_sensor.` and `switch.`.
@@ -374,6 +377,8 @@ leaf_colors:
 | `wind_effects` | `true` | Weather automation: 🌬️ rain, snow and hail slant with the wind |
 | `rain_entity` | – | Weather automation: ☔ own rain sensor (`binary_sensor`/`input_boolean` on/off or `sensor` in mm/h). Missing or unavailable = `weather_entity` decides |
 | `rain_hint` | `true` | Weather automation: 💧 rain heads-up (needs hourly forecast) |
+| `rain_puddles` | `true` | Weather automation: 🫧 splashes on the ground when it rains |
+| `dew` | `true` | Weather automation: 🌫️ morning dew (mornings, from 85 % humidity) |
 | `lightning_entity` | – | Weather automation: ⚡ "Lightning distance" sensor of the Blitzortung integration. Set = flashes only for a nearby storm. Unavailable = `weather_entity` decides |
 | `lightning_km` | `15` | How close a strike has to be (km) |
 | `birthday_text` | `Happy Birthday!` | Text on the bunting (protected against malicious code) |
@@ -385,6 +390,7 @@ leaf_colors:
 | `holiday_halloween` / `holiday_martini` / `holiday_nikolaus` / `holiday_christmas` / `holiday_silvester` / `holiday_valentin` / `holiday_easter` | `true` | Holidays on/off one by one |
 | `santa_sensor` | – | Switch (`input_boolean`/`binary_sensor`/`switch`): on = Christmas cargo on the train, Santa flies in the holidays, Christmas look for owl & birdhouse |
 | `dinner_sensor` | – | Switch: on = dinner cargo on the train (Christmas wins) |
+| `garbage_entity` | – | Train: 🗑️ waste calendar (or on/off switch, or sensor with days until collection) – bin wagon from 12:00 the day before until 12:00 on collection day |
 | `halloween_pumpkins` / `halloween_ghost` / `halloween_witch` / `halloween_webs` / `halloween_bats` | `true` | Holidays: Halloween parts on/off one by one |
 | `halloween_sensor` | – | Switch: on = Halloween look for train, dog, owl and moon (otherwise only on 31 October); for holidays: Halloween also outside Oct 29–31 |
 | `person_entities` | – | `person.` entities separated by commas – whoever is at home rides along (tap to select in the editor) |

@@ -43,7 +43,8 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 |---|---|
 | 🌦️ **Wetter-Automatik** | Die Karte schaut auf deine `weather.*`-Entity und zeigt selbst das Passende: Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne oder Sonne. Bei „Schneeregen“ laufen Schnee **und** Regen gleichzeitig, bei „Gewitter mit Regen“ Blitz **und** Regen. |
 | 🌙 **Mond mit echter Mondphase** | Erscheint oben rechts, sobald die Sonne weg ist – auch zusammen mit Regen oder Schnee. Die Phase wird aus dem Datum berechnet, ganz ohne Sensor. Tagsüber sitzt dort bei „sonnig“ die ☀️ Sonne. |
-| 🚂 **Dampflok** | Fährt unten durchs Bild: Lok mit Dampf, beleuchteten Fenstern und „TUUT“. Vier Waggons mit Alltags-Ladung – per Schalter auf 🎅 Weihnachten oder 🍽️ Abendessen umstellbar. Ganz selten wird der Dampf zum Herz. |
+| 🚂 **Dampflok** | Fährt unten durchs Bild: Lok mit Dampf, beleuchteten Fenstern und „TUUT“. Vier Waggons mit Alltags-Ladung – per Schalter auf 🎅 Weihnachten oder 🍽️ Abendessen umstellbar. Ganz selten wird der Dampf zum Herz. Nachts (Sonne untergegangen) fährt er mit 🔦 Licht: Lichtkegel vor der Lok, warm leuchtendes Führerhaus und hellere Schlusslichter. |
+| 🗑️ **Müll-Waggon** | Wähle deinen Abfall-Kalender (`garbage_entity`): Am Tag vor der Abholung ab 12 Uhr bis zum Abholtag 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen mit den Lampen) ein Waggon mit der passenden Tonne mit – Gelber Sack/Wertstoff = gelbe Säcke, Papier = blau, Bio = braun, Glas = grün, sonst grau. Geht auch mit einem an/aus-Schalter oder einem Sensor, der die Tage zählt (1 = morgen). |
 | 👥 **Familie im Zug** | Jede angehakte Person, die gerade **zuhause** ist, bekommt einen eigenen Waggon mit Profilbild. Dazu 🎟️ Gäste-Waggons aus einem Sensor (z. B. „Oma, Opa“) und ein 🚦 blinkender Schlusswagen. |
 | 🐕 **Goldener Labrador** | Läuft mit echter Beinbewegung, wedelt, schnüffelt kurz und hinterlässt Pfotenabdrücke. Regnet es laut Wetter-Entity, schüttelt er sich. |
 | 🦉🐦 **Eule & Vogelhäuschen** | Oben links: tagsüber das Vogelhäuschen mit Besuch, nachts die Eule, die blinzelt und den Kopf dreht. Umgeschaltet wird über `sun.sun`. |
@@ -55,6 +56,8 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 | 👻 **Halloween-Look** | Am 31. Oktober ganz von selbst (oder per Schalter): Zug mit Kürbissen, Hexenkessel, Sarg und Süßigkeiten, Labrador mit Teufelshörnchen, Eule mit Hexenhut, Vogelhäuschen mit Kürbis und Spinnwebe (der Vogel trägt einen Mini-Hexenhut) und ein oranger Mond (in seiner echten Mondphase). |
 | 🕷️ **Spinne** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen). |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
+| 🌫️ **Morgentau** | Früh morgens (die Sonne ist gerade aufgegangen und steht noch tief) und bei mindestens 85 % Luftfeuchtigkeit laut Wetter-Sensor glitzern ein paar Tautropfen an den Rändern. Bei Frost gibt's Eis, bei Regen ist eh alles nass. Abschalten: `dew: false`. |
+| 🫧 **Spritzer am Boden** | Bei Regen spritzen ganz unten, wo die Tropfen auf den Boden kommen, kleine Ringe auf (Niesel = wenige, Starkregen = mehr und schnellere). Abschalten: `rain_puddles: false`. |
 | 🥶 **Frost-Ränder** | Ist es draußen unter 0 °C, vereisen die Ränder vom Bildschirm – je kälter, desto stärker. Läuft in der Wetter-Automatik bei jedem Wetter mit. |
 | 🌧️ **Echte Regenstärke** | Nieselregen = wenige kurze, zarte Fäden. Starkregen = viele lange, schnelle Striche. Woher die Karte das weiß: eigener Regen-Sensor (mm/h), sonst die Regenmenge vom Wetter-Sensor bzw. seiner stündlichen Vorhersage, sonst „Starkregen“ vom Wetterdienst. |
 | 🌬️ **Echter Wind** | Regen, Schnee und Hagel fallen schräg – je stärker der Wind laut Wetter-Sensor, desto schräger (ab ca. 10 km/h). Die Windrichtung entscheidet, ob nach links oder rechts. |
@@ -135,9 +138,9 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte st
 3. **🧩 Was soll gezeigt werden?** (bei Geburtstag, Nachthimmel, Jahreszeiten und Feiertage): jedes Teil mit eigenem Schiebeschalter. Beim Geburtstag steht hier auch der Text für die Wimpelkette und ein Zahlenfeld für die Höhe des Schriftzugs (in Pixeln). Bei den Feiertagen kommen darunter die Teile von Halloween. Ist heute kein Feiertag, zeigt die Vorschau den nächsten.
 4. **🎨 Aussehen:** Anzahl (Wenig/Mittel/Viel), Deckkraft (Zart/Dezent/Kräftig) und bei manchen Effekten die Farbe.
 5. **⚙️ Einstellungen** – je nach Effekt:
-   * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“).
+   * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“). Dazu Schiebeschalter für Frost-Ränder, Regenstärke, Wind, 🫧 Spritzer am Boden, 🌫️ Morgentau und Regen-Vorbote.
    * **🐕 Labrador:** optional die Wetter-Entity fürs Schütteln bei Regen.
-   * **🚂 Dampflok:** Weihnachts-, Abendessen- und Halloween-Schalter, Personen zum Antippen, Gäste-Sensor oder fester Gäste-Text. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
+   * **🚂 Dampflok:** Weihnachts-, Abendessen- und Halloween-Schalter, Personen zum Antippen, Gäste-Sensor oder fester Gäste-Text und der 🗑️ Müll-Kalender. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
    * **🍂 Jahreszeiten:** der Jahreszeiten-Sensor (Integration „Season“, meldet `spring`/`summer`/`autumn`/`winter`). Ohne ihn zeigt der Bereich rot „Sensor fehlt!“ und der Effekt bleibt leer.
    * **🎉 Feiertage:** der Weihnachts-Schalter (ohne ihn kommt der Weihnachtsmann nicht) und der Halloween-Schalter (Halloween auch außerhalb vom 29.–31.10.).
    * **🎃 Halloween-Schalter** gibt's außerdem bei Dampflok, Labrador, Eule & Vogelhäuschen und der Wetter-Automatik (für den Mond). Ohne Schalter kommt der Halloween-Look nur am 31. Oktober. Gefunden werden `input_boolean.`, `binary_sensor.` und `switch.`.
@@ -372,6 +375,8 @@ leaf_colors:
 | `wind_effects` | `true` | Wetter-Automatik: 🌬️ Regen, Schnee und Hagel fallen je nach Wind schräg |
 | `rain_entity` | – | Wetter-Automatik: ☔ eigener Regen-Sensor (`binary_sensor`/`input_boolean` an/aus oder `sensor` in mm/h). Fehlt er oder ist er nicht verfügbar, entscheidet `weather_entity` |
 | `rain_hint` | `true` | Wetter-Automatik: 💧 Regen-Vorbote (braucht stündliche Vorhersage) |
+| `rain_puddles` | `true` | Wetter-Automatik: 🫧 Spritzer am Boden bei Regen |
+| `dew` | `true` | Wetter-Automatik: 🌫️ Morgentau (morgens, ab 85 % Luftfeuchtigkeit) |
 | `lightning_entity` | – | Wetter-Automatik: ⚡ Sensor „Lightning distance“ der Integration Blitzortung. Gesetzt = Blitz nur bei nahem Gewitter. Nicht verfügbar = `weather_entity` entscheidet |
 | `lightning_km` | `15` | Wie nah ein Blitz sein muss (km) |
 | `birthday_text` | `Happy Birthday!` | Text auf der Wimpelkette (wird gegen Schadcode abgesichert) |
@@ -383,6 +388,7 @@ leaf_colors:
 | `holiday_halloween` / `holiday_martini` / `holiday_nikolaus` / `holiday_christmas` / `holiday_silvester` / `holiday_valentin` / `holiday_easter` | `true` | Feiertage einzeln an/aus |
 | `santa_sensor` | – | Schalter (`input_boolean`/`binary_sensor`/`switch`): an = Weihnachts-Ladung im Zug, bei den Feiertagen fliegt der Weihnachtsmann, bei Eule & Vogelhäuschen der Weihnachts-Look |
 | `dinner_sensor` | – | Schalter: an = Abendessen-Ladung im Zug (Weihnachten hat Vorrang) |
+| `garbage_entity` | – | Zug: 🗑️ Abfall-Kalender (oder an/aus-Schalter, oder Sensor mit Tagen bis zur Abholung) – Müll-Waggon vom Vortag 12 Uhr bis Abholtag 12 Uhr |
 | `halloween_pumpkins` / `halloween_ghost` / `halloween_witch` / `halloween_webs` / `halloween_bats` | `true` | Feiertage: Teile von Halloween einzeln an/aus |
 | `halloween_sensor` | – | Schalter: an = Halloween-Look bei Zug, Hund, Eule und Mond (sonst nur am 31. Oktober), bei den Feiertagen: Halloween auch außerhalb vom 29.–31.10. |
 | `person_entities` | – | `person.`-Entities mit Komma – wer zuhause ist, fährt mit (im Editor zum Antippen) |
