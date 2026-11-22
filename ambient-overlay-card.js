@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.20-beta.1";
+const CARD_VERSION = "1.0.20";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3338,9 +3338,6 @@ function weatherInfo(cfg, hass, now = Date.now()) {
   // ❄️ Frost-Ränder unter 0 °C - egal welches Wetter gerade ist
   if (frostLevel(cfg, hass) > 0) events.push("frost");
 
-  // 🌫️ Morgentau: früh morgens, feuchte Luft, kein Frost, kein Regen
-  if (cfg.dew !== false && dewNow(cfg, hass, w, events, now)) events.push("dew");
-
   const fc = (cfg.rain_hint !== false || cfg.rain_intensity !== false) ? forecastNow(cfg, now) : { cur: null, soon: false };
 
   // 🌧️ Wie stark regnet es? Reihenfolge: eigener Sensor (mm/h), Attribut
@@ -3370,24 +3367,6 @@ function weatherInfo(cfg, hass, now = Date.now()) {
   return out;
 }
 
-// 🌫️ Ist gerade Morgentau? Morgens = die Sonne ist schon auf und steigt
-// noch, ist aber unter 20° hoch (ohne sun.sun: 5 bis 10 Uhr). Feucht = die
-// Wetter-Entität meldet mindestens 85 % Luftfeuchtigkeit. Bei Frost gibt's
-// Eis statt Tau, bei Regen/Schnee/Hagel ist eh alles nass.
-function dewNow(cfg, hass, w, events, now = Date.now()) {
-  if (!w) return false;
-  const hum = numOf(w.attributes?.humidity);
-  if (hum === null || hum < 85) return false;
-  if (events.some((e) => e === "rain" || e === "snow" || e === "hail" || e === "frost")) return false;
-  const sun = hass?.states?.["sun.sun"];
-  if (sun) {
-    const el = numOf(sun.attributes?.elevation);
-    return sun.state === "above_horizon" && sun.attributes?.rising !== false && el !== null && el < 20;
-  }
-  const h = new Date(now).getHours();
-  return h >= 5 && h < 10;
-}
-
 // Kurzer "Fingerabdruck" - ändert er sich, muss neu gezeichnet werden
 function weatherSig(cfg, hass) {
   if (cfg?.event !== "weather_auto") return "";
@@ -3401,51 +3380,6 @@ function wxFor(cfg, hass) {
   if (cfg?._wx) return cfg._wx;
   const i = weatherInfo(cfg, hass);
   return { rain: i.rain, wind: i.wind };
-}
-
-// 🌫️ Morgentau: wie eine leicht beschlagene Scheibe. In den beiden unteren
-// Ecken ein zarter, milchiger Beschlag (steht still = kostet nichts), darin
-// ein paar Tropfen, die langsam ein Stück nach unten rutschen und eine
-// feuchte Spur hinter sich herziehen. Nur transform/opacity animiert,
-// Startpunkt aus der Uhrzeit (kein Neustart beim Neuzeichnen).
-const DEW_DROPS = [
-  // [links vw, oben vh, Größe px, Dauer s, Versatz s]
-  [4, 72, 16, 19, 0], [93, 68, 18, 23, 7], [11, 82, 13, 17, 11],
-  [86, 80, 14, 21, 3], [2.5, 60, 12, 25, 15],
-];
-function renderDew(cfg, hass, hostEl) {
-  const n = { low: 3, medium: 4, high: 5 }[cfg.count_preset || "medium"] || 4;
-  const op = layerOpacity(cfg);
-  const dark = isDarkModeActive(hass, hostEl);
-  // Hell: bläulich-grauer Hauch (weiß sähe man nicht), dunkel: milchig weiß
-  const fog = dark ? "232,240,248" : "150,172,196";
-  const fogA = dark ? 0.22 : 0.26;
-  const t = Date.now() / 1000;
-  const html = DEW_DROPS.slice(0, n).map(([x, y, r, dur, off]) => {
-    const delay = -((t + off) % dur);
-    return `<i class="dew-drop" style="left:${x}vw; top:${y}vh; width:${r}px; height:${Math.round(r * 1.3)}px; animation-duration:${dur}s; animation-delay:${delay.toFixed(2)}s"></i>`;
-  }).join("");
-  const css = `
-    ${overlayBaseCss("dew", `opacity:${op};`)}
-    .dew .dew-fog { position: absolute; bottom: 0; width: 34vw; height: 42vh;
-      background: radial-gradient(ellipse at var(--fx) 100%, rgba(${fog},${fogA}) 0%, rgba(${fog},${(fogA * 0.55).toFixed(2)}) 38%, rgba(${fog},0) 72%); }
-    .dew .dew-fog.l { left: 0; --fx: 0%; }
-    .dew .dew-fog.r { right: 0; --fx: 100%; }
-    .dew .dew-drop { position: absolute; border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
-      background: radial-gradient(circle at 38% 30%, rgba(255,255,255,.95) 0 14%, rgba(${dark ? "210,228,245" : "120,150,185"},.55) 40%, rgba(${dark ? "160,190,220" : "90,120,160"},.35) 68%, transparent 72%);
-      box-shadow: 0 1px 1px rgba(0,0,0,${dark ? ".25" : ".12"});
-      animation-name: dew-slide; animation-timing-function: ease-in; animation-iteration-count: infinite;
-      will-change: transform, opacity; }
-    .dew .dew-drop::before { content: ""; position: absolute; left: 50%; bottom: 70%; width: 3px; height: 6vh; margin-left: -1.5px;
-      background: linear-gradient(to top, rgba(${dark ? "220,235,250" : "130,160,195"},.35), transparent); border-radius: 1px; }
-    @keyframes dew-slide {
-      0% { transform: translateY(-4vh); opacity: 0; }
-      12% { opacity: 1; }
-      70% { transform: translateY(5vh); opacity: 1; }
-      100% { transform: translateY(7vh); opacity: 0; }
-    }
-  `;
-  return { css, html: `<div class="dew" aria-hidden="true"><div class="dew-fog l"></div><div class="dew-fog r"></div>${html}</div>` };
 }
 
 function renderFrost(cfg, hass, hostEl) {
@@ -3904,7 +3838,6 @@ const RENDERERS = {
   santa: renderSanta,
   spider: renderSpider,
   dog: renderDog,
-  dew: renderDew,
 
   train: renderTrain,
   bee: renderBee,
@@ -4185,7 +4118,6 @@ const EFFECT_DEFAULTS = {
   rain_entity: "",
   rain_hint: true,
   rain_puddles: true,
-  dew: true,
   garbage_entity: "",
   lightning_entity: "",
   lightning_km: 15,
@@ -5117,11 +5049,10 @@ const GROUP_TEXT = {
 
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
-const AOC_BETA_NEWS = [
-  "🌫️ Schönerer Morgentau: die unteren Ecken beschlagen wie eine angelaufene Scheibe, ein paar Tropfen rutschen langsam mit feuchter Spur nach unten (statt Murmeln rundherum)",
-];
+const AOC_BETA_NEWS = [];
 const AOC_NEWS = [
-  ["1.0.19", "🌫️ Morgentau, 🫧 Spritzer am Boden, 🔦 Zug nachts mit Licht, 🗑️ Müll-Waggon am Tag vor der Abholung"],
+  ["1.0.20", "🌫️ Morgentau wieder entfernt (sah nicht schön aus)"],
+  ["1.0.19", "🫧 Spritzer am Boden, 🔦 Zug nachts mit Licht, 🗑️ Müll-Waggon am Tag vor der Abholung"],
   ["1.0.19", "🎄 Eule & Vogelhäuschen im Weihnachts-Look"],
   ["1.0.19", "🎅 Neuer Weihnachtsmann-Schlitten mit 4 Rentieren und Rudi mit roter Nase, so groß wie die Hexe"],
   ["1.0.19", "🌧️ Echte Regenstärke, 🌬️ Wind, ☔ Regen-Sensor, 💧 Regen-Vorbote, ⚡ Blitzortung"],
@@ -5752,9 +5683,6 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (c.wind_effects !== false && wx.wind.lvl > 0) sum.push(`Wind ${"▮".repeat(wx.wind.lvl)}`);
       set += swRow("rain_puddles", "🫧", "Spritzer am Boden",
         "Ganz unten, wo die Tropfen auf den Boden kommen, spritzen kleine Ringe auf. Niesel = wenige, Starkregen = mehr und schnellere.");
-      set += swRow("dew", "🌫️", "Morgentau",
-        "Früh morgens (die Sonne ist gerade aufgegangen und noch tief) und bei mindestens 85 % Luftfeuchtigkeit beschlagen die unteren Ecken und ein paar Tautropfen rutschen langsam nach unten. Bei Frost gibt's stattdessen Eis, bei Regen ist eh alles nass.");
-      if (wx.events.includes("dew")) sum.push("🌫️ Tau");
       set += this._picker(scope, "☔ Eigener Regen-Sensor (optional)", "rain_entity", ["binary_sensor", "sensor", "input_boolean"],
         "Zum Beispiel der Regenmelder im Garten (an/aus) oder die Regenrate deiner Wetterstation in mm/h. Er hat Vorrang vor dem Wetterdienst: nass = Regen, trocken = kein Regen. Leer, fehlt er oder ist er nicht verfügbar, entscheidet einfach der Wetter-Sensor - du musst also nichts einrichten.",
         "Sensor suchen, z. B. Regensensor");

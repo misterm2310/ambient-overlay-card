@@ -58,7 +58,6 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 | 👻 **Halloween look** | On 31 October all by itself (or via a switch): train with pumpkins, cauldron, coffin and sweets, Labrador with little devil horns, owl with a witch’s hat, birdhouse with a pumpkin and a cobweb (the bird wears a tiny witch’s hat) and an orange moon (in its real moon phase). |
 | 🕷️ **Spider** | A spider in its web (loses its grip for a moment and then acts as if nothing happened). |
 | ☃️ **Growing snow layer** | If it snows for a while, a thin layer of snow slowly builds up at the bottom. |
-| 🌫️ **Morning dew** | Early in the morning (the sun has just risen and is still low) and with at least 85 % humidity from the weather entity, the lower corners mist up like a fogged window and a few dew drops slowly slide down, leaving a wet trail. Frost gives ice instead, rain makes everything wet anyway. Switch off: `dew: false`. |
 | 🫧 **Splashes on the ground** | When it rains, little rings splash up at the very bottom where the drops hit the ground (drizzle = few, heavy rain = more and faster). Switch off: `rain_puddles: false`. |
 | 🥶 **Frosty edges** | Below 0 °C outside, the edges of the screen ice over – the colder, the stronger. Runs in the weather automation whatever the weather. |
 | 🌧️ **Real rain intensity** | Drizzle = a few short, delicate threads. Heavy rain = lots of long, fast streaks. Source: your own rain sensor (mm/h), else the precipitation of the weather entity or its hourly forecast, else "pouring" from the weather service. |
@@ -140,7 +139,7 @@ Add card → **Ambient Overlay Card** → in the editor. A new card starts with 
 3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky, seasons and holidays): every part has its own toggle. For the birthday you also enter the bunting text here and get a number field for the height of the text (in pixels). For the holidays, the Halloween parts follow below. If today is no holiday, the preview shows the next one.
 4. **🎨 Appearance (Aussehen):** amount (Wenig/Mittel/Viel = low/medium/high), opacity (Zart/Dezent/Kräftig = soft/subtle/strong) and for some effects the colour.
 5. **⚙️ Settings (Einstellungen)** – depending on the effect:
-   * **🌦️ Weather:** your `weather.*` entity (without it the section shows a red “Wetter fehlt!” = weather missing). Plus switches for frosty edges, rain intensity, wind, 🫧 splashes on the ground, 🌫️ morning dew and the rain heads-up.
+   * **🌦️ Weather:** your `weather.*` entity (without it the section shows a red “Wetter fehlt!” = weather missing). Plus switches for frosty edges, rain intensity, wind, 🫧 splashes on the ground and the rain heads-up.
    * **🐕 Labrador:** optionally the weather entity for shaking in the rain.
    * **🚂 Steam train:** Christmas, dinner and Halloween switches, people to tap, guest sensor or fixed guest text and the 🗑️ waste calendar. If several switches are on: Christmas beats dinner beats Halloween.
    * **🍂 Seasons:** the season sensor (“Season” integration, reports `spring`/`summer`/`autumn`/`winter`). Without it the section shows a red “Sensor fehlt!” (sensor missing) and the effect stays empty.
@@ -378,7 +377,6 @@ leaf_colors:
 | `rain_entity` | – | Weather automation: ☔ own rain sensor (`binary_sensor`/`input_boolean` on/off or `sensor` in mm/h). Missing or unavailable = `weather_entity` decides |
 | `rain_hint` | `true` | Weather automation: 💧 rain heads-up (needs hourly forecast) |
 | `rain_puddles` | `true` | Weather automation: 🫧 splashes on the ground when it rains |
-| `dew` | `true` | Weather automation: 🌫️ morning dew (mornings, from 85 % humidity) |
 | `lightning_entity` | – | Weather automation: ⚡ "Lightning distance" sensor of the Blitzortung integration. Set = flashes only for a nearby storm. Unavailable = `weather_entity` decides |
 | `lightning_km` | `15` | How close a strike has to be (km) |
 | `birthday_text` | `Happy Birthday!` | Text on the bunting (protected against malicious code) |
