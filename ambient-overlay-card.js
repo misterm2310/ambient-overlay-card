@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.20";
+const CARD_VERSION = "1.0.20-beta.2";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3338,6 +3338,9 @@ function weatherInfo(cfg, hass, now = Date.now()) {
   // ❄️ Frost-Ränder unter 0 °C - egal welches Wetter gerade ist
   if (frostLevel(cfg, hass) > 0) events.push("frost");
 
+  // 🌫️ Morgentau: früh morgens, feuchte Luft, kein Frost, kein Regen
+  if (cfg.dew !== false && dewNow(cfg, hass, w, events, now)) events.push("dew");
+
   const fc = (cfg.rain_hint !== false || cfg.rain_intensity !== false) ? forecastNow(cfg, now) : { cur: null, soon: false };
 
   // 🌧️ Wie stark regnet es? Reihenfolge: eigener Sensor (mm/h), Attribut
@@ -3367,6 +3370,24 @@ function weatherInfo(cfg, hass, now = Date.now()) {
   return out;
 }
 
+// 🌫️ Ist gerade Morgentau? Morgens = die Sonne ist schon auf und steigt
+// noch, ist aber unter 20° hoch (ohne sun.sun: 5 bis 10 Uhr). Feucht = die
+// Wetter-Entität meldet mindestens 85 % Luftfeuchtigkeit. Bei Frost gibt's
+// Eis statt Tau, bei Regen/Schnee/Hagel ist eh alles nass.
+function dewNow(cfg, hass, w, events, now = Date.now()) {
+  if (!w) return false;
+  const hum = numOf(w.attributes?.humidity);
+  if (hum === null || hum < 85) return false;
+  if (events.some((e) => e === "rain" || e === "snow" || e === "hail" || e === "frost")) return false;
+  const sun = hass?.states?.["sun.sun"];
+  if (sun) {
+    const el = numOf(sun.attributes?.elevation);
+    return sun.state === "above_horizon" && sun.attributes?.rising !== false && el !== null && el < 20;
+  }
+  const h = new Date(now).getHours();
+  return h >= 5 && h < 10;
+}
+
 // Kurzer "Fingerabdruck" - ändert er sich, muss neu gezeichnet werden
 function weatherSig(cfg, hass) {
   if (cfg?.event !== "weather_auto") return "";
@@ -3380,6 +3401,147 @@ function wxFor(cfg, hass) {
   if (cfg?._wx) return cfg._wx;
   const i = weatherInfo(cfg, hass);
   return { rain: i.rain, wind: i.wind };
+}
+
+// 🌫️ Morgentau wie eine beschlagene Fensterscheibe (Vorlage: Marcos Foto):
+// unten ein Streifen Beschlag über die ganze Breite. Oben fein und neblig,
+// nach unten immer dichter, ganz unten dicke Tropfen und ein paar Laufspuren,
+// wo Tropfen schon runtergelaufen sind. Alles EIN stehendes SVG ohne
+// Animation = kostet nach dem Zeichnen nichts (Fire TV). Feste Zufallszahlen
+// (Startwert), damit der Beschlag beim Neuzeichnen nicht hin- und herspringt.
+function dewRandom(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function renderDew(cfg, hass, hostEl) {
+  const preset = cfg.count_preset || "medium";
+  const dens = { low: 0.6, medium: 1, high: 1.4 }[preset] || 1;
+  const op = layerOpacity(cfg);
+  const dark = isDarkModeActive(hass, hostEl);
+  const W = Math.max(320, Math.round(window.innerWidth || 1280));
+  const H = Math.round(Math.max(160, (window.innerHeight || 720) * 0.42));
+  const rnd = dewRandom(2310 + W);
+  // Oberkante wellig: an manchen Stellen reicht der Beschlag höher
+  // Oberkante: in der Mitte niedrig, an den Seiten nach oben gezogen (wie
+  // am Fensterrahmen), dazu leicht wellig. Wert = Anteil von oben (0 = ganz oben)
+  const edge = (x) => {
+    const side = Math.abs(x / W - 0.5) * 2; // 0 = Mitte, 1 = Rand
+    return 0.62 - 0.52 * Math.pow(side, 2.4) + 0.05 * Math.sin(x / W * 9.1 + 1.3) + 0.03 * Math.sin(x / W * 23.7);
+  };
+  // Farben: hell = graublaue Tropfen mit dunklem Rand, dunkel = helle Ränder
+  const fog = dark ? "225,235,245" : "205,214,224";
+  const fogA = dark ? 0.2 : 0.6;
+  const rim = dark ? "20,26,34" : "55,68,84";
+  const body = dark ? "70,84,100" : "95,110,128";
+
+  const drops = [];
+  const runs = [];
+  // 1) feiner Nebel aus winzigen Pünktchen (oben im Streifen am dichtesten)
+  const nFine = Math.round(W / 2.2 * dens);
+  for (let i = 0; i < nFine; i++) {
+    const x = rnd() * W;
+    const top = edge(x) * H;
+    const y = top + Math.pow(rnd(), 1.3) * (H - top);
+    const r = 0.7 + rnd() * 1.3;
+    drops.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="rgba(${rim},${(0.16 + rnd() * 0.2).toFixed(2)})"/>`);
+  }
+  // 2) echte Tropfen: dicht gepackt, je tiefer, desto größer. Jeder Tropfen
+  // ist dasselbe Muster (oben dunkel, unten heller Lichtbogen, weißer
+  // Glanzpunkt), nur verschoben und skaliert = wenig Arbeit für den Browser.
+  const nBig = Math.round(W / 2.2 * dens);
+  for (let i = 0; i < nBig; i++) {
+    const x = rnd() * W;
+    const top = edge(x) * H + H * 0.18;
+    const f = Math.pow(rnd(), 0.55); // eher unten
+    const y = top + f * (H - top - 3);
+    const rx = 1.2 + f * f * (2.5 + rnd() * 3.5);
+    const ry = rx * (0.9 + rnd() * 0.45);
+    const rot = (rnd() * 40 - 20).toFixed(0);
+    drops.push(`<use href="#dewDrop" transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${rot}) scale(${(rx / 10).toFixed(2)},${(ry / 10).toFixed(2)})"/>`);
+    // 3) ab und zu ist ein dicker Tropfen schon runtergelaufen: klare Spur
+    if (rx > 5 && rnd() < 0.3) runs.push({ x, y, w: rx * 1.3 });
+  }
+  // Beschlag-Fläche folgt der Oberkante (etwas höher, der Rand wird weich)
+  const fogPts = [];
+  for (let i = 0; i <= 40; i++) { const x = (i / 40) * W; fogPts.push(`${x.toFixed(0)},${(Math.max(0, edge(x) - 0.06) * H).toFixed(0)}`); }
+  const fogPath = `M0,${H} L${fogPts.join(" L")} L${W},${H} Z`;
+  const runMask = runs.map((r) => `<rect x="${(r.x - r.w / 2).toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${H}" rx="${(r.w / 2).toFixed(1)}" fill="black"/>`).join("");
+  const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="dewFog" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="rgba(${fog},0)"/>
+        <stop offset=".4" stop-color="rgba(${fog},${(fogA * 0.65).toFixed(2)})"/>
+        <stop offset="1" stop-color="rgba(${fog},${fogA})"/>
+      </linearGradient>
+      <linearGradient id="dewBody" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="rgba(${body},.75)"/>
+        <stop offset=".55" stop-color="rgba(${body},.32)"/>
+        <stop offset=".82" stop-color="rgba(255,255,255,.55)"/>
+        <stop offset="1" stop-color="rgba(255,255,255,.95)"/>
+      </linearGradient>
+      <symbol id="dewDrop" overflow="visible">
+        <ellipse rx="10" ry="10" fill="url(#dewBody)" stroke="rgba(${rim},.55)" stroke-width="1.2"/>
+        <ellipse cx="-3.5" cy="-5" rx="3" ry="2" fill="rgba(255,255,255,.95)"/>
+      </symbol>
+      <filter id="dewSoft" x="-5%" y="-20%" width="110%" height="140%"><feGaussianBlur stdDeviation="10"/></filter>
+      <mask id="dewRuns"><rect width="${W}" height="${H}" fill="white"/>${runMask}</mask>
+    </defs>
+    <path d="${fogPath}" fill="url(#dewFog)" mask="url(#dewRuns)" filter="url(#dewSoft)"/>
+    ${drops.join("")}
+  </svg>`;
+  // 4) ein paar dicke Tropfen LAUFEN: rutschen langsam durch den Beschlag
+  // nach unten und ziehen eine Spur hinter sich her. Nur transform/opacity,
+  // Startpunkt aus der Uhrzeit (kein Neustart beim Neuzeichnen).
+  const RUNNERS = [[0.12, 0.08, 15, 0], [0.53, 0.1, 19, 6], [0.86, 0.06, 17, 11], [0.34, 0.1, 21, 3]];
+  const nRun = { low: 2, medium: 3, high: 4 }[preset] || 3;
+  const t = Date.now() / 1000;
+  const runHtml = RUNNERS.slice(0, nRun).map(([fx, fy, dur, off]) => {
+    const x = Math.round(fx * W);
+    const y0 = Math.round((edge(fx * W) + fy) * H);
+    const dist = H - y0 + 8;
+    const delay = (-((t + off) % dur)).toFixed(2);
+    const st = `animation-duration:${dur}s; animation-delay:${delay}s; --dist:${dist}px`;
+    return `<div class="dew-runner" style="left:${x}px; top:${y0}px; height:${dist}px">
+      <i class="dew-trail" style="${st}"></i><i class="dew-ball" style="${st}"></i></div>`;
+  }).join("");
+  // Spur: hell = etwas heller (Beschlag weggewischt), dunkel = etwas dunkler
+  const trail = dark ? "rgba(0,0,0,.28)" : "rgba(255,255,255,.75)";
+  const css = `
+    ${overlayBaseCss("dew", `opacity:${op};`)}
+    .dew .dew-band { position: absolute; left: 0; bottom: 0; width: 100%; height: ${H}px; }
+    .dew .dew-band svg { display: block; }
+    .dew .dew-runner { position: absolute; width: 0; }
+    .dew .dew-trail { position: absolute; left: -3px; top: 0; width: 6px; height: 100%; border-radius: 3px;
+      background: linear-gradient(to bottom, transparent, ${trail} 25%, ${trail});
+      transform-origin: top; transform: scaleY(0);
+      animation-name: dew-trail; animation-timing-function: cubic-bezier(.5,0,.8,1); animation-iteration-count: infinite; }
+    .dew .dew-ball { position: absolute; left: -5px; top: -6px; width: 10px; height: 12px;
+      border-radius: 50% 50% 50% 50% / 45% 45% 55% 55%;
+      background: linear-gradient(to bottom, rgba(${body},.8), rgba(${body},.35) 55%, rgba(255,255,255,.6) 82%, rgba(255,255,255,.95));
+      box-shadow: inset 0 0 0 1.2px rgba(${rim},.55);
+      animation-name: dew-ball; animation-timing-function: cubic-bezier(.5,0,.8,1); animation-iteration-count: infinite;
+      will-change: transform, opacity; }
+    .dew .dew-ball::after { content: ""; position: absolute; left: 2px; top: 2px; width: 4px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.95); }
+    @keyframes dew-ball {
+      0% { transform: translateY(0) scale(.6); opacity: 0; }
+      8% { transform: translateY(0) scale(1); opacity: 1; }
+      22% { transform: translateY(0) scale(1); }
+      70% { transform: translateY(var(--dist)); opacity: 1; }
+      74%, 100% { transform: translateY(var(--dist)); opacity: 0; }
+    }
+    @keyframes dew-trail {
+      0%, 22% { transform: scaleY(0); opacity: 1; }
+      70% { transform: scaleY(1); opacity: 1; }
+      100% { transform: scaleY(1); opacity: 0; }
+    }
+  `;
+  return { css, html: `<div class="dew" aria-hidden="true"><div class="dew-band">${svg}</div><div class="dew-band">${runHtml}</div></div>` };
 }
 
 function renderFrost(cfg, hass, hostEl) {
@@ -3838,6 +4000,7 @@ const RENDERERS = {
   santa: renderSanta,
   spider: renderSpider,
   dog: renderDog,
+  dew: renderDew,
 
   train: renderTrain,
   bee: renderBee,
@@ -4118,6 +4281,7 @@ const EFFECT_DEFAULTS = {
   rain_entity: "",
   rain_hint: true,
   rain_puddles: true,
+  dew: true,
   garbage_entity: "",
   lightning_entity: "",
   lightning_km: 15,
@@ -5049,7 +5213,9 @@ const GROUP_TEXT = {
 
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
-const AOC_BETA_NEWS = [];
+const AOC_BETA_NEWS = [
+  "🌫️ Morgentau ganz neu, wie eine beschlagene Fensterscheibe: unten ein Streifen Beschlag, oben fein, unten dicke Tropfen und Laufspuren. Ein paar dicke Tropfen laufen langsam mit Spur nach unten, der Rest steht still (sparsam für den Fire TV)",
+];
 const AOC_NEWS = [
   ["1.0.20", "🌫️ Morgentau wieder entfernt (sah nicht schön aus)"],
   ["1.0.19", "🫧 Spritzer am Boden, 🔦 Zug nachts mit Licht, 🗑️ Müll-Waggon am Tag vor der Abholung"],
@@ -5683,6 +5849,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (c.wind_effects !== false && wx.wind.lvl > 0) sum.push(`Wind ${"▮".repeat(wx.wind.lvl)}`);
       set += swRow("rain_puddles", "🫧", "Spritzer am Boden",
         "Ganz unten, wo die Tropfen auf den Boden kommen, spritzen kleine Ringe auf. Niesel = wenige, Starkregen = mehr und schnellere.");
+      set += swRow("dew", "🌫️", "Morgentau",
+        "Früh morgens (die Sonne ist gerade aufgegangen und noch tief) und bei mindestens 85 % Luftfeuchtigkeit beschlägt unten ein Streifen wie eine Fensterscheibe (oben fein, unten dicke Tropfen). Bei Frost gibt's stattdessen Eis, bei Regen ist eh alles nass.");
+      if (wx.events.includes("dew")) sum.push("🌫️ Tau");
       set += this._picker(scope, "☔ Eigener Regen-Sensor (optional)", "rain_entity", ["binary_sensor", "sensor", "input_boolean"],
         "Zum Beispiel der Regenmelder im Garten (an/aus) oder die Regenrate deiner Wetterstation in mm/h. Er hat Vorrang vor dem Wetterdienst: nass = Regen, trocken = kein Regen. Leer, fehlt er oder ist er nicht verfügbar, entscheidet einfach der Wetter-Sensor - du musst also nichts einrichten.",
         "Sensor suchen, z. B. Regensensor");

@@ -56,6 +56,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 | 👻 **Halloween-Look** | Am 31. Oktober ganz von selbst (oder per Schalter): Zug mit Kürbissen, Hexenkessel, Sarg und Süßigkeiten, Labrador mit Teufelshörnchen, Eule mit Hexenhut, Vogelhäuschen mit Kürbis und Spinnwebe (der Vogel trägt einen Mini-Hexenhut) und ein oranger Mond (in seiner echten Mondphase). |
 | 🕷️ **Spinne** | Spinne im Netz (verliert kurz den Halt und tut dann so, als wäre nichts gewesen). |
 | ☃️ **Wachsende Schneedecke** | Schneit es eine Weile, bleibt unten langsam eine kleine Schneeschicht liegen. |
+| 🌫️ **Morgentau** | Früh morgens (die Sonne ist gerade aufgegangen und steht noch tief) und bei mindestens 85 % Luftfeuchtigkeit laut Wetter-Sensor beschlägt unten ein Streifen wie eine Fensterscheibe: oben feiner Nebel, unten dicke Tropfen und ein paar Laufspuren. Steht still, kostet also kaum Leistung. Bei Frost gibt's Eis, bei Regen ist eh alles nass. Abschalten: `dew: false`. |
 | 🫧 **Spritzer am Boden** | Bei Regen spritzen ganz unten, wo die Tropfen auf den Boden kommen, kleine Ringe auf (Niesel = wenige, Starkregen = mehr und schnellere). Abschalten: `rain_puddles: false`. |
 | 🥶 **Frost-Ränder** | Ist es draußen unter 0 °C, vereisen die Ränder vom Bildschirm – je kälter, desto stärker. Läuft in der Wetter-Automatik bei jedem Wetter mit. |
 | 🌧️ **Echte Regenstärke** | Nieselregen = wenige kurze, zarte Fäden. Starkregen = viele lange, schnelle Striche. Woher die Karte das weiß: eigener Regen-Sensor (mm/h), sonst die Regenmenge vom Wetter-Sensor bzw. seiner stündlichen Vorhersage, sonst „Starkregen“ vom Wetterdienst. |
@@ -137,7 +138,7 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte st
 3. **🧩 Was soll gezeigt werden?** (bei Geburtstag, Nachthimmel, Jahreszeiten und Feiertage): jedes Teil mit eigenem Schiebeschalter. Beim Geburtstag steht hier auch der Text für die Wimpelkette und ein Zahlenfeld für die Höhe des Schriftzugs (in Pixeln). Bei den Feiertagen kommen darunter die Teile von Halloween. Ist heute kein Feiertag, zeigt die Vorschau den nächsten.
 4. **🎨 Aussehen:** Anzahl (Wenig/Mittel/Viel), Deckkraft (Zart/Dezent/Kräftig) und bei manchen Effekten die Farbe.
 5. **⚙️ Einstellungen** – je nach Effekt:
-   * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“). Dazu Schiebeschalter für Frost-Ränder, Regenstärke, Wind, 🫧 Spritzer am Boden und Regen-Vorbote.
+   * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“). Dazu Schiebeschalter für Frost-Ränder, Regenstärke, Wind, 🫧 Spritzer am Boden, 🌫️ Morgentau und Regen-Vorbote.
    * **🐕 Labrador:** optional die Wetter-Entity fürs Schütteln bei Regen.
    * **🚂 Dampflok:** Weihnachts-, Abendessen- und Halloween-Schalter, Personen zum Antippen, Gäste-Sensor oder fester Gäste-Text und der 🗑️ Müll-Kalender. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
    * **🍂 Jahreszeiten:** der Jahreszeiten-Sensor (Integration „Season“, meldet `spring`/`summer`/`autumn`/`winter`). Ohne ihn zeigt der Bereich rot „Sensor fehlt!“ und der Effekt bleibt leer.
@@ -375,6 +376,7 @@ leaf_colors:
 | `rain_entity` | – | Wetter-Automatik: ☔ eigener Regen-Sensor (`binary_sensor`/`input_boolean` an/aus oder `sensor` in mm/h). Fehlt er oder ist er nicht verfügbar, entscheidet `weather_entity` |
 | `rain_hint` | `true` | Wetter-Automatik: 💧 Regen-Vorbote (braucht stündliche Vorhersage) |
 | `rain_puddles` | `true` | Wetter-Automatik: 🫧 Spritzer am Boden bei Regen |
+| `dew` | `true` | Wetter-Automatik: 🌫️ Morgentau (morgens, ab 85 % Luftfeuchtigkeit) |
 | `lightning_entity` | – | Wetter-Automatik: ⚡ Sensor „Lightning distance“ der Integration Blitzortung. Gesetzt = Blitz nur bei nahem Gewitter. Nicht verfügbar = `weather_entity` entscheidet |
 | `lightning_km` | `15` | Wie nah ein Blitz sein muss (km) |
 | `birthday_text` | `Happy Birthday!` | Text auf der Wimpelkette (wird gegen Schadcode abgesichert) |
