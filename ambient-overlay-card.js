@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.2";
+const CARD_VERSION = "1.0.21-beta.3";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3436,7 +3436,7 @@ function renderDew(cfg, hass, hostEl) {
   };
   // Farben: hell = graublaue Tropfen mit dunklem Rand, dunkel = helle Ränder
   const fog = dark ? "225,235,245" : "205,214,224";
-  const fogA = dark ? 0.13 : 0.38;
+  const fogA = dark ? 0.065 : 0.18;
   const rim = dark ? "20,26,34" : "55,68,84";
   const body = dark ? "70,84,100" : "95,110,128";
 
@@ -5214,6 +5214,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🌫️ Milchiger Nebel im Beschlag nur noch halb so stark (Tropfen und Höhe bleiben)",
   "🌫️ Beschlag etwa halb so hoch und durchsichtiger, damit man das Dashboard dahinter gut sieht",
   "🌫️ Morgentau ganz neu, wie eine beschlagene Fensterscheibe: unten ein Streifen Beschlag, oben fein, unten dicke Tropfen und Laufspuren. Ein paar dicke Tropfen laufen langsam mit Spur nach unten, der Rest steht still (sparsam für den Fire TV)",
 ];
