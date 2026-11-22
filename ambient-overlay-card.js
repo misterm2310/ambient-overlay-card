@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19-beta.9";
+const CARD_VERSION = "1.0.19";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -5095,21 +5095,14 @@ const GROUP_TEXT = {
 
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
-const AOC_BETA_NEWS = [
-  "🌫️ Morgentau: früh morgens bei feuchter Luft glitzern Tautropfen an den Rändern",
-  "🫧 Spritzer am Boden: bei Regen spritzen unten kleine Ringe auf, wo die Tropfen aufkommen",
-  "🔦 Zug nachts mit Licht: Lichtkegel vor der Lok, warmes Führerhaus-Fenster, hellere Schlusslichter",
-  "🗑️ Müll-Waggon: am Tag vor der Abholung fährt der Zug als vorletzten Wagen die passende Tonne spazieren (mit Abfall-Kalender)",
-];
+const AOC_BETA_NEWS = [];
 const AOC_NEWS = [
-  ["1.0.19-beta.8", "🎄 Eule & Vogelhäuschen im Weihnachts-Look"],
-  ["1.0.19-beta.7", "🎅 Weihnachtsmann-Zug halb so groß: der Weihnachtsmann ist jetzt etwa so groß wie die Hexe"],
-  ["1.0.19-beta.6", "✨ Funken an den Kufen entfernt"],
-  ["1.0.19-beta.5", "🎅 Neuer Weihnachtsmann-Schlitten mit 4 Rentieren, vorne Rudi mit leuchtender roter Nase"],
-  ["1.0.19-beta.4", "🌧️ Echte Regenstärke, 🌬️ Wind, ☔ Regen-Sensor, 💧 Regen-Vorbote, ⚡ Blitzortung"],
-  ["1.0.19-beta.3", "🔄 „Neue Version da“-Hinweis mit Knopf „Neu laden“"],
-  ["1.0.19-beta.2", "🍂 Jahreszeiten nur noch mit Sensor"],
-  ["1.0.19-beta.1", "🍂 Jahreszeiten und 🎉 Feiertage"],
+  ["1.0.19", "🌫️ Morgentau, 🫧 Spritzer am Boden, 🔦 Zug nachts mit Licht, 🗑️ Müll-Waggon am Tag vor der Abholung"],
+  ["1.0.19", "🎄 Eule & Vogelhäuschen im Weihnachts-Look"],
+  ["1.0.19", "🎅 Neuer Weihnachtsmann-Schlitten mit 4 Rentieren und Rudi mit roter Nase, so groß wie die Hexe"],
+  ["1.0.19", "🌧️ Echte Regenstärke, 🌬️ Wind, ☔ Regen-Sensor, 💧 Regen-Vorbote, ⚡ Blitzortung"],
+  ["1.0.19", "🔄 „Neue Version da“-Hinweis mit Knopf „Neu laden“"],
+  ["1.0.19", "🍂 Jahreszeiten und 🎉 Feiertage (mit Sensor)"],
   ["1.0.18", "🔢 Höhe des Geburtstags-Schriftzugs per Zahl eingeben"],
   ["1.0.17", "🎂 Höhe des Geburtstags-Schriftzugs einstellbar"],
   ["1.0.16", "❄️ Frost-Ränder in der Wetter-Automatik, ⓘ zum Antippen im Editor"],
