@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.19";
+const CARD_VERSION = "1.0.20-beta.1";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3403,27 +3403,49 @@ function wxFor(cfg, hass) {
   return { rain: i.rain, wind: i.wind };
 }
 
-// 🌫️ Morgentau: ein paar Tröpfchen an den Rändern, die abwechselnd
-// glitzern. Feste Plätze, nur Deckkraft blinkt (2 Gruppen, steps) = sparsam.
-const DEW_SPOTS = [
-  [1.5, 86, 13], [3, 68, 10], [2, 50, 12], [8, 93, 10], [16, 95, 12], [28, 94, 9], [41, 95, 11],
-  [57, 94, 12], [70, 95, 9], [83, 93, 12], [91, 90, 10], [96, 72, 13], [97, 54, 10], [96, 36, 9],
-  [1, 30, 9], [50, 95, 9],
+// 🌫️ Morgentau: wie eine leicht beschlagene Scheibe. In den beiden unteren
+// Ecken ein zarter, milchiger Beschlag (steht still = kostet nichts), darin
+// ein paar Tropfen, die langsam ein Stück nach unten rutschen und eine
+// feuchte Spur hinter sich herziehen. Nur transform/opacity animiert,
+// Startpunkt aus der Uhrzeit (kein Neustart beim Neuzeichnen).
+const DEW_DROPS = [
+  // [links vw, oben vh, Größe px, Dauer s, Versatz s]
+  [4, 72, 16, 19, 0], [93, 68, 18, 23, 7], [11, 82, 13, 17, 11],
+  [86, 80, 14, 21, 3], [2.5, 60, 12, 25, 15],
 ];
 function renderDew(cfg, hass, hostEl) {
-  const n = { low: 8, medium: 12, high: 16 }[cfg.count_preset || "medium"] || 12;
+  const n = { low: 3, medium: 4, high: 5 }[cfg.count_preset || "medium"] || 4;
   const op = layerOpacity(cfg);
-  const html = spreadSample(DEW_SPOTS, n).map(([x, y, r], i) =>
-    `<i class="dew-drop ${i % 2 ? "b" : "a"}" style="left:${x}vw; top:${y}vh; width:${r}px; height:${Math.round(r * 1.15)}px"></i>`).join("");
+  const dark = isDarkModeActive(hass, hostEl);
+  // Hell: bläulich-grauer Hauch (weiß sähe man nicht), dunkel: milchig weiß
+  const fog = dark ? "232,240,248" : "150,172,196";
+  const fogA = dark ? 0.22 : 0.26;
+  const t = Date.now() / 1000;
+  const html = DEW_DROPS.slice(0, n).map(([x, y, r, dur, off]) => {
+    const delay = -((t + off) % dur);
+    return `<i class="dew-drop" style="left:${x}vw; top:${y}vh; width:${r}px; height:${Math.round(r * 1.3)}px; animation-duration:${dur}s; animation-delay:${delay.toFixed(2)}s"></i>`;
+  }).join("");
   const css = `
     ${overlayBaseCss("dew", `opacity:${op};`)}
-    .dew .dew-drop { position: absolute; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-      background: radial-gradient(circle at 35% 30%, #ffffff 0 16%, rgba(205,232,255,.85) 28%, rgba(140,190,235,.5) 62%, rgba(90,140,200,.35) 70%, transparent 72%); }
-    .dew .dew-drop.a { animation: dew-glint 2.6s steps(1, end) infinite; }
-    .dew .dew-drop.b { animation: dew-glint 2.6s steps(1, end) infinite; animation-delay: -1.3s; }
-    @keyframes dew-glint { 0% { opacity: 1; } 50% { opacity: .55; } }
+    .dew .dew-fog { position: absolute; bottom: 0; width: 34vw; height: 42vh;
+      background: radial-gradient(ellipse at var(--fx) 100%, rgba(${fog},${fogA}) 0%, rgba(${fog},${(fogA * 0.55).toFixed(2)}) 38%, rgba(${fog},0) 72%); }
+    .dew .dew-fog.l { left: 0; --fx: 0%; }
+    .dew .dew-fog.r { right: 0; --fx: 100%; }
+    .dew .dew-drop { position: absolute; border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+      background: radial-gradient(circle at 38% 30%, rgba(255,255,255,.95) 0 14%, rgba(${dark ? "210,228,245" : "120,150,185"},.55) 40%, rgba(${dark ? "160,190,220" : "90,120,160"},.35) 68%, transparent 72%);
+      box-shadow: 0 1px 1px rgba(0,0,0,${dark ? ".25" : ".12"});
+      animation-name: dew-slide; animation-timing-function: ease-in; animation-iteration-count: infinite;
+      will-change: transform, opacity; }
+    .dew .dew-drop::before { content: ""; position: absolute; left: 50%; bottom: 70%; width: 3px; height: 6vh; margin-left: -1.5px;
+      background: linear-gradient(to top, rgba(${dark ? "220,235,250" : "130,160,195"},.35), transparent); border-radius: 1px; }
+    @keyframes dew-slide {
+      0% { transform: translateY(-4vh); opacity: 0; }
+      12% { opacity: 1; }
+      70% { transform: translateY(5vh); opacity: 1; }
+      100% { transform: translateY(7vh); opacity: 0; }
+    }
   `;
-  return { css, html: `<div class="dew" aria-hidden="true">${html}</div>` };
+  return { css, html: `<div class="dew" aria-hidden="true"><div class="dew-fog l"></div><div class="dew-fog r"></div>${html}</div>` };
 }
 
 function renderFrost(cfg, hass, hostEl) {
@@ -5095,7 +5117,9 @@ const GROUP_TEXT = {
 
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
-const AOC_BETA_NEWS = [];
+const AOC_BETA_NEWS = [
+  "🌫️ Schönerer Morgentau: die unteren Ecken beschlagen wie eine angelaufene Scheibe, ein paar Tropfen rutschen langsam mit feuchter Spur nach unten (statt Murmeln rundherum)",
+];
 const AOC_NEWS = [
   ["1.0.19", "🌫️ Morgentau, 🫧 Spritzer am Boden, 🔦 Zug nachts mit Licht, 🗑️ Müll-Waggon am Tag vor der Abholung"],
   ["1.0.19", "🎄 Eule & Vogelhäuschen im Weihnachts-Look"],
@@ -5729,7 +5753,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       set += swRow("rain_puddles", "🫧", "Spritzer am Boden",
         "Ganz unten, wo die Tropfen auf den Boden kommen, spritzen kleine Ringe auf. Niesel = wenige, Starkregen = mehr und schnellere.");
       set += swRow("dew", "🌫️", "Morgentau",
-        "Früh morgens (die Sonne ist gerade aufgegangen und noch tief) und bei mindestens 85 % Luftfeuchtigkeit glitzern ein paar Tautropfen an den Rändern. Bei Frost gibt's stattdessen Eis, bei Regen ist eh alles nass.");
+        "Früh morgens (die Sonne ist gerade aufgegangen und noch tief) und bei mindestens 85 % Luftfeuchtigkeit beschlagen die unteren Ecken und ein paar Tautropfen rutschen langsam nach unten. Bei Frost gibt's stattdessen Eis, bei Regen ist eh alles nass.");
       if (wx.events.includes("dew")) sum.push("🌫️ Tau");
       set += this._picker(scope, "☔ Eigener Regen-Sensor (optional)", "rain_entity", ["binary_sensor", "sensor", "input_boolean"],
         "Zum Beispiel der Regenmelder im Garten (an/aus) oder die Regenrate deiner Wetterstation in mm/h. Er hat Vorrang vor dem Wetterdienst: nass = Regen, trocken = kein Regen. Leer, fehlt er oder ist er nicht verfügbar, entscheidet einfach der Wetter-Sensor - du musst also nichts einrichten.",
