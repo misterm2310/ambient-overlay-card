@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.1";
+const CARD_VERSION = "1.0.21-beta.2";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3425,18 +3425,18 @@ function renderDew(cfg, hass, hostEl) {
   const op = layerOpacity(cfg);
   const dark = isDarkModeActive(hass, hostEl);
   const W = Math.max(320, Math.round(window.innerWidth || 1280));
-  const H = Math.round(Math.max(160, (window.innerHeight || 720) * 0.42));
+  const H = Math.round(Math.max(100, (window.innerHeight || 720) * 0.22));
   const rnd = dewRandom(2310 + W);
   // Oberkante wellig: an manchen Stellen reicht der Beschlag höher
   // Oberkante: in der Mitte niedrig, an den Seiten nach oben gezogen (wie
   // am Fensterrahmen), dazu leicht wellig. Wert = Anteil von oben (0 = ganz oben)
   const edge = (x) => {
     const side = Math.abs(x / W - 0.5) * 2; // 0 = Mitte, 1 = Rand
-    return 0.62 - 0.52 * Math.pow(side, 2.4) + 0.05 * Math.sin(x / W * 9.1 + 1.3) + 0.03 * Math.sin(x / W * 23.7);
+    return 0.64 - 0.5 * Math.pow(side, 2.4) + 0.05 * Math.sin(x / W * 9.1 + 1.3) + 0.03 * Math.sin(x / W * 23.7);
   };
   // Farben: hell = graublaue Tropfen mit dunklem Rand, dunkel = helle Ränder
   const fog = dark ? "225,235,245" : "205,214,224";
-  const fogA = dark ? 0.2 : 0.6;
+  const fogA = dark ? 0.13 : 0.38;
   const rim = dark ? "20,26,34" : "55,68,84";
   const body = dark ? "70,84,100" : "95,110,128";
 
@@ -5214,6 +5214,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🌫️ Beschlag etwa halb so hoch und durchsichtiger, damit man das Dashboard dahinter gut sieht",
   "🌫️ Morgentau ganz neu, wie eine beschlagene Fensterscheibe: unten ein Streifen Beschlag, oben fein, unten dicke Tropfen und Laufspuren. Ein paar dicke Tropfen laufen langsam mit Spur nach unten, der Rest steht still (sparsam für den Fire TV)",
 ];
 const AOC_NEWS = [
