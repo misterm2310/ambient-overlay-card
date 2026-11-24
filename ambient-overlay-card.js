@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.3";
+const CARD_VERSION = "1.0.21-beta.4";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1249,26 +1249,63 @@ function garbageKindOf(text) {
   const row = GARBAGE_KINDS.find(([, re]) => re.test(String(text || "")));
   return row ? row[0] : "rest";
 }
-function garbageInfo(cfg, hass, now = new Date()) {
+// 🗑️ Alle Termine des Abfall-Kalenders holen - genau wie Trash-Card und
+// Atomic-Kalender (HA-Kalender-Abfrage). Die Kalender-Entität selbst kennt
+// nämlich nur den NÄCHSTEN Termin; sind zwei Abholungen am selben Tag,
+// fehlte sonst eine. Höchstens einmal pro Stunde fragen (Fire TV schonen).
+const GARBAGE_CACHE = {};
+const GARBAGE_REFRESH_MS = 60 * 60 * 1000;
+function garbageFetch(hass, eid, now) {
+  if (!hass?.callApi) return;
+  const c = GARBAGE_CACHE[eid] || (GARBAGE_CACHE[eid] = { ts: 0, events: null, busy: false });
+  if (c.busy || Date.now() - c.ts < GARBAGE_REFRESH_MS) return;
+  c.busy = true;
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3);
+  hass.callApi("GET", `calendars/${eid}?start=${encodeURIComponent(from.toISOString())}&end=${encodeURIComponent(to.toISOString())}`)
+    .then((list) => {
+      c.events = (Array.isArray(list) ? list : []).map((e) => {
+        const d = e?.start?.date;
+        // Ganztägig ("2026-11-25") als lokale Mitternacht lesen, nicht als UTC
+        const start = d ? new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) : new Date(e?.start?.dateTime || NaN);
+        return { name: String(e?.summary || ""), start };
+      }).filter((e) => !isNaN(e.start));
+    })
+    .catch(() => { /* Abfrage klappt nicht: dann wie bisher nur der nächste Termin */ })
+    .finally(() => { c.ts = Date.now(); c.busy = false; });
+}
+// Liste der Müllarten, die gerade mitfahren (je Art ein Waggon, doppelte
+// Arten nur einmal). Leere Liste = kein Müll-Waggon.
+function garbageList(cfg, hass, now = new Date()) {
   const st = cfg?.garbage_entity ? hass?.states?.[cfg.garbage_entity] : null;
-  if (!st || ["unknown", "unavailable"].includes(String(st.state).toLowerCase())) return null;
+  if (!st || ["unknown", "unavailable"].includes(String(st.state).toLowerCase())) return [];
   const name = st.attributes?.message || st.attributes?.friendly_name || "";
   const noon = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+  const one = (n) => [{ kind: garbageKindOf(n), name: n }];
   if (cfg.garbage_entity.startsWith("calendar.")) {
+    // Aktiv = ab 12 Uhr am Vortag bis 12 Uhr am Abholtag
+    const active = (start) => {
+      const dayBefore = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1);
+      return now >= noon(dayBefore) && now < noon(start);
+    };
+    const found = [];
     const raw = st.attributes?.start_time;
-    if (!raw) return null;
-    const start = new Date(String(raw).replace(" ", "T"));
-    if (isNaN(start)) return null;
-    const dayBefore = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1);
-    if (now >= noon(dayBefore) && now < noon(start)) return { kind: garbageKindOf(name), name };
-    return null;
+    if (raw) {
+      const start = new Date(String(raw).replace(" ", "T"));
+      if (!isNaN(start) && active(start)) found.push({ kind: garbageKindOf(name), name });
+    }
+    garbageFetch(hass, cfg.garbage_entity, now);
+    for (const e of GARBAGE_CACHE[cfg.garbage_entity]?.events || []) {
+      if (active(e.start)) found.push({ kind: garbageKindOf(e.name), name: e.name });
+    }
+    return found.filter((g, i) => found.findIndex((x) => x.kind === g.kind) === i);
   }
   const n = numOf(st.state);
   if (n !== null) {
-    if ((n === 1 && now >= noon(now)) || (n === 0 && now < noon(now))) return { kind: garbageKindOf(name), name };
-    return null;
+    if ((n === 1 && now >= noon(now)) || (n === 0 && now < noon(now))) return one(name);
+    return [];
   }
-  return st.state === "on" ? { kind: garbageKindOf(name), name } : null;
+  return st.state === "on" ? one(name) : [];
 }
 // Ladung: zwei Tonnen in der passenden Farbe - beim gelben Sack drei Säcke
 function garbageCargo(kind) {
@@ -1404,13 +1441,13 @@ function renderTrain(cfg, hass, hostEl) {
   // konkrete Ladung in den ersten vier Waggons steckt, kommt erst weiter
   // unten dazu (CARGO-Objekt ist an dieser Stelle noch nicht definiert).
   // 🗑️ Müll-Waggon: am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag
-  // 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen) ein Waggon mit der passenden Tonne mit.
-  const garbage = garbageInfo(cfg, hass);
+  // 12 Uhr fahren vor dem Schlusswagen Waggons mit der passenden Tonne mit (je Müllart einer).
+  const garbage = garbageList(cfg, hass);
   // 🔦 Nachts (Sonne unter dem Horizont) fährt der Zug mit Licht: Lichtkegel
   // vor der Lok, warmer Schein ums Führerhaus, hellere Schlusslichter.
   // Alles feste Farbverläufe, die mitfahren - keine eigene Animation.
   const nightLights = hass?.states?.["sun.sun"]?.state === "below_horizon";
-  const wagonCount = 4 + personCargoList.length + customCargoList.length + 1 + (garbage ? 1 : 0);
+  const wagonCount = 4 + personCargoList.length + customCargoList.length + 1 + garbage.length;
   const WAGON_GAP = 93;
   const WAGON_X = Array.from({ length: wagonCount }, (_, i) => 4 + i * WAGON_GAP);
   const LOCO_X = 4 + wagonCount * WAGON_GAP + 8;
@@ -1643,7 +1680,7 @@ function renderTrain(cfg, hass, hostEl) {
 
   const allCargo = [
     { cargo: endMarkerCargo, window: "", wheels: 2 },
-    ...(garbage ? [{ cargo: garbageCargo(garbage.kind), window: "" }] : []),
+    ...garbage.map((g) => ({ cargo: garbageCargo(g.kind), window: "" })),
     ...customCargoList,
     ...[...personCargoList].reverse(),
     { cargo: CARGO[cargo0], window: "" },
@@ -4720,7 +4757,7 @@ class AmbientOverlayCard extends HTMLElement {
         : `${eid}=${o.state}`;
     });
     parts.push(`hw=${isHalloweenTime(cfg, this._hass) ? 1 : 0}`);
-    parts.push(`gb=${garbageInfo(cfg, this._hass)?.kind || 0}`);
+    parts.push(`gb=${garbageList(cfg, this._hass).map((g) => g.kind).join("+") || 0}`);
     return parts.join(",");
   }
 
@@ -4845,7 +4882,7 @@ class AmbientOverlayCard extends HTMLElement {
     const newSeasonal = isSeasonal ? eventsForConfig(this._config, hass).join("+") : "";
     this._lastSeasonal = newSeasonal;
     const seasonalChanged = oldSeasonal !== undefined && oldSeasonal !== newSeasonal;
-    const newGarbage = garbageInfo(this._config, hass)?.kind || "";
+    const newGarbage = garbageList(this._config, hass).map((g) => g.kind).join("+");
     this._lastGarbage = newGarbage;
     const garbageChanged = oldGarbage !== undefined && oldGarbage !== newGarbage;
 
@@ -5214,6 +5251,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🗑️ Zwei Abholungen am selben Tag (z. B. Gelber Sack + Bio): jetzt fährt für jede Müllart ein eigener Waggon mit. Die Karte fragt dafür wie Trash-Card & Co. alle Termine beim Kalender ab (höchstens einmal pro Stunde)",
   "🌫️ Milchiger Nebel im Beschlag nur noch halb so stark (Tropfen und Höhe bleiben)",
   "🌫️ Beschlag etwa halb so hoch und durchsichtiger, damit man das Dashboard dahinter gut sieht",
   "🌫️ Morgentau ganz neu, wie eine beschlagene Fensterscheibe: unten ein Streifen Beschlag, oben fein, unten dicke Tropfen und Laufspuren. Ein paar dicke Tropfen laufen langsam mit Spur nach unten, der Rest steht still (sparsam für den Fire TV)",
@@ -5903,11 +5941,11 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (c.santa_sensor) sum.push("Weihnachten");
       if (c.dinner_sensor) sum.push("Abendessen");
       set += this._picker(scope, "🗑️ Müll-Kalender", "garbage_entity", ["calendar", "binary_sensor", "input_boolean", "sensor"],
-        "Am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen mit den Lampen) ein Müll-Waggon mit. Die Tonne passt zum Namen im Kalender: Gelber Sack/Wertstoff = gelbe Säcke, Papier = blau, Bio = braun, Glas = grün, sonst graue Restmüll-Tonne. Geht auch mit einem an/aus-Schalter oder einem Sensor, der die Tage zählt (1 = morgen).",
+        "Am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen mit den Lampen) ein Müll-Waggon mit. Die Tonne passt zum Namen im Kalender: Gelber Sack/Wertstoff = gelbe Säcke, Papier = blau, Bio = braun, Glas = grün, sonst graue Restmüll-Tonne. Zwei Abholungen am selben Tag = je Müllart ein eigener Waggon. Geht auch mit einem an/aus-Schalter oder einem Sensor, der die Tage zählt (1 = morgen).",
         "Kalender suchen, z. B. Abfall");
       if (c.garbage_entity) {
-        const gb = garbageInfo(c, this._hass);
-        sum.push(gb ? `🗑️ ${gb.name || "Müll"}` : "Müll");
+        const gb = garbageList(c, this._hass);
+        sum.push(gb.length ? `🗑️ ${gb.map((g) => g.name || "Müll").join(" + ")}` : "Müll");
       }
     }
     if (HALLOWEEN_HINTS[ev] && !(ev === "holidays" && c.holiday_halloween === false)) {
