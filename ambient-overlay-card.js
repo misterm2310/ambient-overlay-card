@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.10";
+const CARD_VERSION = "1.0.21-beta.11";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1867,6 +1867,9 @@ function renderTrain(cfg, hass, hostEl) {
   // Fährt "einfach nur mit Licht": die Fenster leuchten warm, vorne
   // Scheinwerfer, hinten rote Schlusslichter, nachts ein Lichtkegel.
   const iceWidth = 750; // Marco: ein Wagen mehr (vorher 600)
+  // Marco 25.11: Schnellzug war nur gut halb so hoch wie die Lok (33 statt
+  // ~55 Einheiten). Körper wird nach oben gestreckt -> etwa Personenwagen-Höhe.
+  const ICE_TALL = 1.55;
   const iceBoxWidth = Math.round(iceWidth * scale);
   const iceSeg = [[70, 118], [121, 170], [173, 250], [253, 340], [343, 420], [423, 490], [493, 570], [573, 650], [653, 680]];
   const iceDoors = [150, 300, 450, 600];
@@ -1892,12 +1895,14 @@ function renderTrain(cfg, hass, hostEl) {
           <linearGradient id="aoc-ice-beam" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#fffbe6" stop-opacity=".75"/><stop offset="1" stop-color="#fffbe6" stop-opacity="0"/></linearGradient>
           <radialGradient id="aoc-ice-tail"><stop offset="0" stop-color="#ff5050" stop-opacity=".8"/><stop offset="1" stop-color="#ff5050" stop-opacity="0"/></radialGradient>
         </defs>` : ""}
-        <!-- Körper: lang und flach, Nasen an beiden Enden -->
-        <path d="M4,55 Q0,49 8,45 Q34,27 72,22 L678,22 Q716,27 742,45 Q750,49 746,55 Z" fill="#dcdee8"/>
+        <!-- Körper: lang, Nasen an beiden Enden. Marco 25.11: so hoch wie der
+             Personenwagen -> nur nach oben gestreckt (Boden bleibt bei y=55) -->
+        <g transform="translate(0,55) scale(1,${ICE_TALL}) translate(0,-55)"><path d="M4,55 Q0,49 8,45 Q34,27 72,22 L678,22 Q716,27 742,45 Q750,49 746,55 Z" fill="#dcdee8"/></g>
         <path d="M10,50 L740,50 Q741,52 738,53 Q712,49 690,52 L60,52 Q38,49 12,53 Q9,52 10,50 Z" fill="#c3c6d3"/>
         <!-- leichte Rad-Ansätze: dunkler Unterboden, nur Halbbögen schauen raus -->
         <rect x="58" y="51" width="634" height="3.5" fill="#30333f"/>
         ${[78, 96, 248, 266, 334, 352, 398, 416, 484, 502, 654, 672].map((wx) => `<path d="M${wx - 5},51.5 A5,5 0 0 0 ${wx + 5},51.5 Z" fill="#30333f"/><circle cx="${wx}" cy="52.5" r="1.4" fill="#6b7280"/>`).join("")}
+        <g transform="translate(0,55) scale(1,${ICE_TALL}) translate(0,-55)">
         <path d="M4,55 Q0,49 8,45 Q34,27 72,22 L678,22 Q716,27 742,45 Q750,49 746,55 L736,55 Q710,50 690,52 L60,52 Q40,50 14,55 Z" fill="#dcdee8"/>
         <path d="M72,23.2 L678,23.2" stroke="#eef0f6" stroke-width="1.4"/>
         <!-- dunkle Linie auf den Nasen (Scheiben) -->
@@ -1912,13 +1917,15 @@ function renderTrain(cfg, hass, hostEl) {
         <path d="M52,41.5 Q25,42 5,48.5 L6,50.8 Q26,44.6 52,44 Z" fill="#e3242b"/>
         <path d="M698,41.5 Q725,42 745,48.5 L744,50.8 Q724,44.6 698,44 Z" fill="#e3242b"/>
         ${iceStripe}
-        ${iceLabels.map(([cx, t]) => `<text x="${cx}" y="49.4" font-size="${t === "ICM" ? 11 : 8.5}" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-style="italic" fill="#8e93a3" text-anchor="middle" letter-spacing=".6">${escapeHtml(t)}</text>`).join("")}
         <!-- Türen (Doppel-Umriss) -->
         ${iceDoors.map((dx) => `<path d="M${dx - 8},28 h6 v22 h-6 Z M${dx + 2},28 h6 v22 h-6 Z M${dx},22 V50" stroke="#9a9db0" stroke-width="1" fill="none"/>`).join("")}
+        </g>
+        <!-- Schriftzug außerhalb der Streckung, damit die Buchstaben nicht gezogen aussehen -->
+        ${iceLabels.map(([cx, t]) => `<text x="${cx}" y="${(55 - 5.6 * ICE_TALL).toFixed(1)}" font-size="${t === "ICM" ? 11 : 8.5}" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-style="italic" fill="#8e93a3" text-anchor="middle" letter-spacing=".6">${escapeHtml(t)}</text>`).join("")}
         <!-- Lichter -->
         ${nightLights ? `<path d="M744,49 L890,20 L890,78 Z" fill="url(#aoc-ice-beam)"/><circle cx="6" cy="50" r="9" fill="url(#aoc-ice-tail)"/>` : ""}
-        <path d="M734,50 L743,50" stroke="#fffbe6" stroke-width="2.6" stroke-linecap="round"/>
-        <path d="M7,50 L16,50" stroke="#ff3030" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M733,${(55 - 5 * ICE_TALL).toFixed(1)} L742,${(55 - 5 * ICE_TALL).toFixed(1)}" stroke="#fffbe6" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M8,${(55 - 5 * ICE_TALL).toFixed(1)} L17,${(55 - 5 * ICE_TALL).toFixed(1)}" stroke="#ff3030" stroke-width="2.6" stroke-linecap="round"/>
       </svg>
     </div>`;
 
@@ -5638,6 +5645,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🚄 Der Schnellzug ist jetzt so hoch wie der Personenwagen (vorher nur gut halb so hoch wie die Lok), mit größeren Fenstern",
   "✨ Zug, Wagen, Räder, Gleis und Bahnübergang haben jetzt einen feinen hellen Rand, damit man sie auch auf dunklem Hintergrund gut sieht (bei Tag und Nacht)",
   "🚦 Bahnübergang mitten im Bild: Ampel, Andreaskreuz, grüner Kasten und rot-weiße Schranken. Ist alles frei, leuchtet unten Grün. Kommt ein Zug, springt die Ampel auf Rot und die Schranken senken sich, nach dem letzten Wagen gehen sie wieder hoch und es wird wieder Grün. Im Editor an/aus (Standard an)",
   "🚄 Der Schnellzug fährt jetzt doppelt so schnell wie die Dampflok",
