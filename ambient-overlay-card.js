@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.8";
+const CARD_VERSION = "1.0.21-beta.9";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -369,7 +369,7 @@ const PERIODIC_PHASE = {
 // Diese Werte stehen so auch in den Renderern ("30 / interval * 100" usw.).
 const PERIODIC_FLIGHT_SEC = {
   train: 30,
-  train_ice: 30,
+  train_ice: 15,
   dog: 20,
   santa: 18,
   birdhouse: 9,
@@ -1365,6 +1365,10 @@ function renderTrain(cfg, hass, hostEl) {
   const walkPct = Math.min(30, (30 / period) * 100).toFixed(2);
   const delaySec = periodicDelaySec(period, "train");
   const iceDelaySec = mode === "mix" ? periodicDelaySec(period, "train_ice") : delaySec;
+  // 🚄 Der Schnellzug ist doppelt so schnell wie die Dampflok (15 statt 30 s
+  // quer durchs Bild - Marcos Wunsch).
+  const ICE_FLIGHT = 15;
+  const iceWalkPct = Math.min(15, (ICE_FLIGHT / period) * 100).toFixed(2);
 
   // 5. mögliche Ladung "Weihnachtsmann-Sack": ersetzt die Holzscheite im
   // letzten Waggon, aber NUR wenn der konfigurierte Sensor (z. B. ein
@@ -1888,7 +1892,6 @@ function renderTrain(cfg, hass, hostEl) {
           <linearGradient id="aoc-ice-beam" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#fffbe6" stop-opacity=".75"/><stop offset="1" stop-color="#fffbe6" stop-opacity="0"/></linearGradient>
           <radialGradient id="aoc-ice-tail"><stop offset="0" stop-color="#ff5050" stop-opacity=".8"/><stop offset="1" stop-color="#ff5050" stop-opacity="0"/></radialGradient>
         </defs>` : ""}
-        <path d="M2,58 L${iceWidth - 2},58" stroke="#1a1a1a" stroke-width="2"/>
         <!-- Körper: lang und flach, Nasen an beiden Enden -->
         <path d="M4,55 Q0,49 8,45 Q34,27 72,22 L678,22 Q716,27 742,45 Q750,49 746,55 Z" fill="#dcdee8"/>
         <path d="M10,50 L740,50 Q741,52 738,53 Q712,49 690,52 L60,52 Q38,49 12,53 Q9,52 10,50 Z" fill="#c3c6d3"/>
@@ -1923,10 +1926,102 @@ function renderTrain(cfg, hass, hostEl) {
     .ice-box { animation-name: ice-drive; animation-delay: ${iceDelaySec}s; }
     @keyframes ice-drive {
       0% { transform: translateX(0); }
-      ${walkPct}% { transform: translateX(calc(100vw + ${iceBoxWidth + 40}px)); }
+      ${iceWalkPct}% { transform: translateX(calc(100vw + ${iceBoxWidth + 40}px)); }
       100% { transform: translateX(calc(100vw + ${iceBoxWidth + 40}px)); }
     }
   `;
+
+  // 🚦 Bahnübergang mitten im Bild (wie Marcos Vorlage "Vollschranke"):
+  // links und rechts ein Mast mit Ampel und Andreaskreuz, grüner Antriebs-
+  // kasten, rot-weißer Schrankenbaum, dazwischen die graue Straße. Steht
+  // HINTER dem Zug. Ein paar Sekunden bevor die Lok die Mitte erreicht,
+  // geht die Ampel auf Rot und die Schranken senken sich; ist der letzte
+  // Wagen durch, gehen sie wieder hoch. Alles reine CSS-Animation im
+  // selben Takt wie der Zug (Fire TV: einmal gezeichnet, nur Drehen).
+  const crossingOn = cfg.crossing !== "off";
+  let crossingHtml = "", crossingCss = "";
+  if (crossingOn) {
+    const vw = Math.max(320, window.innerWidth || 1280);
+    // Zeitpunkte, an denen Front bzw. Ende des Zuges die Bildmitte passieren
+    const pass = (offset, flight, W) => {
+      const dist = vw + W + 40;
+      return [offset + flight * (vw / 2 + 24) / dist, offset + flight * (vw / 2 + W + 24) / dist];
+    };
+    const mod = (x) => ((x % period) + period) % period;
+    const baseDelay = mode === "ice" ? iceDelaySec : delaySec;
+    const wins = [];
+    if (mode !== "ice") wins.push(pass(0, 30, boxWidth));
+    if (mode !== "steam") wins.push(pass(mode === "mix" ? mod(iceDelaySec - delaySec) : 0, ICE_FLIGHT, iceBoxWidth));
+    // Schranke: auf -> runter (2 s) -> zu -> hoch (2 s) -> auf
+    const pct = (t) => Math.min(99.9, Math.max(0.1, (mod(t) / period) * 100)).toFixed(3);
+    const armKf = (openDeg) => {
+      const pts = [[0, openDeg]];
+      for (const [front, tail] of wins.sort((a, b) => a[0] - b[0])) {
+        pts.push([pct(front - 5), openDeg], [pct(front - 3), 0], [pct(tail + 1), 0], [pct(tail + 3), openDeg]);
+      }
+      pts.push([100, openDeg]);
+      return pts.map(([q, d]) => `${q}% { transform: rotate(${d}deg); }`).join(" ");
+    };
+    // Rot an während der Zug kommt/fährt, Grün (unten) an, wenn alles frei ist
+    const lightKf = (onDuring) => {
+      const on = onDuring ? 1 : 0, off = 1 - on;
+      const pts = [`0% { opacity: ${off}; }`];
+      for (const [front, tail] of [...wins].sort((x, y) => x[0] - y[0])) {
+        const a = parseFloat(pct(front - 6)), b = parseFloat(pct(tail + 3));
+        pts.push(`${a.toFixed(3)}% { opacity: ${off}; }`, `${(a + 0.01).toFixed(3)}% { opacity: ${on}; }`, `${b.toFixed(3)}% { opacity: ${on}; }`, `${(b + 0.01).toFixed(3)}% { opacity: ${off}; }`);
+      }
+      pts.push(`100% { opacity: ${off}; }`);
+      return pts.join(" ");
+    };
+    const xw = Math.round(200 * scale);
+    crossingCss = `
+      .xing-box { position: absolute; bottom: 1vh; left: 50%; margin-left: -${Math.round(xw / 2)}px; width: ${xw}px; height: ${boxHeight}px; }
+      .xing-arm-l, .xing-arm-r, .xing-red, .xing-green {
+        animation-duration: ${period}s; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+        animation-delay: ${baseDelay}s; transform-box: view-box;
+      }
+      .xing-arm-l { animation-name: xing-arm-l; transform-origin: 37px 33px; transform: rotate(-82deg); }
+      .xing-arm-r { animation-name: xing-arm-r; transform-origin: 163px 33px; transform: rotate(82deg); }
+      .xing-red { animation-name: xing-red; animation-timing-function: linear; opacity: 0; }
+      .xing-green { animation-name: xing-green; animation-timing-function: linear; }
+      @keyframes xing-arm-l { ${armKf(-82)} }
+      @keyframes xing-arm-r { ${armKf(82)} }
+      @keyframes xing-red { ${lightKf(true)} }
+      @keyframes xing-green { ${lightKf(false)} }
+    `;
+    // Ein Mast: Ampel oben (rotes Licht + dunkles Licht), Andreaskreuz darunter
+    const post = (x) => `
+      <rect x="${x - 1.5}" y="-4" width="3" height="62" fill="#5b606b"/>
+      <rect x="${x - 6.5}" y="-22" width="13" height="23" rx="2.5" fill="#1f2228" stroke="#ffffff" stroke-width="1.2"/>
+      <circle cx="${x}" cy="-15.5" r="3.8" fill="#4a1d1d"/>
+      <circle class="xing-red" cx="${x}" cy="-15.5" r="3.8" fill="#ff2a2a"/>
+      <circle cx="${x}" cy="-6" r="3.8" fill="#1f3d27"/>
+      <circle class="xing-green" cx="${x}" cy="-6" r="3.8" fill="#2fdc5a"/>
+      <g transform="translate(${x},19)">
+        <g transform="rotate(38)"><rect x="-13" y="-2.4" width="26" height="4.8" fill="#ffffff" stroke="#d3242b" stroke-width=".8"/><rect x="-13" y="-2.4" width="6" height="4.8" fill="#e3242b"/><rect x="7" y="-2.4" width="6" height="4.8" fill="#e3242b"/></g>
+        <g transform="rotate(-38)"><rect x="-13" y="-2.4" width="26" height="4.8" fill="#ffffff" stroke="#d3242b" stroke-width=".8"/><rect x="-13" y="-2.4" width="6" height="4.8" fill="#e3242b"/><rect x="7" y="-2.4" width="6" height="4.8" fill="#e3242b"/></g>
+      </g>`;
+    // Rot-weißer Schrankenbaum (im geschlossenen Zustand waagerecht zur Mitte)
+    const arm = (x0, x1) => {
+      const len = Math.abs(x1 - x0), dir = x1 > x0 ? 1 : -1;
+      let stripes = "";
+      for (let k = 0; k * 7 < len; k += 2) stripes += `<rect x="${dir > 0 ? x0 + k * 7 : x0 - (k + 1) * 7}" y="31.2" width="7" height="3.6" fill="#e3242b"/>`;
+      return `<rect x="${Math.min(x0, x1)}" y="31.2" width="${len}" height="3.6" fill="#ffffff" stroke="#9aa1ad" stroke-width=".6"/>${stripes}`;
+    };
+    crossingHtml = `
+      <div class="xing-box">
+        <svg viewBox="0 ${svgTop} 200 ${svgHeight}" preserveAspectRatio="xMidYMid meet" style="overflow:visible">
+          <!-- graue Straße unter dem Gleis -->
+          <path d="M44,58 L156,58 L170,66 L30,66 Z" fill="#7d8088"/>
+          ${post(24)}${post(176)}
+          <!-- grüne Antriebskästen + Schrankenbäume -->
+          <g class="xing-arm-l">${arm(37, 97)}</g>
+          <g class="xing-arm-r">${arm(163, 103)}</g>
+          <rect x="31" y="28" width="12" height="30" rx="1" fill="#1e6b33"/><rect x="31" y="28" width="12" height="3" fill="#2f8a47"/>
+          <rect x="157" y="28" width="12" height="30" rx="1" fill="#1e6b33"/><rect x="157" y="28" width="12" height="3" fill="#2f8a47"/>
+        </svg>
+      </div>`;
+  }
 
   const steamHtml = `
       <div class="train-box" style="width:${boxWidth}px; height:${boxHeight}px; left:-${boxWidth + 24}px;">
@@ -1936,8 +2031,6 @@ function renderTrain(cfg, hass, hostEl) {
             <radialGradient id="aoc-tr-glow"><stop offset="0" stop-color="#ffd966" stop-opacity=".7"/><stop offset="1" stop-color="#ffd966" stop-opacity="0"/></radialGradient>
             <radialGradient id="aoc-tr-tail"><stop offset="0" stop-color="#ffffff" stop-opacity=".8"/><stop offset=".4" stop-color="#ffe9e9" stop-opacity=".35"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
           </defs>` : ""}
-          <!-- Boden-/Gleislinie -->
-          <path d="M2,58 L${svgWidth - 4},58" stroke="#1a1a1a" stroke-width="2"/>
 
           <!-- Flachwagen: Schlusswagen, Müll, Gäste, Personen, vier Ladungen -->
           ${allCargo.map((item, i) => flatcar(WAGON_X[i], item.cargo)).join("\n")}
@@ -1951,13 +2044,28 @@ function renderTrain(cfg, hass, hostEl) {
         </svg>
       </div>`;
 
+  // 🛤️ Durchgehendes Gleis quer übers ganze Bild (Marcos Wunsch), auf dem
+  // beide Züge fahren: Schiene + kleine Schwellen darunter. Steht still.
+  const railY = (66 - 58) * scale;
+  const railHtml = `<div class="train-rail" style="bottom:calc(1vh + ${(railY - 1).toFixed(1)}px)"></div>`;
+  const railCss = `
+    .train-rail {
+      position: absolute; left: 0; width: 100vw; height: ${Math.max(3, Math.round(4 * scale * 2))}px;
+      border-top: ${Math.max(1, Math.round(2 * scale * 1.2))}px solid ${nightLights ? "#8a919d" : "#2a2e36"};
+      background: repeating-linear-gradient(90deg, #7a5a3c 0 4px, transparent 4px 11px);
+      transform: translateY(100%);
+    }
+  `;
+
   const html = `
     <div class="train-container" style="opacity:${finalOpacity};" aria-hidden="true">
+      ${railHtml}
+      ${crossingHtml}
       ${mode !== "ice" ? steamHtml : ""}
       ${mode !== "steam" ? iceHtml : ""}
     </div>
   `;
-  return { css: css + (mode !== "steam" ? iceCss : ""), html };
+  return { css: css + railCss + (mode !== "steam" ? iceCss : "") + crossingCss, html };
 }
 
 function renderDog(cfg, hass, hostEl) {
@@ -5513,6 +5621,9 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🚦 Bahnübergang mitten im Bild: Ampel, Andreaskreuz, grüner Kasten und rot-weiße Schranken. Ist alles frei, leuchtet unten Grün. Kommt ein Zug, springt die Ampel auf Rot und die Schranken senken sich, nach dem letzten Wagen gehen sie wieder hoch und es wird wieder Grün. Im Editor an/aus (Standard an)",
+  "🚄 Der Schnellzug fährt jetzt doppelt so schnell wie die Dampflok",
+  "🛤️ Durchgehendes Gleis quer über den ganzen Bildschirm, auf dem beide Züge fahren",
   "🚂 Neuer Zug, gezeichnet wie auf der Vorlage (flach, ohne schwarze Ränder): blaue Dampflok mit Tender und EINEM orangen Personenwagen (dunkles Dach, nachts leuchtende Fenster). Alles andere fährt auf Flachwagen: Obst, Spielzeug, Post, Holz (oder Weihnachten, Abendessen, Halloween), Personen zuhause, Gäste, Müll-Tonnen und der blinkende Schlusswagen. Alle Einstellungen bleiben wie sie sind",
   "✏️ Schnellzug: „ICM“ vorne und hinten (wie beim echten Vorbild, nur ohne fremde Marke), in der Mitte ein eigener Text als Option (Editor: „Schriftzug am Schnellzug“)",
   "🚄 Dazu ein silberner Schnellzug wie auf der Vorlage (lang, flach, spitze Nasen, roter Streifen bis in die Nasenspitze, „ICM“ vorne und hinten, unten nur leichte Rad-Ansätze), der einfach nur mit Licht fährt: leuchtende Fenster, vorne Scheinwerfer, hinten rote Schlusslichter, nachts mit Lichtkegel. Neue Einstellung „Welcher Zug?“: Abwechselnd (Standard), Nur Dampflok oder Nur Schnellzug. Auch an Mülltagen abwechselnd, die Müll-Wagen fahren mit der Dampflok",
@@ -6209,6 +6320,9 @@ class AmbientOverlayCardEditor extends HTMLElement {
       set += this._label("🚂 Welcher Zug?", `${scope}:train_style`, "Abwechselnd = mal die blaue Dampflok mit allen Wagen, mal der silberne Schnellzug (nur mit Licht, ohne Ladung).Auch an Mülltagen abwechselnd (die Müll-Wagen fahren mit der Dampflok). Insgesamt kommt dabei nicht öfter ein Zug als bei „Anzahl“ eingestellt.")
         + this._seg(scope, "train_style", [["mix", "Abwechselnd"], ["steam", "Nur Dampflok"], ["ice", "Nur Schnellzug"]], ts);
       sum.push({ mix: "Abwechselnd", steam: "Dampflok", ice: "Schnellzug" }[ts]);
+      set += this._label("🚦 Bahnübergang", `${scope}:crossing`, "Mitten im Bild ein Bahnübergang mit Ampel, Andreaskreuz und Schranken. Kommt ein Zug, geht die Ampel auf Rot und die Schranken senken sich; ist der letzte Wagen durch, gehen sie wieder hoch.")
+        + this._seg(scope, "crossing", [["on", "An"], ["off", "Aus"]], c.crossing === "off" ? "off" : "on");
+      if (c.crossing !== "off") sum.push("Bahnübergang");
       if (ts !== "steam") {
         set += this._label("✏️ Schriftzug am Schnellzug", `${scope}:ice_text`, "Steht grau mitten auf dem Schnellzug (unter den Fenstern), der rote Streifen macht Platz dafür. Vorne und hinten steht immer „ICM“. Leer = in der Mitte kein Text. Höchstens 14 Zeichen.")
           + `<input class="field" data-scope="${scope}" data-text="ice_text" type="text" maxlength="14" placeholder="z. B. Familienexpress" value="${escapeHtml(c.ice_text || "")}"/>`;
@@ -7258,7 +7372,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
     // 🚄 Fahren Dampflok UND Schnellzug im Wechsel, schickt jeder Klick
     // abwechselnd nur EINEN los (erst die Dampflok) - der andere wartet
     // eine halbe Runde, damit sie nicht übereinander fahren.
-    const STEAM = ["train-drive", "train-hoot-pop"];
+    const STEAM = ["train-drive", "train-hoot-pop", "xing-arm-l", "xing-arm-r", "xing-red", "xing-green"];
     const both = anims.some((a) => a.animationName === "ice-drive") && anims.some((a) => a.animationName === "train-drive");
     if (both) this._pvTrainTurn = (this._pvTrainTurn || 0) + 1;
     const iceTurn = both && this._pvTrainTurn % 2 === 0;
