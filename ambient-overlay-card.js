@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.7";
+const CARD_VERSION = "1.0.21-beta.8";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -353,6 +353,7 @@ const FADE_DURATION_MS = 2500;
 // gleichmaessig verteilt statt uebereinander.
 const PERIODIC_PHASE = {
   train: 0,
+  train_ice: 0.5,
   comet: 1 / 3,
   dog: 2 / 3,
   santa: 0.5,
@@ -368,6 +369,7 @@ const PERIODIC_PHASE = {
 // Diese Werte stehen so auch in den Renderern ("30 / interval * 100" usw.).
 const PERIODIC_FLIGHT_SEC = {
   train: 30,
+  train_ice: 30,
   dog: 20,
   santa: 18,
   birdhouse: 9,
@@ -471,7 +473,7 @@ function mapWeatherStateToEvents(state) {
 const COUNT_IS_INTERVAL_TEXT = {
   seasons: "Frühling: Menge der Blüten · Sommer: Anzahl der Bienen · Herbst: wie oft ein Windstoß Laub bringt (Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min.) · Winter: Anzahl der glitzernden Eiskristalle.",
   dog: "Wie oft der Labrador durchläuft: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (keine Partikelmenge, da es nur einen Hund gibt).",
-  train: "Wie oft die Dampflok vorbeituckert: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (keine Partikelmenge, da es nur eine gibt).",
+  train: "Wie oft ein Zug vorbeifährt (Dampflok oder Schnellzug): Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. (keine Partikelmenge, da es nur eine gibt).",
 
   night_sky: "Wie oft der Komet vorbeizieht: Wenig ≈ alle 5-6 Min., Mittel ≈ alle 3-4 Min., Viel ≈ alle 1-2 Min. Steuert gleichzeitig die Anzahl der Sternschnuppen (3 / 5 / 8).",
   owl_birdhouse: "Wie oft tagsüber ein Vogel am Häuschen vorbeifliegt: Wenig ≈ alle 100 Sek., Mittel ≈ alle 60 Sek., Viel ≈ alle 30 Sek. (nachts sitzt dort die Eule, dann ohne Wirkung).",
@@ -1347,9 +1349,22 @@ function renderTrain(cfg, hass, hostEl) {
   const isHigh = (cfg.opacity_preset || "medium") === "high";
   const finalOpacity = isHigh ? 1 : opacity;
   const interval = { low: 340, medium: 210, high: 100 }[cfg.count_preset || "medium"] || 210;
-  const walkPct = Math.min(30, (30 / interval) * 100).toFixed(2);
   const nowSec = Date.now() / 1000;
-  const delaySec = periodicDelaySec(interval, "train");
+  // 🗑️ Müll-Waggon: am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag
+  // 12 Uhr fahren vor dem Schlusswagen Flachwagen mit der passenden Tonne mit (je Müllart einer).
+  const garbage = garbageList(cfg, hass);
+  // 🚄 Welcher Zug fährt? "mix" (Standard) = Dampflok und silberner
+  // Schnellzug fahren abwechselnd - auch an Mülltagen (Marcos Wunsch),
+  // die Müll-Wagen hängen dann eben nur an jeder zweiten Fahrt.
+  // Trick für den Fire TV: Beide Züge stehen EINMAL im Bild und haben die
+  // doppelte Runden-Zeit, der Schnellzug startet eine halbe Runde später.
+  // So wechseln sie sich ganz ohne Neu-Zeichnen ab.
+  const style = ["steam", "ice", "mix"].includes(cfg.train_style) ? cfg.train_style : "mix";
+  const mode = style;
+  const period = mode === "mix" ? interval * 2 : interval;
+  const walkPct = Math.min(30, (30 / period) * 100).toFixed(2);
+  const delaySec = periodicDelaySec(period, "train");
+  const iceDelaySec = mode === "mix" ? periodicDelaySec(period, "train_ice") : delaySec;
 
   // 5. mögliche Ladung "Weihnachtsmann-Sack": ersetzt die Holzscheite im
   // letzten Waggon, aber NUR wenn der konfigurierte Sensor (z. B. ein
@@ -1382,12 +1397,12 @@ function renderTrain(cfg, hass, hostEl) {
       // Kreises, bevor er sich beim Aufsteigen wie gewohnt wieder aufloest.
       return `
         <path class="train-smoke train-smoke-heart" d="M69,3 C67,0 62,0 62,4 C62,7 69,11 69,11 C69,11 76,7 76,4 C76,0 71,0 69,3 Z"
-          fill="#d9d9d9" stroke="#1a1a1a" stroke-width="1.2"
+          fill="#e6e9ee" stroke="#b9bfc9" stroke-width="1"
           style="animation-duration:2.85s; animation-delay:0.55s;"/>
       `;
     }
     return `
-    <circle class="train-smoke" cx="${76 - i * 11}" cy="${-1 - i * 3}" r="${5.5 + i * 1.4}" fill="#d9d9d9" stroke="#1a1a1a" stroke-width="1.5"
+    <circle class="train-smoke" cx="${76 - i * 11}" cy="${-1 - i * 3}" r="${5.5 + i * 1.4}" fill="#e6e9ee" stroke="#b9bfc9" stroke-width="1"
       style="animation-duration:${(2.6 + i * 0.25).toFixed(2)}s; animation-delay:${(i * 0.55).toFixed(2)}s;"/>
   `;
   }).join("");
@@ -1455,9 +1470,6 @@ function renderTrain(cfg, hass, hostEl) {
   // die ANZAHL wird hier gebraucht (für Positionen/Breite) - welche
   // konkrete Ladung in den ersten vier Waggons steckt, kommt erst weiter
   // unten dazu (CARGO-Objekt ist an dieser Stelle noch nicht definiert).
-  // 🗑️ Müll-Waggon: am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag
-  // 12 Uhr fahren vor dem Schlusswagen Waggons mit der passenden Tonne mit (je Müllart einer).
-  const garbage = garbageList(cfg, hass);
   // 🔦 Nachts (Sonne unter dem Horizont) fährt der Zug mit Licht: Lichtkegel
   // vor der Lok, warmer Schein ums Führerhaus, hellere Schlusslichter.
   // Alles feste Farbverläufe, die mitfahren - keine eigene Animation.
@@ -1465,13 +1477,17 @@ function renderTrain(cfg, hass, hostEl) {
   const wagonCount = 4 + personCargoList.length + customCargoList.length + 1 + garbage.length;
   const WAGON_GAP = 93;
   const WAGON_X = Array.from({ length: wagonCount }, (_, i) => 4 + i * WAGON_GAP);
-  const LOCO_X = 4 + wagonCount * WAGON_GAP + 8;
+  // Rechts an die Flachwagen schließen sich an: der EINE geschlossene
+  // Personenwagen (orange), der Tender (Kohlewagen) und die blaue Lok.
+  const COACH_X = 4 + wagonCount * WAGON_GAP;
+  const TENDER_X = COACH_X + WAGON_GAP;
+  const LOCO_X = TENDER_X + 60;
 
   // SVG-Breite und die außen sichtbare Box wachsen mit der tatsächlichen
   // Zug-Länge mit - beide im selben Verhältnis, damit jeder Waggon immer
   // gleich groß bleibt (der Zug wird bei mehr Waggons länger, nicht
   // gestaucht) und "preserveAspectRatio" nichts verzerrt oder abschneidet.
-  const svgWidth = LOCO_X + 132;
+  const svgWidth = LOCO_X + 145;
   const svgTop = -60;
   const svgHeight = 66 - svgTop;
   const baseScale = 37 / 90;
@@ -1486,7 +1502,7 @@ function renderTrain(cfg, hass, hostEl) {
     }
     .train-box {
       position: absolute; bottom: 1vh;
-      animation: train-drive ${interval}s linear infinite; animation-delay: ${delaySec}s; will-change: transform;
+      animation: train-drive ${period}s linear infinite; animation-delay: ${delaySec}s; will-change: transform;
     }
     @keyframes train-drive {
       0% { transform: translateX(0); }
@@ -1505,7 +1521,7 @@ function renderTrain(cfg, hass, hostEl) {
       100% { transform: translate(-95px,-8px) scale(1.7); opacity: 0; }
     }
     .train-hoot {
-      animation: train-hoot-pop ${interval}s linear infinite;
+      animation: train-hoot-pop ${period}s linear infinite;
       animation-delay: ${delaySec}s;
       transform-box: fill-box; transform-origin: center;
     }
@@ -1527,10 +1543,12 @@ function renderTrain(cfg, hass, hostEl) {
     }
   `;
 
+  // Räder wie auf der Vorlage: schwarze Scheibe mit kleiner grauer Nabe.
+  // Bewusst ohne Dreh-Animation (Ressourcen-Ersparnis, Fire TV).
   const wheel = (cx, cy, r) => `
     <g class="train-wheel">
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="#ee1c1c" stroke="#1a1a1a" stroke-width="2"/>
-      <circle cx="${cx}" cy="${cy}" r="${(r * 0.32).toFixed(1)}" fill="#1a1a1a"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="#22252c"/>
+      <circle cx="${cx}" cy="${cy}" r="${(r * 0.32).toFixed(1)}" fill="#6b7280"/>
     </g>
   `;
 
@@ -1704,68 +1722,213 @@ function renderTrain(cfg, hass, hostEl) {
     { cargo: CARGO[cargo3], window: "" },
   ];
 
-  const wagon = (x, cargoContent, windowContent = "", wheelCount = 3) => {
-    const wheelXs = wheelCount === 2 ? [22, 65] : [15, 43, 71];
-    return `
-    <g transform="translate(${x},0)">
-      ${cargoContent}
-      <path d="M0,32 L83,32 Q87,32 87,38 L87,48 Q87,52 83,52 L4,52 Q0,52 0,48 Z" fill="#ee1c1c" stroke="#1a1a1a" stroke-width="2.5"/>
-      <rect x="8" y="39" width="71" height="9" fill="#ffd966"/>
-      ${windowContent}
-      ${wheelXs.map((wx) => wheel(wx, 58, 6.5)).join("")}
-    </g>
-  `;
+  // 🎨 Farben wie auf Marcos Vorlage (flache Grafik, keine schwarzen Ränder)
+  const C = {
+    blue: "#6390dc", blueLight: "#86aaea", blueDark: "#4a73c2",
+    navy: "#2d3443", iron: "#3b404c", grey: "#9aa1ad",
+    orange: "#e5844f", orangeDark: "#d0703f", orangeLine: "#c4653a",
+    win: nightLights ? "#ffe08a" : "#6f7d93", winFrame: "#3d4558",
+    wood: "#b07b46", woodLight: "#c99560",
   };
 
-  const couplingsHtml = WAGON_X
-    .map((x, i) => {
-      const nextX = i < WAGON_X.length - 1 ? WAGON_X[i + 1] : LOCO_X;
-      return `M${x + 87},50 L${nextX},50`;
-    })
-    .map((d) => `<path d="${d}" stroke="#1a1a1a" stroke-width="2"/>`)
-    .join("");
-
-  // Die komplette Lok in lokalen Koordinaten (0 = eigener Anfang), wird
-  // per translate(LOCO_X,0) an die richtige Stelle geschoben.
-  const locoHtml = `
-    <g transform="translate(${LOCO_X},0)">
-      <!-- Fahrgestell-Rahmen -->
-      <rect x="0" y="42" width="96" height="8" fill="#3a3a3a"/>
-      <!-- Roter Kessel -->
-      <rect x="2" y="18" width="60" height="26" rx="10" fill="#ee1c1c" stroke="#1a1a1a" stroke-width="2.5"/>
-      <path d="M18,18 L18,8 M25,18 L23,10" stroke="#ee1c1c" stroke-width="2.5" stroke-linecap="round"/>
-      ${nightLights ? `<ellipse cx="46" cy="17" rx="30" ry="24" fill="url(#aoc-tr-glow)"/>` : ""}
-      <!-- Kabinen-Aufbau mit Fähnchen -->
-      <path d="M56,8 L56,2 L62,8 Z" fill="#ee1c1c"/>
-      <rect x="34" y="6" width="24" height="22" rx="2" fill="#ffd966" stroke="#1a1a1a" stroke-width="2.5"/>
-      <path d="M38,22 L42,12" stroke="#c9a227" stroke-width="2"/>
-      <!-- Schwarze runde Nase -->
-      <path d="M60,18 Q86,13 100,24 Q100,37 90,42 Q72,44 60,40 Z" fill="#1a1a1a"/>
-      ${nightLights ? `<path d="M97,25 L230,-6 L230,58 Z" fill="url(#aoc-tr-beam)"/>` : ""}
-      <!-- Kleine Frontlampe -->
-      <circle cx="97" cy="25" r="4" fill="#fff3c4" stroke="#c9a227" stroke-width="1.3"/>
-      <circle cx="97" cy="25" r="1.6" fill="#ffffff"/>
-      <!-- Schornstein -->
-      <path d="M73,17 L69,5 Q69,1 75,1 L86,1 Q92,1 92,5 L88,17 Z" fill="#f5f0e6" stroke="#1a1a1a" stroke-width="2.5"/>
-      <!-- Dampf -->
-      <g>${smokeHtml}</g>
-      <!-- Hupen-Sprechblase, taucht kurz während der Fahrt auf -->
-      <g class="train-hoot">
-        <path d="M26,-6 Q26,-17 37,-17 L61,-17 Q72,-17 72,-6 Q72,4 61,4 L44,4 L38,9 L39,4 Q26,4 26,-6 Z" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.8"/>
-        <text x="49" y="-2.5" font-size="9" font-family="Georgia, serif" font-weight="bold" fill="#1a1a1a" text-anchor="middle">TUUT</text>
-      </g>
-      <!-- Kuhfänger -->
-      <path d="M99,42 Q110,46 116,54 L94,54 Z" fill="#ee1c1c" stroke="#1a1a1a" stroke-width="2"/>
-      <!-- Räder Lok -->
-      <path d="M22,50 L56,50" stroke="#1a1a1a" stroke-width="3"/>
-      ${wheel(20, 54, 10)}
-      ${wheel(56, 54, 10)}
-      ${wheel(88, 56, 7)}
+  // 🛤️ Flachwagen im Stil der Vorlage: Holz-Ladefläche, dunkler Rahmen,
+  // zwei Achsen wie beim Personenwagen. Ladung steht auf y=32.
+  const flatcar = (x, cargoContent) => `
+    <g transform="translate(${x},0)">
+      ${cargoContent}
+      <rect x="0" y="32" width="87" height="5" fill="${C.wood}"/>
+      <rect x="0" y="32" width="87" height="1.4" fill="${C.woodLight}"/>
+      <rect x="2" y="37" width="83" height="7" fill="${C.navy}"/>
+      <rect x="-3" y="38.5" width="4" height="3" fill="${C.grey}"/>
+      <rect x="86" y="38.5" width="4" height="3" fill="${C.grey}"/>
+      ${[20, 67].map((wx) => wheel(wx, 51, 6.5)).join("")}
     </g>
   `;
 
-  const html = `
-    <div class="train-container" style="opacity:${finalOpacity};" aria-hidden="true">
+  // 🚃 Der EINE geschlossene Wagen: oranger Personenwagen wie auf der
+  // Vorlage - dunkles, überstehendes Dach mit Lüftern, fünf Fenster,
+  // graue Übergänge an den Enden. Nachts leuchten die Fenster warm.
+  const coachHtml = `
+    <g transform="translate(${COACH_X},0)">
+      ${nightLights ? `<rect x="2" y="8" width="83" height="24" rx="6" fill="url(#aoc-tr-glow)" opacity=".8"/>` : ""}
+      ${[20, 43.5, 67].map((vx) => `<rect x="${vx - 1}" y="2.5" width="2" height="4" fill="${C.navy}"/>`).join("")}
+      <rect x="-2" y="6" width="91" height="7" rx="1.5" fill="${C.navy}"/>
+      <rect x="-2" y="15" width="3.5" height="25" fill="${C.grey}"/>
+      <rect x="85.5" y="15" width="3.5" height="25" fill="${C.grey}"/>
+      <rect x="1" y="13" width="85" height="27" fill="${C.orange}"/>
+      <rect x="1" y="28" width="85" height="12" fill="${C.orangeDark}"/>
+      <path d="M1,28 L86,28 M43.5,28 L43.5,40" stroke="${C.orangeLine}" stroke-width="1"/>
+      ${[0, 1, 2, 3, 4].map((k) => `<rect x="${7 + k * 15.5}" y="15.5" width="10" height="9" fill="${C.win}" stroke="${C.winFrame}" stroke-width="1.6"/>`).join("")}
+      <rect x="3" y="40" width="81" height="5" fill="${C.navy}"/>
+      ${[20, 67].map((wx) => wheel(wx, 51, 6.5)).join("")}
+    </g>
+  `;
+
+  // ⚫ Tender (Kohlewagen) wie auf der Vorlage: blauer Kasten, dunkler
+  // Rand oben mit zwei Kästchen, vier kleine Räder (Marco: Tender bleibt bei 4 Achsen).
+  const tenderHtml = `
+    <g transform="translate(${TENDER_X},0)">
+      <rect x="10" y="3" width="6" height="4" fill="${C.navy}"/>
+      <rect x="36" y="3" width="6" height="4" fill="${C.navy}"/>
+      <rect x="4" y="6.5" width="46" height="6" fill="${C.navy}"/>
+      <rect x="0" y="12" width="54" height="28" fill="${C.blue}"/>
+      <rect x="0" y="12" width="54" height="2" fill="${C.blueLight}"/>
+      <rect x="0" y="33" width="54" height="7" fill="${C.blueDark}"/>
+      <path d="M3,20 L51,20 M3,27 L51,27" stroke="${C.blueDark}" stroke-width="1"/>
+      <rect x="2" y="40" width="50" height="5" fill="${C.navy}"/>
+      ${[9, 21, 33, 45].map((wx) => wheel(wx, 52, 5.5)).join("")}
+    </g>
+  `;
+
+  const couplingsHtml = [...WAGON_X, COACH_X, TENDER_X]
+    .map((x, i, all) => {
+      const width = x === TENDER_X ? 54 : 87;
+      const nextX = i < all.length - 1 ? all[i + 1] : LOCO_X;
+      return `M${x + width},41 L${nextX},41`;
+    })
+    .map((d) => `<path d="${d}" stroke="${C.navy}" stroke-width="2"/>`)
+    .join("");
+
+  // 🚂 Blaue Dampflok wie auf der Vorlage, nur gespiegelt (Front nach
+  // rechts = Fahrtrichtung): hinten das Führerhaus mit Fenster, davor der
+  // lange blaue Kessel mit Sandkasten und Dom, vorne die dunkle
+  // Rauchkammer mit hohem schmalem Schornstein. Unten schwarzer Rahmen,
+  // drei große graue Treibräder mit silberner Stange, vorne ein Laufrad.
+  // Treibräder wie auf der Vorlage: groß und grau mit dunklem Kranz,
+  // stehen direkt auf dem Gleis und reichen hinter den schwarzen Rahmen.
+  const drive = (cx) => `
+    <circle cx="${cx}" cy="46.5" r="11.5" fill="#5b606b"/>
+    <circle cx="${cx}" cy="46.5" r="10.5" fill="none" stroke="#3e424b" stroke-width="2"/>
+    <circle cx="${cx}" cy="46.5" r="3" fill="#2f333b"/>`;
+  // Maße nach der Vorlage: lange Lok, hoher Kessel (fast so hoch wie das
+  // Führerhaus), großer runder dunkler Rauchkammer-Block vorne mit
+  // weißem Dampfrohr, großer hellblauer Zylinder darunter, schmaler
+  // schwarzer Rahmen, von hinten: Treibrad unterm Führerhaus (nur untere Hälfte sichtbar), zwei weitere Treibräder, blauer Zylinderblock fast bis zum Boden, ganz vorne das kleine Laufrad.
+  const locoHtml = `
+    <g transform="translate(${LOCO_X},0)">
+      ${nightLights ? `<ellipse cx="14" cy="15" rx="24" ry="18" fill="url(#aoc-tr-glow)"/>` : ""}
+      <!-- Schmaler schwarzer Rahmen -->
+      <rect x="6" y="31" width="86" height="10" fill="#26292f"/>
+      <!-- Hinteres Treibrad: steckt unter dem Führerhaus, nur die untere Hälfte ist zu sehen -->
+      ${drive(16)}
+      <!-- Führerhaus -->
+      <rect x="-3" y="0" width="36" height="4.5" rx="1" fill="${C.navy}"/>
+      <rect x="12" y="-2.5" width="6" height="3" fill="${C.navy}"/>
+      <rect x="0" y="4" width="31" height="42.5" fill="${C.blue}"/>
+      <rect x="7" y="9" width="13" height="14" fill="${C.win}" stroke="${C.winFrame}" stroke-width="1.8"/>
+      <rect x="0" y="34" width="31" height="1.6" fill="${C.blueDark}"/>
+      <!-- Hoher Kessel mit Sandkasten und Dom -->
+      <rect x="64" y="2" width="11" height="7" fill="${C.blue}"/>
+      <path d="M97,9 Q97,0 103.5,0 Q110,0 110,9 Z" fill="${C.blue}"/>
+      <rect x="29" y="8" width="88" height="24" fill="${C.blue}"/>
+      <rect x="29" y="8" width="88" height="2" fill="${C.blueLight}"/>
+      <path d="M29,15 L117,15 M29,21 L117,21" stroke="#a9c2ef" stroke-width="1.5"/>
+      ${[46, 64, 82, 100].map((bx) => `<rect x="${bx}" y="8" width="1.4" height="24" fill="${C.blueDark}"/>`).join("")}
+      <!-- Große runde Rauchkammer + hoher schmaler Schornstein -->
+      <path d="M114,5 L124,5 Q134,7 134,19 L134,37 Q134,41 130,41 L114,41 Z" fill="#464b58"/>
+      <rect x="118" y="-16" width="7" height="22" fill="${C.navy}"/>
+      <rect x="117" y="-17.5" width="9" height="3" fill="${C.navy}"/>
+      
+      <!-- Dampf -->
+      <g transform="translate(45.5,-16)">${smokeHtml}</g>
+      <!-- Hupen-Sprechblase, taucht kurz während der Fahrt auf -->
+      <g class="train-hoot" transform="translate(10,-22)">
+        <path d="M26,-6 Q26,-17 37,-17 L61,-17 Q72,-17 72,-6 Q72,4 61,4 L44,4 L38,9 L39,4 Q26,4 26,-6 Z" fill="#ffffff" stroke="${C.navy}" stroke-width="1.6"/>
+        <text x="49" y="-2.5" font-size="9" font-family="Georgia, serif" font-weight="bold" fill="${C.navy}" text-anchor="middle">TUUT</text>
+      </g>
+      ${nightLights ? `<path d="M137,16 L270,-14 L270,48 Z" fill="url(#aoc-tr-beam)"/>` : ""}
+      <!-- Frontlampe + Puffer -->
+      <rect x="133.5" y="12" width="4" height="7" rx="1" fill="#fff3c4"/>
+      
+      <!-- Räder -->
+      ${drive(46)}${drive(76)}
+      <!-- Vorderes Laufrad hängt am Rahmen unter der Rauchkammer -->
+      <path d="M112,40 L134,40 L134,45 Q134,47 132,47 L112,47 Z" fill="#26292f"/>
+      <rect x="133" y="42" width="5" height="3" fill="${C.grey}"/>
+      <circle cx="123" cy="51" r="7" fill="#3e424b"/><circle cx="123" cy="51" r="2.2" fill="#6b7280"/>
+      <!-- Großer hellblauer Zylinder vorne, silberne Stangen -->
+      <path d="M90,29 L113,29 L113,53 Q113,55 111,55 L92,55 Q90,55 90,53 Z" fill="${C.blueLight}"/>
+      <rect x="90" y="48" width="23" height="7" rx="1.5" fill="${C.blue}"/>
+      <path d="M90,29 L113,29" stroke="${C.blueDark}" stroke-width="1.2"/>
+      <path d="M16,49.5 L76,49.5" stroke="#d3d8df" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M46,49.5 L91,40" stroke="#d3d8df" stroke-width="2" stroke-linecap="round"/>
+      <path d="M127,11 Q115,19 112,30" stroke="#e8ebf0" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <path d="M36,36 L64,40" stroke="#aab1bb" stroke-width="1.3" stroke-linecap="round"/>
+    </g>
+  `;
+
+  // 🚄 Silberner Schnellzug wie auf der Vorlage: ein langer, flacher,
+  // durchgehender Zug mit spitzen Nasen an beiden Enden, dunklem
+  // Fensterband, Türen - und KEINEN Rädern (die Schürze geht bis unten).
+  // Fährt "einfach nur mit Licht": die Fenster leuchten warm, vorne
+  // Scheinwerfer, hinten rote Schlusslichter, nachts ein Lichtkegel.
+  const iceWidth = 750; // Marco: ein Wagen mehr (vorher 600)
+  const iceBoxWidth = Math.round(iceWidth * scale);
+  const iceSeg = [[70, 118], [121, 170], [173, 250], [253, 340], [343, 420], [423, 490], [493, 570], [573, 650], [653, 680]];
+  const iceDoors = [150, 300, 450, 600];
+  // ✏️ Schriftzüge: "ICM" (bewusst nicht "ICE" = Marke der Bahn) vorne und hinten auf den Triebköpfen, in der
+  // Mitte optional ein eigener Text (ice_text, leer = nichts). Klein und
+  // UNTER dem Fensterband, der rote Streifen macht dafür jeweils Platz.
+  const iceText = String(cfg.ice_text || "").trim().slice(0, 14);
+  const iceLabels = [[108, "ICM"], ...(iceText ? [[375, iceText]] : []), [642, "ICM"]];
+  const iceGapOf = (t) => Math.max(17, t.length * 3.9 + 8);
+  const iceStripe = (() => {
+    let out = "", x = 52;
+    for (const [cx, t] of iceLabels) {
+      const a = cx - iceGapOf(t);
+      out += `<rect x="${x}" y="41.5" width="${(a - x).toFixed(1)}" height="2.5" fill="#e3242b"/>`;
+      x = cx + iceGapOf(t);
+    }
+    return out + `<rect x="${x}" y="41.5" width="${(698 - x).toFixed(1)}" height="2.5" fill="#e3242b"/>`;
+  })();
+  const iceHtml = `
+    <div class="train-box ice-box" style="width:${iceBoxWidth}px; height:${boxHeight}px; left:-${iceBoxWidth + 24}px;">
+      <svg viewBox="0 ${svgTop} ${iceWidth} ${svgHeight}" preserveAspectRatio="xMidYMid meet" style="overflow:visible">
+        ${nightLights ? `<defs>
+          <linearGradient id="aoc-ice-beam" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#fffbe6" stop-opacity=".75"/><stop offset="1" stop-color="#fffbe6" stop-opacity="0"/></linearGradient>
+          <radialGradient id="aoc-ice-tail"><stop offset="0" stop-color="#ff5050" stop-opacity=".8"/><stop offset="1" stop-color="#ff5050" stop-opacity="0"/></radialGradient>
+        </defs>` : ""}
+        <path d="M2,58 L${iceWidth - 2},58" stroke="#1a1a1a" stroke-width="2"/>
+        <!-- Körper: lang und flach, Nasen an beiden Enden -->
+        <path d="M4,55 Q0,49 8,45 Q34,27 72,22 L678,22 Q716,27 742,45 Q750,49 746,55 Z" fill="#dcdee8"/>
+        <path d="M10,50 L740,50 Q741,52 738,53 Q712,49 690,52 L60,52 Q38,49 12,53 Q9,52 10,50 Z" fill="#c3c6d3"/>
+        <!-- leichte Rad-Ansätze: dunkler Unterboden, nur Halbbögen schauen raus -->
+        <rect x="58" y="51" width="634" height="3.5" fill="#30333f"/>
+        ${[78, 96, 248, 266, 334, 352, 398, 416, 484, 502, 654, 672].map((wx) => `<path d="M${wx - 5},51.5 A5,5 0 0 0 ${wx + 5},51.5 Z" fill="#30333f"/><circle cx="${wx}" cy="52.5" r="1.4" fill="#6b7280"/>`).join("")}
+        <path d="M4,55 Q0,49 8,45 Q34,27 72,22 L678,22 Q716,27 742,45 Q750,49 746,55 L736,55 Q710,50 690,52 L60,52 Q40,50 14,55 Z" fill="#dcdee8"/>
+        <path d="M72,23.2 L678,23.2" stroke="#eef0f6" stroke-width="1.4"/>
+        <!-- dunkle Linie auf den Nasen (Scheiben) -->
+        <path d="M14,43 Q36,29 66,24.5" stroke="#4a4e63" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M736,43 Q714,29 684,24.5" stroke="#4a4e63" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <!-- Fensterband -->
+        <path d="M44,40 Q56,32 70,31 L680,31 Q694,32 706,40 Z" fill="#30333f"/>
+        ${iceSeg.map(([a, b]) => `<rect x="${a}" y="32.6" width="${b - a}" height="4.6" fill="#ffe6a0"/>`).join("")}
+        ${iceSeg.slice(0, -1).map(([, b]) => `<rect x="${b}" y="31" width="1.6" height="9" fill="#c9ccd8"/>`).join("")}
+        <!-- Roter Streifen unter den Fenstern (wie beim echten ICE), läuft an
+             den Nasen schräg mit; in der Mitte unterbrochen für den Schriftzug -->
+        <path d="M52,41.5 Q25,42 5,48.5 L6,50.8 Q26,44.6 52,44 Z" fill="#e3242b"/>
+        <path d="M698,41.5 Q725,42 745,48.5 L744,50.8 Q724,44.6 698,44 Z" fill="#e3242b"/>
+        ${iceStripe}
+        ${iceLabels.map(([cx, t]) => `<text x="${cx}" y="49.4" font-size="${t === "ICM" ? 11 : 8.5}" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-style="italic" fill="#8e93a3" text-anchor="middle" letter-spacing=".6">${escapeHtml(t)}</text>`).join("")}
+        <!-- Türen (Doppel-Umriss) -->
+        ${iceDoors.map((dx) => `<path d="M${dx - 8},28 h6 v22 h-6 Z M${dx + 2},28 h6 v22 h-6 Z M${dx},22 V50" stroke="#9a9db0" stroke-width="1" fill="none"/>`).join("")}
+        <!-- Lichter -->
+        ${nightLights ? `<path d="M744,49 L890,20 L890,78 Z" fill="url(#aoc-ice-beam)"/><circle cx="6" cy="50" r="9" fill="url(#aoc-ice-tail)"/>` : ""}
+        <path d="M734,50 L743,50" stroke="#fffbe6" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M7,50 L16,50" stroke="#ff3030" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+
+  const iceCss = `
+    .ice-box { animation-name: ice-drive; animation-delay: ${iceDelaySec}s; }
+    @keyframes ice-drive {
+      0% { transform: translateX(0); }
+      ${walkPct}% { transform: translateX(calc(100vw + ${iceBoxWidth + 40}px)); }
+      100% { transform: translateX(calc(100vw + ${iceBoxWidth + 40}px)); }
+    }
+  `;
+
+  const steamHtml = `
       <div class="train-box" style="width:${boxWidth}px; height:${boxHeight}px; left:-${boxWidth + 24}px;">
         <svg viewBox="0 ${svgTop} ${svgWidth} ${svgHeight}" preserveAspectRatio="xMidYMid meet" style="overflow:visible">
           ${nightLights ? `<defs>
@@ -1776,18 +1939,25 @@ function renderTrain(cfg, hass, hostEl) {
           <!-- Boden-/Gleislinie -->
           <path d="M2,58 L${svgWidth - 4},58" stroke="#1a1a1a" stroke-width="2"/>
 
-          <!-- Alle Waggons: vier feste plus optional Personen- und Freitext-Waggons -->
-          ${allCargo.map((item, i) => wagon(WAGON_X[i], item.cargo, item.window, item.wheels || 3)).join("\n")}
+          <!-- Flachwagen: Schlusswagen, Müll, Gäste, Personen, vier Ladungen -->
+          ${allCargo.map((item, i) => flatcar(WAGON_X[i], item.cargo)).join("\n")}
 
-          <!-- Kupplungen zwischen allen Waggons und zur Lok -->
+          <!-- Kupplungen zwischen allen Wagen und zur Lok -->
           ${couplingsHtml}
 
+          ${coachHtml}
+          ${tenderHtml}
           ${locoHtml}
         </svg>
-      </div>
+      </div>`;
+
+  const html = `
+    <div class="train-container" style="opacity:${finalOpacity};" aria-hidden="true">
+      ${mode !== "ice" ? steamHtml : ""}
+      ${mode !== "steam" ? iceHtml : ""}
     </div>
   `;
-  return { css, html };
+  return { css: css + (mode !== "steam" ? iceCss : ""), html };
 }
 
 function renderDog(cfg, hass, hostEl) {
@@ -5271,7 +5441,7 @@ const EFFECT_TILES = [
   ["birthday", "🎂", "Geburtstag", "Geburtstag"],
   ["seasons", "🍂", "Jahreszeit", "Jahreszeiten"],
   ["holidays", "🎉", "Feiertage", "Feiertage"],
-  ["train", "🚂", "Zug", "Dampflok"],
+  ["train", "🚂", "Zug", "Dampflok & Schnellzug"],
   ["dog", "🐕", "Hund", "Labrador"],
   ["owl_birdhouse", "🦉", "Eule", "Eule & Vogelhaus"],
   ["spider", "🕷️", "Spinne", "Spinne"],
@@ -5343,6 +5513,9 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🚂 Neuer Zug, gezeichnet wie auf der Vorlage (flach, ohne schwarze Ränder): blaue Dampflok mit Tender und EINEM orangen Personenwagen (dunkles Dach, nachts leuchtende Fenster). Alles andere fährt auf Flachwagen: Obst, Spielzeug, Post, Holz (oder Weihnachten, Abendessen, Halloween), Personen zuhause, Gäste, Müll-Tonnen und der blinkende Schlusswagen. Alle Einstellungen bleiben wie sie sind",
+  "✏️ Schnellzug: „ICM“ vorne und hinten (wie beim echten Vorbild, nur ohne fremde Marke), in der Mitte ein eigener Text als Option (Editor: „Schriftzug am Schnellzug“)",
+  "🚄 Dazu ein silberner Schnellzug wie auf der Vorlage (lang, flach, spitze Nasen, roter Streifen bis in die Nasenspitze, „ICM“ vorne und hinten, unten nur leichte Rad-Ansätze), der einfach nur mit Licht fährt: leuchtende Fenster, vorne Scheinwerfer, hinten rote Schlusslichter, nachts mit Lichtkegel. Neue Einstellung „Welcher Zug?“: Abwechselnd (Standard), Nur Dampflok oder Nur Schnellzug. Auch an Mülltagen abwechselnd, die Müll-Wagen fahren mit der Dampflok",
   "🪟 Feste Reihenfolge wie beim Blick durchs Fenster: hinten Himmel (Sonne, Mond, Sterne, Wolken), davor Zug, Hund, Eule & Co., davor Schnee, Regen, Laub und Feuerwerk, ganz vorne auf der Scheibe Tau, Eis-Rand und Eiszapfen. Vorher hing das davon ab, welcher Effekt zuerst gestartet ist",
   "❄️ Frost-Rand ein Drittel schmaler: reicht jetzt höchstens 15 % ins Bild, die Eiskristalle in den Ecken sind mit kleiner geworden",
   "❄️ Frost-Rand ganz neu, wie eine vereiste Scheibe: am Rand dichter weißer Eis-Zucker aus feinen Körnchen, nach innen immer lockerer, große Eiskristalle in den Ecken, die Mitte bleibt frei. Ragt nie weiter ins Bild als der Morgentau-Beschlag und steht still (einmal gemalt, sparsam für den Fire TV)",
@@ -6032,6 +6205,14 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (c.weather_entity) sum.push("Wetter");
     }
     if (ev === "train") {
+      const ts = ["steam", "ice", "mix"].includes(c.train_style) ? c.train_style : "mix";
+      set += this._label("🚂 Welcher Zug?", `${scope}:train_style`, "Abwechselnd = mal die blaue Dampflok mit allen Wagen, mal der silberne Schnellzug (nur mit Licht, ohne Ladung).Auch an Mülltagen abwechselnd (die Müll-Wagen fahren mit der Dampflok). Insgesamt kommt dabei nicht öfter ein Zug als bei „Anzahl“ eingestellt.")
+        + this._seg(scope, "train_style", [["mix", "Abwechselnd"], ["steam", "Nur Dampflok"], ["ice", "Nur Schnellzug"]], ts);
+      sum.push({ mix: "Abwechselnd", steam: "Dampflok", ice: "Schnellzug" }[ts]);
+      if (ts !== "steam") {
+        set += this._label("✏️ Schriftzug am Schnellzug", `${scope}:ice_text`, "Steht grau mitten auf dem Schnellzug (unter den Fenstern), der rote Streifen macht Platz dafür. Vorne und hinten steht immer „ICM“. Leer = in der Mitte kein Text. Höchstens 14 Zeichen.")
+          + `<input class="field" data-scope="${scope}" data-text="ice_text" type="text" maxlength="14" placeholder="z. B. Familienexpress" value="${escapeHtml(c.ice_text || "")}"/>`;
+      }
       set += this._picker(scope, "🎅 Weihnachts-Schalter", "santa_sensor", B, "Ist er 'an', werden die Waggons festlich beladen: Schneemann, Weihnachtsmann, Geschenke und ein Geschenke-Sack.", "Schalter suchen, z. B. Weihnachten");
       set += this._picker(scope, "🍽️ Abendessen-Schalter", "dinner_sensor", B, "Ist er 'an', tragen die Waggons Geschirr, Braten, Nachtisch und Getränke. Weihnachten hat Vorrang.", "Schalter suchen, z. B. Abendessen");
       if (c.santa_sensor) sum.push("Weihnachten");
@@ -7073,9 +7254,19 @@ class AmbientOverlayCardEditor extends HTMLElement {
   // ▶ Spult alle seltenen Figuren an den Anfang ihres Durchlaufs - sie
   // kommen dann sofort ins Bild statt erst in ein paar Minuten.
   _playPreview() {
-    for (const a of this._periodicAnims()) {
+    const anims = this._periodicAnims();
+    // 🚄 Fahren Dampflok UND Schnellzug im Wechsel, schickt jeder Klick
+    // abwechselnd nur EINEN los (erst die Dampflok) - der andere wartet
+    // eine halbe Runde, damit sie nicht übereinander fahren.
+    const STEAM = ["train-drive", "train-hoot-pop"];
+    const both = anims.some((a) => a.animationName === "ice-drive") && anims.some((a) => a.animationName === "train-drive");
+    if (both) this._pvTrainTurn = (this._pvTrainTurn || 0) + 1;
+    const iceTurn = both && this._pvTrainTurn % 2 === 0;
+    for (const a of anims) {
       const t = a.effect.getTiming();
-      a.currentTime = (((t.delay || 0) % t.duration) + t.duration) % t.duration;
+      let ct = (((t.delay || 0) % t.duration) + t.duration) % t.duration;
+      if (both && (a.animationName === "ice-drive" ? !iceTurn : (STEAM.includes(a.animationName) && iceTurn))) ct += t.duration / 2;
+      a.currentTime = ct;
       a.play();
     }
   }

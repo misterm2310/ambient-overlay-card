@@ -28,7 +28,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 ## ✨ Was kann das Ding?
 
 - 🌦️ **Echtes Wetter** von deiner `weather.*`-Entity: Regen, Schnee, Blitz, Nebel, Sonne – plus 🌙 Mond mit echter Mondphase, echter Regenstärke, schrägem Regen bei Wind, Regen-Vorbote und ⚡ Blitzortung.
-- 🚂 **Dampflok** mit deiner Familie als Waggons (nur wer zuhause ist), Gästen und Schlusswagen.
+- 🚂 **Dampflok** mit deiner Familie auf Flachwagen (nur wer zuhause ist), Gästen und Schlusswagen – im Wechsel mit einem 🚄 silbernen Schnellzug.
 - 🐕 **Tiere:** Labrador, 🦉 Eule & Vogelhäuschen, 🕷️ Spinne.
 - 🍂 **Jahreszeiten** von selbst: Blüten, Bienen, Laub, winzige Eiszapfen.
 - 🎉 **Feiertage** von selbst: Halloween, Martini, Nikolaus, Weihnachtsmann, Silvester, Valentinstag, Ostern – plus 🎂 Geburtstag und 🌠 Nachthimmel.
@@ -43,7 +43,8 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 |---|---|
 | 🌦️ **Wetter-Automatik** | Die Karte schaut auf deine `weather.*`-Entity und zeigt selbst das Passende: Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne oder Sonne. Bei „Schneeregen“ laufen Schnee **und** Regen gleichzeitig, bei „Gewitter mit Regen“ Blitz **und** Regen. |
 | 🌙 **Mond mit echter Mondphase** | Erscheint oben rechts, sobald die Sonne weg ist – auch zusammen mit Regen oder Schnee. Die Phase wird aus dem Datum berechnet, ganz ohne Sensor. Tagsüber sitzt dort bei „sonnig“ die ☀️ Sonne. |
-| 🚂 **Dampflok** | Fährt unten durchs Bild: Lok mit Dampf, beleuchteten Fenstern und „TUUT“. Vier Waggons mit Alltags-Ladung – per Schalter auf 🎅 Weihnachten oder 🍽️ Abendessen umstellbar. Ganz selten wird der Dampf zum Herz. Nachts (Sonne untergegangen) fährt er mit 🔦 Licht: Lichtkegel vor der Lok, warm leuchtendes Führerhaus und hellere Schlusslichter. |
+| 🚂 **Dampflok** | Fährt unten durchs Bild: blaue Lok mit Tender, Dampf und „TUUT“, dahinter EIN oranger Personenwagen, alles andere fährt auf Flachwagen. Vier Flachwagen mit Alltags-Ladung – per Schalter auf 🎅 Weihnachten oder 🍽️ Abendessen umstellbar. Ganz selten wird der Dampf zum Herz. Nachts (Sonne untergegangen) fährt er mit 🔦 Licht: Lichtkegel vor der Lok, warm leuchtendes Führerhaus und Personenwagen, hellere Schlusslichter. |
+| 🚄 **Schnellzug** | Langer, flacher silberner Schnellzug mit spitzen Nasen, rotem Streifen bis in die Nasenspitze und „ICM“ vorne und hinten (unten nur leichte Rad-Ansätze), der einfach nur mit Licht fährt: leuchtende Fenster, vorne Scheinwerfer, hinten rote Schlusslichter, nachts mit Lichtkegel. Keine Ladung. Mit `train_style` (im Editor „Welcher Zug?“): `mix` = abwechselnd mit der Dampflok (Standard), `steam` = nur Dampflok, `ice` = nur Schnellzug. Den Schriftzug in der Mitte kannst du mit `ice_text` (Editor: „Schriftzug am Schnellzug“) selbst wählen. Auch an Mülltagen wird abgewechselt, die Müll-Wagen fahren mit der Dampflok. Insgesamt kommt nicht öfter ein Zug als bei „Anzahl“ eingestellt. |
 | 🗑️ **Müll-Waggon** | Wähle deinen Abfall-Kalender (`garbage_entity`): Am Tag vor der Abholung ab 12 Uhr bis zum Abholtag 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen mit den Lampen) ein Waggon mit der passenden Tonne mit – Gelber Sack/Wertstoff = gelbe Säcke, Papier = blau, Bio = braun, Glas = grün, sonst schwarze Restmüll-Tonne. Zwei Abholungen am selben Tag (z. B. Gelber Sack + Bio)? Dann fährt für jede Müllart ein eigener Waggon mit. Geht auch mit einem an/aus-Schalter oder einem Sensor, der die Tage zählt (1 = morgen). |
 | 👥 **Familie im Zug** | Jede angehakte Person, die gerade **zuhause** ist, bekommt einen eigenen Waggon mit Profilbild. Dazu 🎟️ Gäste-Waggons aus einem Sensor (z. B. „Oma, Opa“) und ein 🚦 blinkender Schlusswagen. |
 | 🐕 **Goldener Labrador** | Läuft mit echter Beinbewegung, wedelt, schnüffelt kurz und hinterlässt Pfotenabdrücke. Regnet es laut Wetter-Entity, schüttelt er sich. |
@@ -141,7 +142,7 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte st
 5. **⚙️ Einstellungen** – je nach Effekt:
    * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“). Dazu Schiebeschalter für Frost-Ränder, Regenstärke, Wind, 🫧 Spritzer am Boden, 🌫️ Morgentau und Regen-Vorbote.
    * **🐕 Labrador:** optional die Wetter-Entity fürs Schütteln bei Regen.
-   * **🚂 Dampflok:** Weihnachts-, Abendessen- und Halloween-Schalter, Personen zum Antippen, Gäste-Sensor oder fester Gäste-Text und der 🗑️ Müll-Kalender. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
+   * **🚂 Dampflok:** „Welcher Zug?“ (abwechselnd, nur Dampflok, nur Schnellzug), Weihnachts-, Abendessen- und Halloween-Schalter, Personen zum Antippen, Gäste-Sensor oder fester Gäste-Text und der 🗑️ Müll-Kalender. Sind mehrere Schalter an, gilt: Weihnachten vor Abendessen vor Halloween.
    * **🍂 Jahreszeiten:** der Jahreszeiten-Sensor (Integration „Season“, meldet `spring`/`summer`/`autumn`/`winter`). Ohne ihn zeigt der Bereich rot „Sensor fehlt!“ und der Effekt bleibt leer.
    * **🎉 Feiertage:** der Weihnachts-Schalter (ohne ihn kommt der Weihnachtsmann nicht) und der Halloween-Schalter (Halloween auch außerhalb vom 29.–31.10.).
    * **🎃 Halloween-Schalter** gibt's außerdem bei Dampflok, Labrador, Eule & Vogelhäuschen und der Wetter-Automatik (für den Mond). Ohne Schalter kommt der Halloween-Look nur am 31. Oktober. Gefunden werden `input_boolean.`, `binary_sensor.` und `switch.`.
@@ -389,6 +390,8 @@ leaf_colors:
 | `holiday_halloween` / `holiday_martini` / `holiday_nikolaus` / `holiday_christmas` / `holiday_silvester` / `holiday_valentin` / `holiday_easter` | `true` | Feiertage einzeln an/aus |
 | `santa_sensor` | – | Schalter (`input_boolean`/`binary_sensor`/`switch`): an = Weihnachts-Ladung im Zug, bei den Feiertagen fliegt der Weihnachtsmann, bei Eule & Vogelhäuschen der Weihnachts-Look |
 | `dinner_sensor` | – | Schalter: an = Abendessen-Ladung im Zug (Weihnachten hat Vorrang) |
+| `ice_text` | – | Zug: eigener Schriftzug mitten auf dem Schnellzug (höchstens 14 Zeichen, „ICM“ steht immer vorne und hinten) |
+| `train_style` | `mix` | Zug: `mix` = Dampflok und Schnellzug abwechselnd (auch an Mülltagen), `steam` = nur Dampflok, `ice` = nur Schnellzug |
 | `garbage_entity` | – | Zug: 🗑️ Abfall-Kalender (oder an/aus-Schalter, oder Sensor mit Tagen bis zur Abholung) – Müll-Waggon vom Vortag 12 Uhr bis Abholtag 12 Uhr, je Müllart ein Waggon |
 | `halloween_pumpkins` / `halloween_ghost` / `halloween_witch` / `halloween_webs` / `halloween_bats` | `true` | Feiertage: Teile von Halloween einzeln an/aus |
 | `halloween_sensor` | – | Schalter: an = Halloween-Look bei Zug, Hund, Eule und Mond (sonst nur am 31. Oktober), bei den Feiertagen: Halloween auch außerhalb vom 29.–31.10. |
