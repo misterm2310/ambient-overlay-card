@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.6";
+const CARD_VERSION = "1.0.21-beta.7";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -4095,6 +4095,16 @@ function renderEaster(cfg, hass, hostEl) {
   return { css, html: `<div class="easter" aria-hidden="true">${html}</div>` };
 }
 
+// 🪟 Feste Reihenfolge von hinten nach vorne - wie ein Blick durchs Fenster.
+// Sonst entschied nur, welcher Effekt zuerst gestartet ist (Zug mal vor,
+// mal hinter dem Eis). 1 = Himmel, 2 = am Boden, 3 = in der Luft vor dem
+// Zug, 4 = auf der Scheibe. Nicht genannt = Boden.
+const LAYER_STAGE = {
+  sun: 1, moon: 1, stars: 1, clouds: 1, night_sky: 1, lanterns: 1, boots: 1, easter: 1,
+  snow: 3, rain: 3, rain_hint: 3, hail: 3, leaves: 3, blossoms: 3, fog: 3, lightning: 3, storm: 3, hearts: 3, fireworks: 3,
+  dew: 4, frost: 4, icicles: 4,
+};
+
 const RENDERERS = {
   frost: renderFrost,
   rain: renderRain,
@@ -5232,9 +5242,12 @@ class AmbientOverlayCard extends HTMLElement {
         L.sig = sig;
       }
       // Ausblenden: nur die Hülle bekommt die Blende, der Inhalt läuft weiter
-      const layerStyle = state.fadeStartedAt !== null
+      // Eigene Etage je Ebene: die z-index-Werte im Inneren gelten nur noch
+      // innerhalb dieser Etage, die Etage selbst legt vorne/hinten fest
+      const stage = `position: relative; z-index: ${LAYER_STAGE[base] || 2};`;
+      const layerStyle = stage + (state.fadeStartedAt !== null
         ? `animation: fx-fade-out ${(FADE_DURATION_MS / 1000).toFixed(2)}s linear forwards;`
-        : "opacity: 1;";
+        : "opacity: 1;");
       if (L.div.getAttribute("style") !== layerStyle) L.div.setAttribute("style", layerStyle);
       seen.add(event);
     }
@@ -5330,6 +5343,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🪟 Feste Reihenfolge wie beim Blick durchs Fenster: hinten Himmel (Sonne, Mond, Sterne, Wolken), davor Zug, Hund, Eule & Co., davor Schnee, Regen, Laub und Feuerwerk, ganz vorne auf der Scheibe Tau, Eis-Rand und Eiszapfen. Vorher hing das davon ab, welcher Effekt zuerst gestartet ist",
   "❄️ Frost-Rand ein Drittel schmaler: reicht jetzt höchstens 15 % ins Bild, die Eiskristalle in den Ecken sind mit kleiner geworden",
   "❄️ Frost-Rand ganz neu, wie eine vereiste Scheibe: am Rand dichter weißer Eis-Zucker aus feinen Körnchen, nach innen immer lockerer, große Eiskristalle in den Ecken, die Mitte bleibt frei. Ragt nie weiter ins Bild als der Morgentau-Beschlag und steht still (einmal gemalt, sparsam für den Fire TV)",
   "🗑️ Die Tonnen auf dem Müll-Waggon sehen jetzt aus wie echte Tret-Mülleimer: kantig, oben breiter, Deckel zu, unten vorne ein kleines Pedal",
