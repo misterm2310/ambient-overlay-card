@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.13";
+const CARD_VERSION = "1.0.21-beta.14";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1394,6 +1394,31 @@ function renderTrain(cfg, hass, hostEl) {
   const hasHeartSmoke = flightNumber % 6 === 0;
   const hootPct = (parseFloat(walkPct) * 0.62).toFixed(2);
   const hootEndPct = (parseFloat(walkPct) * 0.72).toFixed(2);
+  // 📢 Marco 25.11: Mit Bahnübergang ruft die Lok zweimal „TUUT“, und zwar
+  // 2 Sekunden bevor ihre Spitze die Schranke (Bildmitte) erreicht. Ohne
+  // Bahnübergang bleibt es beim einen TUUT wie bisher. Nur Zeitangaben in
+  // der vorhandenen Animation, nichts Neues zum Rechnen für den Fire TV.
+  const hootAtCrossing = cfg.crossing !== "off";
+  const hootKf = () => {
+    const hidden = "opacity: 0; transform: scale(0.4) translateY(4px);";
+    if (!hootAtCrossing) {
+      return `0%, ${hootPct}% { ${hidden} }
+      ${(parseFloat(hootPct) + 1.5).toFixed(2)}% { opacity: 1; transform: scale(1.08) translateY(0); }
+      ${hootEndPct}% { opacity: 1; transform: scale(1) translateY(0); }
+      ${(parseFloat(hootEndPct) + 2).toFixed(2)}%, 100% { ${hidden} }`;
+    }
+    const vwH = Math.max(320, window.innerWidth || 1280);
+    const front = 30 * (vwH / 2 + 24) / (vwH + boxWidth + 40); // Sekunden ab Fahrtbeginn
+    const p = (t) => Math.max(0.01, (t / period) * 100).toFixed(3);
+    const pop = (t0) => `${p(t0)}% { ${hidden} }
+      ${p(t0 + 0.15)}% { opacity: 1; transform: scale(1.08) translateY(0); }
+      ${p(t0 + 0.6)}% { opacity: 1; transform: scale(1) translateY(0); }
+      ${p(t0 + 0.75)}% { ${hidden} }`;
+    return `0% { ${hidden} }
+      ${pop(front - 2)}
+      ${pop(front - 1)}
+      100% { ${hidden} }`;
+  };
 
   const smokeHtml = [0, 1, 2].map((i) => {
     if (i === 1 && hasHeartSmoke) {
@@ -1530,10 +1555,7 @@ function renderTrain(cfg, hass, hostEl) {
       transform-box: fill-box; transform-origin: center;
     }
     @keyframes train-hoot-pop {
-      0%, ${hootPct}% { opacity: 0; transform: scale(0.4) translateY(4px); }
-      ${(parseFloat(hootPct) + 1.5).toFixed(2)}% { opacity: 1; transform: scale(1.08) translateY(0); }
-      ${hootEndPct}% { opacity: 1; transform: scale(1) translateY(0); }
-      ${(parseFloat(hootEndPct) + 2).toFixed(2)}%, 100% { opacity: 0; transform: scale(0.4) translateY(4px); }
+      ${hootKf()}
     }
     .end-lamp-a, .end-lamp-b {
       animation: end-lamp-blink 1.4s steps(1) infinite;
@@ -1896,21 +1918,21 @@ function renderTrain(cfg, hass, hostEl) {
           <linearGradient id="aoc-ice-beam" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#fffbe6" stop-opacity=".75"/><stop offset="1" stop-color="#fffbe6" stop-opacity="0"/></linearGradient>
           <radialGradient id="aoc-ice-tail"><stop offset="0" stop-color="#ff5050" stop-opacity=".8"/><stop offset="1" stop-color="#ff5050" stop-opacity="0"/></radialGradient>
         </defs>` : ""}
-        <!-- Körper: lang, Nasen an beiden Enden. Marco 25.11: so hoch wie der
+        <!-- Körper: lang, Nasen an beiden Enden (Marco 25.11: länger und spitzer). Marco 25.11: so hoch wie der
              Personenwagen -> nur nach oben gestreckt (Boden bleibt bei y=55) -->
-        <g transform="translate(0,55) scale(1,${ICE_TALL}) translate(0,-55)"><path d="M4,55 Q0,49 8,45 Q34,27 72,22 L678,22 Q716,27 742,45 Q750,49 746,55 Z" fill="#dcdee8"/></g>
+        <g transform="translate(0,55) scale(1,${ICE_TALL}) translate(0,-55)"><path d="M3,55 L1,53 Q0,51 6,49 C30,40 55,24 98,22 L652,22 C695,24 720,40 744,49 Q750,51 749,53 L747,55 Z" fill="#dcdee8"/></g>
         <path d="M10,50 L740,50 Q741,52 738,53 Q712,49 690,52 L60,52 Q38,49 12,53 Q9,52 10,50 Z" fill="#c3c6d3"/>
         <!-- leichte Rad-Ansätze: dunkler Unterboden, nur Halbbögen schauen raus -->
         <rect x="58" y="51" width="634" height="3.5" fill="#30333f"/>
         ${[78, 96, 248, 266, 334, 352, 398, 416, 484, 502, 654, 672].map((wx) => `<path d="M${wx - 5},51.5 A5,5 0 0 0 ${wx + 5},51.5 Z" fill="#30333f"/><circle cx="${wx}" cy="52.5" r="1.4" fill="#6b7280"/>`).join("")}
         <g transform="translate(0,55) scale(1,${ICE_TALL}) translate(0,-55)">
-        <path d="M4,55 Q0,49 8,45 Q34,27 72,22 L678,22 Q716,27 742,45 Q750,49 746,55 L736,55 Q710,50 690,52 L60,52 Q40,50 14,55 Z" fill="#dcdee8"/>
-        <path d="M72,23.2 L678,23.2" stroke="#eef0f6" stroke-width="1.4"/>
+        <path d="M3,55 L1,53 Q0,51 6,49 C30,40 55,24 98,22 L652,22 C695,24 720,40 744,49 Q750,51 749,53 L747,55 L736,55 Q710,50 690,52 L60,52 Q40,50 14,55 Z" fill="#dcdee8"/>
+        <path d="M98,23.2 L652,23.2" stroke="#eef0f6" stroke-width="1.4"/>
         <!-- dunkle Linie auf den Nasen (Scheiben) -->
-        <path d="M14,43 Q36,29 66,24.5" stroke="#4a4e63" stroke-width="3" fill="none" stroke-linecap="round"/>
-        <path d="M736,43 Q714,29 684,24.5" stroke="#4a4e63" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M16,46 C34,38 52,28 86,23.8" stroke="#4a4e63" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M734,46 C716,38 698,28 664,23.8" stroke="#4a4e63" stroke-width="3" fill="none" stroke-linecap="round"/>
         <!-- Fensterband -->
-        <path d="M44,40 Q56,32 70,31 L680,31 Q694,32 706,40 Z" fill="#30333f"/>
+        <path d="M50,40 Q62,32 76,31 L674,31 Q688,32 700,40 Z" fill="#30333f"/>
         ${iceSeg.map(([a, b]) => `<rect x="${a}" y="32.6" width="${b - a}" height="4.6" fill="#ffe6a0"/>`).join("")}
         ${iceSeg.slice(0, -1).map(([, b]) => `<rect x="${b}" y="31" width="1.6" height="9" fill="#c9ccd8"/>`).join("")}
         <!-- Roter Streifen unter den Fenstern (wie beim echten ICE), läuft an
@@ -2017,11 +2039,35 @@ function renderTrain(cfg, hass, hostEl) {
       for (let k = 0; k * 7 < len; k += 2) stripes += `<rect x="${dir > 0 ? x0 + k * 7 : x0 - (k + 1) * 7}" y="31.2" width="7" height="3.6" fill="#e3242b"/>`;
       return `<rect x="${Math.min(x0, x1)}" y="31.2" width="${len}" height="3.6" fill="#ffffff" stroke="#9aa1ad" stroke-width=".6"/>${stripes}`;
     };
+    // 💡 Marco 25.11: Laternen am Bahnübergang, direkt am Ampelmast: der Mast
+    // geht über die Ampel hinaus, oben ein Ausleger nach innen zur Straße; nachts (Sonne unter dem Horizont, wie das
+    // Zuglicht) leuchtet die Lampe warmgelb und wirft einen weichen
+    // Lichtkegel auf Straße, Schranken und Gleis. Steht still, wird nur
+    // einmal gezeichnet.
+    const lamp = (x, dir) => {
+      const hx = x + dir * 14; // Lampenkopf am Ende des Auslegers
+      return `
+        ${nightLights ? `<path d="M${hx - 5},-34 L${hx + 5},-34 L${hx + dir * 34 + 26},66 L${hx + dir * 34 - 38},66 Z" fill="url(#aoc-xing-beam)"/>
+        <ellipse cx="${hx + dir * 30}" cy="62" rx="40" ry="6" fill="url(#aoc-xing-pool)"/>` : ""}
+        <rect x="${x - 1.5}" y="-42" width="3" height="22" fill="#5b606b"/>
+        <path d="M${x},-40 Q${x},-44 ${x + dir * 5},-44 L${hx},-44" stroke="#5b606b" stroke-width="2" fill="none"/>
+        <path d="M${hx - 5},-44 L${hx + 5},-44 L${hx + 3.5},-37.5 L${hx - 3.5},-37.5 Z" fill="#3e424b"/>
+        <rect x="${hx - 3.5}" y="-38" width="7" height="2.6" rx="1" fill="${nightLights ? "#fff2b0" : "#c9ccd8"}"/>
+        ${nightLights ? `<circle cx="${hx}" cy="-36" r="7" fill="url(#aoc-xing-glow)"/>` : ""}`;
+    };
+    const xingLamps = `
+      ${nightLights ? `<defs>
+        <linearGradient id="aoc-xing-beam" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffe9a8" stop-opacity=".7"/><stop offset="1" stop-color="#ffe9a8" stop-opacity=".1"/></linearGradient>
+        <radialGradient id="aoc-xing-pool"><stop offset="0" stop-color="#ffe9a8" stop-opacity=".55"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient>
+        <radialGradient id="aoc-xing-glow"><stop offset="0" stop-color="#fff6cc" stop-opacity=".95"/><stop offset="1" stop-color="#fff6cc" stop-opacity="0"/></radialGradient>
+      </defs>` : ""}
+      ${lamp(24, 1)}${lamp(176, -1)}`;
     crossingHtml = `
       <div class="xing-box">
         <svg viewBox="0 ${svgTop} 200 ${svgHeight}" preserveAspectRatio="xMidYMid meet" style="overflow:visible">
           <!-- graue Straße unter dem Gleis -->
           <path d="M44,58 L156,58 L170,66 L30,66 Z" fill="#7d8088"/>
+          ${xingLamps}
           ${post(24)}${post(176)}
           <!-- grüne Antriebskästen + Schrankenbäume -->
           <g class="xing-arm-l">${arm(37, 97)}</g>
@@ -5647,6 +5693,9 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🚄 Schnellzug mit längeren, spitzeren Nasen vorne und hinten",
+  "📢 Die Dampflok ruft zweimal „TUUT“, 2 Sekunden bevor sie über den Bahnübergang fährt",
+  "💡 Laternen oben an den Ampelmasten am Bahnübergang: nachts leuchten sie warmgelb und beleuchten Straße, Schranken und Gleis",
   "✍️ Größere Schrift am Schnellzug: „ICM“ vorne und hinten und dein eigener Text in der Mitte, direkt unter den Fenstern im roten Streifen",
   "🚦 Andreaskreuz am Bahnübergang steiler und schmaler, wie das echte Schild",
   "🚄 Der Schnellzug ist jetzt so hoch wie der Personenwagen (vorher nur gut halb so hoch wie die Lok), mit größeren Fenstern",
