@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.5";
+const CARD_VERSION = "1.0.21-beta.6";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -3602,8 +3602,8 @@ function renderDew(cfg, hass, hostEl) {
    Wichtig für den Fire TV: Alles wird EINMAL auf ein Canvas gemalt und steht
    dann still (keine Animation). Neu gemalt wird nur, wenn sich die Frost-
    Stufe, das Theme oder die Bildschirmgröße ändert.
-   Der Rand ragt nie weiter ins Bild als der Morgentau-Beschlag (22 % der
-   Bildschirmhöhe) - bei -1 °C nur gut halb so weit, unter -10 °C ganz. */
+   Der Rand ragt höchstens 15 % ins Bild (ein Drittel weniger als der
+   Morgentau-Beschlag) - bei -1 °C nur gut halb so weit, unter -10 °C ganz. */
 function frostStar(ctx, x, y, r, rot, a, color) {
   // Ein Eiskristall: 6 Arme, jeder mit zwei Paar Seitenästchen
   ctx.save();
@@ -3635,7 +3635,7 @@ function drawFrost(canvas, level, dark, dens) {
   if (!ctx) return;
   const rnd = dewRandom(2310 + W + 7 * H);
   const k = level / 4;                                   // 0.25 … 1
-  const D = H * 0.22 * (0.5 + 0.5 * k);                  // tiefste Stelle
+  const D = H * 0.15 * (0.5 + 0.5 * k);                  // tiefste Stelle (2/3 der Tau-Höhe)
   // Unregelmäßige Innenkante: Wellen entlang jeder Seite (nie über D)
   const waves = [0, 1, 2, 3].map(() => [rnd() * 6.3, rnd() * 6.3, 2 + rnd() * 2, 5 + rnd() * 4]);
   const depthAt = (side, t) => {
@@ -5330,6 +5330,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "❄️ Frost-Rand ein Drittel schmaler: reicht jetzt höchstens 15 % ins Bild, die Eiskristalle in den Ecken sind mit kleiner geworden",
   "❄️ Frost-Rand ganz neu, wie eine vereiste Scheibe: am Rand dichter weißer Eis-Zucker aus feinen Körnchen, nach innen immer lockerer, große Eiskristalle in den Ecken, die Mitte bleibt frei. Ragt nie weiter ins Bild als der Morgentau-Beschlag und steht still (einmal gemalt, sparsam für den Fire TV)",
   "🗑️ Die Tonnen auf dem Müll-Waggon sehen jetzt aus wie echte Tret-Mülleimer: kantig, oben breiter, Deckel zu, unten vorne ein kleines Pedal",
   "🗑️ Zwei Abholungen am selben Tag (z. B. Gelber Sack + Bio): jetzt fährt für jede Müllart ein eigener Waggon mit. Die Karte fragt dafür wie Trash-Card & Co. alle Termine beim Kalender ab (höchstens einmal pro Stunde)",
