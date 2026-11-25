@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.11";
+const CARD_VERSION = "1.0.21-beta.12";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1878,7 +1878,8 @@ function renderTrain(cfg, hass, hostEl) {
   // UNTER dem Fensterband, der rote Streifen macht dafür jeweils Platz.
   const iceText = String(cfg.ice_text || "").trim().slice(0, 14);
   const iceLabels = [[108, "ICM"], ...(iceText ? [[375, iceText]] : []), [642, "ICM"]];
-  const iceGapOf = (t) => Math.max(17, t.length * 3.9 + 8);
+  // Marco 25.11: Schrift größer (ICM 15, eigener Text 12) -> Lücke im Streifen wächst mit
+  const iceGapOf = (t) => (t === "ICM" ? 24 : Math.max(17, t.length * 5.4 + 8));
   const iceStripe = (() => {
     let out = "", x = 52;
     for (const [cx, t] of iceLabels) {
@@ -1921,7 +1922,7 @@ function renderTrain(cfg, hass, hostEl) {
         ${iceDoors.map((dx) => `<path d="M${dx - 8},28 h6 v22 h-6 Z M${dx + 2},28 h6 v22 h-6 Z M${dx},22 V50" stroke="#9a9db0" stroke-width="1" fill="none"/>`).join("")}
         </g>
         <!-- Schriftzug außerhalb der Streckung, damit die Buchstaben nicht gezogen aussehen -->
-        ${iceLabels.map(([cx, t]) => `<text x="${cx}" y="${(55 - 5.6 * ICE_TALL).toFixed(1)}" font-size="${t === "ICM" ? 11 : 8.5}" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-style="italic" fill="#8e93a3" text-anchor="middle" letter-spacing=".6">${escapeHtml(t)}</text>`).join("")}
+        ${iceLabels.map(([cx, t]) => `<text x="${cx}" y="50.4" font-size="${t === "ICM" ? 15 : 12}" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-style="italic" fill="#8e93a3" text-anchor="middle" letter-spacing=".6">${escapeHtml(t)}</text>`).join("")}
         <!-- Lichter -->
         ${nightLights ? `<path d="M744,49 L890,20 L890,78 Z" fill="url(#aoc-ice-beam)"/><circle cx="6" cy="50" r="9" fill="url(#aoc-ice-tail)"/>` : ""}
         <path d="M733,${(55 - 5 * ICE_TALL).toFixed(1)} L742,${(55 - 5 * ICE_TALL).toFixed(1)}" stroke="#fffbe6" stroke-width="2.6" stroke-linecap="round"/>
@@ -5645,6 +5646,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "✍️ Größere Schrift am Schnellzug: „ICM“ vorne und hinten und dein eigener Text in der Mitte",
   "🚄 Der Schnellzug ist jetzt so hoch wie der Personenwagen (vorher nur gut halb so hoch wie die Lok), mit größeren Fenstern",
   "✨ Zug, Wagen, Räder, Gleis und Bahnübergang haben jetzt einen feinen hellen Rand, damit man sie auch auf dunklem Hintergrund gut sieht (bei Tag und Nacht)",
   "🚦 Bahnübergang mitten im Bild: Ampel, Andreaskreuz, grüner Kasten und rot-weiße Schranken. Ist alles frei, leuchtet unten Grün. Kommt ein Zug, springt die Ampel auf Rot und die Schranken senken sich, nach dem letzten Wagen gehen sie wieder hoch und es wird wieder Grün. Im Editor an/aus (Standard an)",
