@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.12";
+const CARD_VERSION = "1.0.21-beta.13";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1922,7 +1922,7 @@ function renderTrain(cfg, hass, hostEl) {
         ${iceDoors.map((dx) => `<path d="M${dx - 8},28 h6 v22 h-6 Z M${dx + 2},28 h6 v22 h-6 Z M${dx},22 V50" stroke="#9a9db0" stroke-width="1" fill="none"/>`).join("")}
         </g>
         <!-- Schriftzug außerhalb der Streckung, damit die Buchstaben nicht gezogen aussehen -->
-        ${iceLabels.map(([cx, t]) => `<text x="${cx}" y="50.4" font-size="${t === "ICM" ? 15 : 12}" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-style="italic" fill="#8e93a3" text-anchor="middle" letter-spacing=".6">${escapeHtml(t)}</text>`).join("")}
+        ${iceLabels.map(([cx, t]) => `<text x="${cx}" y="46.4" font-size="${t === "ICM" ? 15 : 12}" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-style="italic" fill="#8e93a3" text-anchor="middle" letter-spacing=".6">${escapeHtml(t)}</text>`).join("")}
         <!-- Lichter -->
         ${nightLights ? `<path d="M744,49 L890,20 L890,78 Z" fill="url(#aoc-ice-beam)"/><circle cx="6" cy="50" r="9" fill="url(#aoc-ice-tail)"/>` : ""}
         <path d="M733,${(55 - 5 * ICE_TALL).toFixed(1)} L742,${(55 - 5 * ICE_TALL).toFixed(1)}" stroke="#fffbe6" stroke-width="2.6" stroke-linecap="round"/>
@@ -2006,8 +2006,9 @@ function renderTrain(cfg, hass, hostEl) {
       <circle cx="${x}" cy="-6" r="3.8" fill="#1f3d27"/>
       <circle class="xing-green" cx="${x}" cy="-6" r="3.8" fill="#2fdc5a"/>
       <g transform="translate(${x},19)">
-        <g transform="rotate(38)"><rect x="-13" y="-2.4" width="26" height="4.8" fill="#ffffff" stroke="#d3242b" stroke-width=".8"/><rect x="-13" y="-2.4" width="6" height="4.8" fill="#e3242b"/><rect x="7" y="-2.4" width="6" height="4.8" fill="#e3242b"/></g>
-        <g transform="rotate(-38)"><rect x="-13" y="-2.4" width="26" height="4.8" fill="#ffffff" stroke="#d3242b" stroke-width=".8"/><rect x="-13" y="-2.4" width="6" height="4.8" fill="#e3242b"/><rect x="7" y="-2.4" width="6" height="4.8" fill="#e3242b"/></g>
+        <!-- Marco 25.11: steiler/schmaler wie das echte Schild, Abstand zur Schranke -->
+        <g transform="rotate(55)"><rect x="-13" y="-2.4" width="26" height="4.8" fill="#ffffff" stroke="#d3242b" stroke-width=".8"/><rect x="-13" y="-2.4" width="6" height="4.8" fill="#e3242b"/><rect x="7" y="-2.4" width="6" height="4.8" fill="#e3242b"/></g>
+        <g transform="rotate(-55)"><rect x="-13" y="-2.4" width="26" height="4.8" fill="#ffffff" stroke="#d3242b" stroke-width=".8"/><rect x="-13" y="-2.4" width="6" height="4.8" fill="#e3242b"/><rect x="7" y="-2.4" width="6" height="4.8" fill="#e3242b"/></g>
       </g>`;
     // Rot-weißer Schrankenbaum (im geschlossenen Zustand waagerecht zur Mitte)
     const arm = (x0, x1) => {
@@ -5646,7 +5647,8 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
-  "✍️ Größere Schrift am Schnellzug: „ICM“ vorne und hinten und dein eigener Text in der Mitte",
+  "✍️ Größere Schrift am Schnellzug: „ICM“ vorne und hinten und dein eigener Text in der Mitte, direkt unter den Fenstern im roten Streifen",
+  "🚦 Andreaskreuz am Bahnübergang steiler und schmaler, wie das echte Schild",
   "🚄 Der Schnellzug ist jetzt so hoch wie der Personenwagen (vorher nur gut halb so hoch wie die Lok), mit größeren Fenstern",
   "✨ Zug, Wagen, Räder, Gleis und Bahnübergang haben jetzt einen feinen hellen Rand, damit man sie auch auf dunklem Hintergrund gut sieht (bei Tag und Nacht)",
   "🚦 Bahnübergang mitten im Bild: Ampel, Andreaskreuz, grüner Kasten und rot-weiße Schranken. Ist alles frei, leuchtet unten Grün. Kommt ein Zug, springt die Ampel auf Rot und die Schranken senken sich, nach dem letzten Wagen gehen sie wieder hoch und es wird wieder Grün. Im Editor an/aus (Standard an)",
