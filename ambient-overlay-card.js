@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.9";
+const CARD_VERSION = "1.0.21-beta.10";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1790,7 +1790,7 @@ function renderTrain(cfg, hass, hostEl) {
       const nextX = i < all.length - 1 ? all[i + 1] : LOCO_X;
       return `M${x + width},41 L${nextX},41`;
     })
-    .map((d) => `<path d="${d}" stroke="${C.navy}" stroke-width="2"/>`)
+    .map((d) => `<path d="${d}" stroke="#9aa1ad" stroke-width="2"/>`)
     .join("");
 
   // 🚂 Blaue Dampflok wie auf der Vorlage, nur gespiegelt (Front nach
@@ -2047,22 +2047,39 @@ function renderTrain(cfg, hass, hostEl) {
   // 🛤️ Durchgehendes Gleis quer übers ganze Bild (Marcos Wunsch), auf dem
   // beide Züge fahren: Schiene + kleine Schwellen darunter. Steht still.
   const railY = (66 - 58) * scale;
+  const RIM_RAIL = "rgba(226,232,241,.75)"; // heller Strich über der Schiene (dunkler Hintergrund)
   const railHtml = `<div class="train-rail" style="bottom:calc(1vh + ${(railY - 1).toFixed(1)}px)"></div>`;
   const railCss = `
     .train-rail {
       position: absolute; left: 0; width: 100vw; height: ${Math.max(3, Math.round(4 * scale * 2))}px;
       border-top: ${Math.max(1, Math.round(2 * scale * 1.2))}px solid ${nightLights ? "#8a919d" : "#2a2e36"};
       background: repeating-linear-gradient(90deg, #7a5a3c 0 4px, transparent 4px 11px);
+      box-shadow: 0 -1px 0 ${RIM_RAIL};
       transform: translateY(100%);
     }
   `;
 
+  // ✨ Feiner heller Rand um alle dunklen Teile (Räder, Rahmen, Dächer,
+  // Schornstein …), damit der Zug auch auf dunklem Hintergrund zu sehen ist
+  // (Marco 25.11: „immer“, also bei hellem und dunklem Design). Wird nur
+  // einmal beim Zeichnen eingesetzt, kostet beim Fahren nichts extra.
+  const RIM = "rgba(226,232,241,.9)";
+  const DARK_FILL = /fill="(#22252c|#26292f|#2d3443|#2f333b|#30333f|#3a3a3a|#3b404c|#3e424b|#464b58|#5b606b)"/;
+  // Bunte Ladung behält ihren dunklen Rand (sonst auf hellem Hintergrund blass).
+  const addRim = (svg) => svg
+    .replace(/<(rect|circle|path|ellipse|polygon)\b[^>]*>/g, (tag) => {
+      if (!DARK_FILL.test(tag)) return tag;
+      if (/stroke="(#1a1a1a|#111)"/.test(tag)) return tag.replace(/stroke="(#1a1a1a|#111)"/, `stroke="${RIM}"`);
+      if (/stroke=/.test(tag)) return tag;
+      return tag.replace(/\s*\/?>$/, (end) => ` stroke="${RIM}" stroke-width=".9"${end}`);
+    });
+
   const html = `
     <div class="train-container" style="opacity:${finalOpacity};" aria-hidden="true">
       ${railHtml}
-      ${crossingHtml}
-      ${mode !== "ice" ? steamHtml : ""}
-      ${mode !== "steam" ? iceHtml : ""}
+      ${addRim(crossingHtml)}
+      ${mode !== "ice" ? addRim(steamHtml) : ""}
+      ${mode !== "steam" ? addRim(iceHtml) : ""}
     </div>
   `;
   return { css: css + railCss + (mode !== "steam" ? iceCss : "") + crossingCss, html };
@@ -5621,6 +5638,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "✨ Zug, Wagen, Räder, Gleis und Bahnübergang haben jetzt einen feinen hellen Rand, damit man sie auch auf dunklem Hintergrund gut sieht (bei Tag und Nacht)",
   "🚦 Bahnübergang mitten im Bild: Ampel, Andreaskreuz, grüner Kasten und rot-weiße Schranken. Ist alles frei, leuchtet unten Grün. Kommt ein Zug, springt die Ampel auf Rot und die Schranken senken sich, nach dem letzten Wagen gehen sie wieder hoch und es wird wieder Grün. Im Editor an/aus (Standard an)",
   "🚄 Der Schnellzug fährt jetzt doppelt so schnell wie die Dampflok",
   "🛤️ Durchgehendes Gleis quer über den ganzen Bildschirm, auf dem beide Züge fahren",
