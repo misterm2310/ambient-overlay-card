@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.4";
+const CARD_VERSION = "1.0.21-beta.5";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1314,10 +1314,25 @@ function garbageCargo(kind) {
       <path d="M${x + 5},${31 - h} l2,-5 2,5" fill="none" stroke="#8a7400" stroke-width="1.4"/>`;
     return `${sack(10, 22)}${sack(34, 26)}${sack(58, 21)}`;
   }
-  const col = { rest: ["#5b6168", "#3a3f44"], paper: ["#1e5bb8", "#123a78"], bio: ["#7a4e2a", "#4a2f18"], glass: ["#2e8b57", "#1b5a37"] }[kind] || ["#5b6168", "#3a3f44"];
-  const bin = (x) => `<rect x="${x}" y="6" width="28" height="26" rx="2" fill="${col[0]}" stroke="${col[1]}" stroke-width="1.8"/>
-    <rect x="${x - 2}" y="1" width="32" height="6" rx="2" fill="${col[1]}"/>
-    <path d="M${x + 7},12 L${x + 7},28 M${x + 14},12 L${x + 14},28 M${x + 21},12 L${x + 21},28" stroke="${col[1]}" stroke-width="1.2" opacity=".6"/>`;
+  // Tonne wie ein Tret-Mülleimer: kantig, nach oben breiter, Deckel ZU,
+  // Rand-Wulst, unten vorne eine Aussparung mit kleinem Pedal.
+  // Farben: [Korpus, Schatten/Kante, Glanz]
+  const col = {
+    rest: ["#33373c", "#16181b", "#5a6068"],
+    paper: ["#1f5fc4", "#123a78", "#5b8fe0"],
+    bio: ["#8a5530", "#4f2f18", "#b07a52"],
+    glass: ["#2f9a4a", "#1b5c2c", "#62c27a"],
+  }[kind] || ["#33373c", "#16181b", "#5a6068"];
+  const bin = (x) => `<g transform="translate(0,-1.5)">
+    <path d="M${x + 1},11 L${x + 27},11 L${x + 25},30.5 Q${x + 25},32 ${x + 23.5},32 L${x + 4.5},32 Q${x + 3},32 ${x + 3},30.5 Z" fill="${col[0]}" stroke="${col[1]}" stroke-width="1.4"/>
+    <path d="M${x + 3.5},12 L${x + 6},12 L${x + 6.5},30 L${x + 5},30 Z" fill="${col[2]}" opacity=".55"/>
+    <path d="M${x + 9.5},32 L${x + 9.5},23 Q${x + 9.5},22 ${x + 10.5},22 L${x + 17.5},22 Q${x + 18.5},22 ${x + 18.5},23 L${x + 18.5},32 Z" fill="${col[1]}"/>
+    <rect x="${x + 8.5}" y="27" width="11" height="3" rx="1" fill="#3a3a3a" stroke="#111" stroke-width=".6"/>
+    <rect x="${x - 0.5}" y="8" width="29" height="3.5" rx="1" fill="${col[0]}" stroke="${col[1]}" stroke-width="1.2"/>
+    <path d="M${x},8 L${x + 1.5},3 Q${x + 2},2 ${x + 3},2 L${x + 25},2 Q${x + 26},2 ${x + 26.5},3 L${x + 28},8 Z" fill="${col[0]}" stroke="${col[1]}" stroke-width="1.2"/>
+    <path d="M${x + 3},4 L${x + 25},4" stroke="${col[2]}" stroke-width="1" opacity=".7"/>
+    <rect x="${x + 12}" y="0.5" width="4" height="2" rx=".6" fill="#222"/>
+  </g>`;
   return `${bin(12)}${bin(48)}`;
 }
 
@@ -3581,68 +3596,130 @@ function renderDew(cfg, hass, hostEl) {
   return { css, html: `<div class="dew" aria-hidden="true"><div class="dew-band">${svg}</div><div class="dew-band">${runHtml}</div></div>` };
 }
 
+/* ❄️ Frost-Rand wie eine vereiste Scheibe: am Rand dichter weißer Eis-
+   "Zucker" aus tausenden feinen Körnchen, nach innen immer lockerer, in den
+   Ecken große Eiskristall-Sterne, die Mitte bleibt frei.
+   Wichtig für den Fire TV: Alles wird EINMAL auf ein Canvas gemalt und steht
+   dann still (keine Animation). Neu gemalt wird nur, wenn sich die Frost-
+   Stufe, das Theme oder die Bildschirmgröße ändert.
+   Der Rand ragt nie weiter ins Bild als der Morgentau-Beschlag (22 % der
+   Bildschirmhöhe) - bei -1 °C nur gut halb so weit, unter -10 °C ganz. */
+function frostStar(ctx, x, y, r, rot, a, color) {
+  // Ein Eiskristall: 6 Arme, jeder mit zwei Paar Seitenästchen
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.strokeStyle = `rgba(${color},${a})`;
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, r * 0.055);
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const c = Math.cos(i * Math.PI / 3), s = Math.sin(i * Math.PI / 3);
+    const P = (u, v) => [0, 0, u * c - v * s, u * s + v * c];
+    ctx.moveTo(0, 0);
+    ctx.lineTo(r * c, r * s);
+    for (const [at, len] of [[0.45, 0.3], [0.72, 0.2]]) {
+      const bx = at * r, bl = len * r;
+      const p0 = P(bx, 0), p1 = P(bx + bl * 0.6, bl * 0.8), p2 = P(bx + bl * 0.6, -bl * 0.8);
+      ctx.moveTo(p0[2], p0[3]); ctx.lineTo(p1[2], p1[3]);
+      ctx.moveTo(p0[2], p0[3]); ctx.lineTo(p2[2], p2[3]);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawFrost(canvas, level, dark, dens) {
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const rnd = dewRandom(2310 + W + 7 * H);
+  const k = level / 4;                                   // 0.25 … 1
+  const D = H * 0.22 * (0.5 + 0.5 * k);                  // tiefste Stelle
+  // Unregelmäßige Innenkante: Wellen entlang jeder Seite (nie über D)
+  const waves = [0, 1, 2, 3].map(() => [rnd() * 6.3, rnd() * 6.3, 2 + rnd() * 2, 5 + rnd() * 4]);
+  const depthAt = (side, t) => {
+    const [p1, p2, f1, f2] = waves[side];
+    const w = 0.72 + 0.16 * Math.sin(t * f1 * 6.28 + p1) + 0.12 * Math.sin(t * f2 * 6.28 + p2);
+    // In den Ecken reicht das Eis etwas tiefer (wie auf dem Foto)
+    const corner = Math.max(0, 1 - Math.min(t, 1 - t) * 6);
+    return D * Math.min(1, w + 0.25 * corner);
+  };
+  const ice = dark ? "235,245,255" : "255,255,255";
+
+  // 1) weicher Eis-Schleier direkt am Rand (hell: eisblau, damit Weiß sichtbar ist)
+  const haze = dark ? "205,228,250" : "150,190,228";
+  const hz = (x0, y0, x1, y1, a) => {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, `rgba(${haze},${a})`);
+    g.addColorStop(0.3, `rgba(${haze},${(a * 0.4).toFixed(3)})`);
+    g.addColorStop(0.7, `rgba(${haze},${(a * 0.08).toFixed(3)})`);
+    g.addColorStop(1, `rgba(${haze},0)`);
+    return g;
+  };
+  const ha = dark ? 0.32 : 0.55;
+  ctx.fillStyle = hz(0, 0, 0, D, ha); ctx.fillRect(0, 0, W, D);
+  ctx.fillStyle = hz(0, H, 0, H - D, ha); ctx.fillRect(0, H - D, W, D);
+  ctx.fillStyle = hz(0, 0, D, 0, ha); ctx.fillRect(0, 0, D, H);
+  ctx.fillStyle = hz(W, 0, W - D, 0, ha); ctx.fillRect(W - D, 0, D, H);
+
+  // 2) Eis-Körnchen: am Rand dicht wie Zucker, nach innen immer weniger
+  const n = Math.round((W + H) * 2 * 4.5 * dens * (0.6 + 0.4 * k));
+  const per = 2 * (W + H);
+  for (let i = 0; i < n; i++) {
+    let pos = rnd() * per, side, t;
+    if (pos < W) { side = 0; t = pos / W; }
+    else if ((pos -= W) < H) { side = 1; t = pos / H; }
+    else if ((pos -= H) < W) { side = 2; t = pos / W; }
+    else { pos -= W; side = 3; t = pos / H; }
+    const f = Math.pow(rnd(), 2.2);                      // meist nah am Rand
+    const d = f * depthAt(side, t);
+    const x = side === 0 || side === 2 ? t * W : (side === 1 ? W - d : d);
+    const y = side === 1 || side === 3 ? t * H : (side === 0 ? d : H - d);
+    const r = (0.5 + rnd() * 1.2) * (1 - f * 0.5) * (rnd() < 0.04 ? 2 : 1);
+    const a = (0.95 - f * 0.6) * (0.55 + rnd() * 0.45);
+    ctx.fillStyle = `rgba(${ice},${a.toFixed(2)})`;
+    if (r < 1.1) ctx.fillRect(x, y, r * 1.6, r * 1.6);
+    else { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); }
+  }
+
+  // 3) Eiskristall-Sterne: je Ecke ein großer + ein kleiner, bei Kälte mehr am Rand
+  const star = dark ? "245,250,255" : "255,255,255";
+  const corners = [[0, 0, 1, 1], [W, 0, -1, 1], [0, H, 1, -1], [W, H, -1, -1]];
+  for (const [cx, cy, sx, sy] of corners) {
+    // Mitte + Armlänge bleibt innerhalb der Eis-Tiefe D
+    const r1 = D * (0.34 + rnd() * 0.06);
+    frostStar(ctx, cx + sx * D * (0.55 + rnd() * 0.05), cy + sy * D * (0.55 + rnd() * 0.05), r1, rnd(), 0.85, star);
+    const r2 = D * (0.18 + rnd() * 0.06);
+    const along = rnd() < 0.5;
+    frostStar(ctx, cx + sx * D * (along ? 1.5 + rnd() * 0.5 : 0.3), cy + sy * D * (along ? 0.3 : 1.5 + rnd() * 0.5), r2, rnd(), 0.75, star);
+  }
+  const extra = level >= 3 ? 4 : level >= 2 ? 2 : 0;
+  for (let i = 0; i < extra; i++) {
+    const top = i % 2 === 0;
+    frostStar(ctx, W * (0.25 + rnd() * 0.5), top ? D * 0.28 : H - D * 0.28, D * (0.14 + rnd() * 0.06), rnd(), 0.6, star);
+  }
+}
+
 function renderFrost(cfg, hass, hostEl) {
   const level = cfg._frostLevel || frostLevel(cfg, hass) || 1;
-  const opacity = getOpacityValue(cfg.opacity_preset || "medium");
-  const isHigh = (cfg.opacity_preset || "medium") === "high";
-  const k = level / 4;                               // 0.25 … 1
-  const width = (4 + 10 * k).toFixed(1);             // Breite des Eisrands in vmin
-  const alpha = Math.min(0.95, (0.35 + 0.5 * k) * (isHigh ? 1.15 : Math.max(opacity, 0.5)));
-  // Dunkles Theme: weißes Eis. Helles Theme: Weiß sähe man nicht - dort
-  // ein kühles Eisblau.
+  const op = layerOpacity(cfg);
+  const dens = { low: 0.6, medium: 1, high: 1.4 }[cfg.count_preset || "medium"] || 1;
   const dark = isDarkModeActive(hass, hostEl);
-  const ice = dark ? "215,236,255" : "140,184,224";
-  const crystalColor = dark ? "245,251,255" : "96,150,205";
-
-  // Eiskristalle am Rand: je kälter, desto mehr
-  const crystals = getCachedRandomSet("frost", 48, () => {
-    const side = Math.floor(Math.random() * 4);      // 0 oben, 1 rechts, 2 unten, 3 links
-    return {
-      side,
-      along: (Math.random() * 100).toFixed(2),
-      depth: Math.random(),
-      size: (Math.random() * 1.6 + 1.2).toFixed(2),
-      rot: Math.floor(Math.random() * 60),
-      dur: (Math.random() * 4 + 4).toFixed(2),
-      off: Math.random() * 10,
-    };
-  });
-  const shown = crystals.slice(0, 12 * level);
-  const nowS = Date.now() / 1000;
-  const crystalHtml = shown.map((c) => {
-    const d = (c.depth * parseFloat(width) * 0.8).toFixed(2);
-    const pos = [
-      `top:${d}vmin; left:${c.along}vw;`,
-      `right:${d}vmin; top:${c.along}vh;`,
-      `bottom:${d}vmin; left:${c.along}vw;`,
-      `left:${d}vmin; top:${c.along}vh;`,
-    ][c.side];
-    // Startpunkt aus der echten Uhrzeit - so beginnt das Funkeln nach einem
-    // Neuzeichnen nicht bei allen Kristallen gleichzeitig von vorne
-    const delay = (-((nowS + c.off) % parseFloat(c.dur))).toFixed(2);
-    return `<div class="frost-crystal" style="${pos} font-size:${c.size}vmin; transform:rotate(${c.rot}deg); animation-duration:${c.dur}s; animation-delay:${delay}s;">❄</div>`;
-  }).join("");
-
+  // Canvas in echten Bildschirm-Pixeln, aber höchstens 1,5-fach (Speicher)
+  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+  const W = Math.round(Math.max(320, window.innerWidth || 1280) * dpr);
+  const H = Math.round(Math.max(240, window.innerHeight || 720) * dpr);
   const css = `
-    ${overlayBaseCss("frost-container")}
-    .frost-edge {
-      position: absolute; inset: 0;
-      box-shadow:
-        inset 0 0 ${width}vmin ${(parseFloat(width) * 0.35).toFixed(1)}vmin rgba(${ice},${alpha.toFixed(2)}),
-        inset 0 0 ${(parseFloat(width) * 2.2).toFixed(1)}vmin 0 rgba(${ice},${(alpha * 0.45).toFixed(2)});
-      filter: blur(1px);
-    }
-    .frost-crystal {
-      position: absolute; line-height: 1; color: rgba(${crystalColor},${Math.min(1, alpha + 0.1).toFixed(2)});
-      text-shadow: 0 0 0.6vmin rgba(${ice},0.9);
-      animation-name: frost-twinkle; animation-iteration-count: infinite; animation-timing-function: ease-in-out;
-    }
-    @keyframes frost-twinkle {
-      0%, 100% { opacity: 0.45; }
-      50% { opacity: 1; }
-    }
+    ${overlayBaseCss("frost-container", `opacity:${op};`)}
+    .frost-container canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   `;
-  return { css, html: `<div class="frost-container" aria-hidden="true"><div class="frost-edge"></div>${crystalHtml}</div>` };
+  return {
+    css,
+    html: `<div class="frost-container" aria-hidden="true"><canvas width="${W}" height="${H}"></canvas></div>`,
+    // Wird nach dem Einsetzen einmal aufgerufen: jetzt erst malen
+    mount: (el) => { const c = el.querySelector(".frost-container canvas"); if (c) drawFrost(c, level, dark, dens); },
+  };
 }
 
 /* ======================= 🍂 JAHRESZEITEN & 🎉 FEIERTAGE ======================= */
@@ -5147,9 +5224,11 @@ class AmbientOverlayCard extends HTMLElement {
         this._layerEls.set(event, L);
       }
       if (L.sig !== sig) {
-        const { css, html } = renderer(cfgForRender, this._hass, this);
+        const { css, html, mount } = renderer(cfgForRender, this._hass, this);
         L.style.textContent = css;
         L.div.innerHTML = html;
+        // Effekte, die einmal auf ein Canvas malen (z. B. ❄️ Frost)
+        if (mount) { try { mount(L.div); } catch (_) { /* nur Optik */ } }
         L.sig = sig;
       }
       // Ausblenden: nur die Hülle bekommt die Blende, der Inhalt läuft weiter
@@ -5251,6 +5330,8 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "❄️ Frost-Rand ganz neu, wie eine vereiste Scheibe: am Rand dichter weißer Eis-Zucker aus feinen Körnchen, nach innen immer lockerer, große Eiskristalle in den Ecken, die Mitte bleibt frei. Ragt nie weiter ins Bild als der Morgentau-Beschlag und steht still (einmal gemalt, sparsam für den Fire TV)",
+  "🗑️ Die Tonnen auf dem Müll-Waggon sehen jetzt aus wie echte Tret-Mülleimer: kantig, oben breiter, Deckel zu, unten vorne ein kleines Pedal",
   "🗑️ Zwei Abholungen am selben Tag (z. B. Gelber Sack + Bio): jetzt fährt für jede Müllart ein eigener Waggon mit. Die Karte fragt dafür wie Trash-Card & Co. alle Termine beim Kalender ab (höchstens einmal pro Stunde)",
   "🌫️ Milchiger Nebel im Beschlag nur noch halb so stark (Tropfen und Höhe bleiben)",
   "🌫️ Beschlag etwa halb so hoch und durchsichtiger, damit man das Dashboard dahinter gut sieht",
@@ -5941,7 +6022,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       if (c.santa_sensor) sum.push("Weihnachten");
       if (c.dinner_sensor) sum.push("Abendessen");
       set += this._picker(scope, "🗑️ Müll-Kalender", "garbage_entity", ["calendar", "binary_sensor", "input_boolean", "sensor"],
-        "Am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen mit den Lampen) ein Müll-Waggon mit. Die Tonne passt zum Namen im Kalender: Gelber Sack/Wertstoff = gelbe Säcke, Papier = blau, Bio = braun, Glas = grün, sonst graue Restmüll-Tonne. Zwei Abholungen am selben Tag = je Müllart ein eigener Waggon. Geht auch mit einem an/aus-Schalter oder einem Sensor, der die Tage zählt (1 = morgen).",
+        "Am Tag vor der Abholung (ab 12 Uhr) bis zum Abholtag 12 Uhr fährt als vorletzter Wagen (vor dem Schlusswagen mit den Lampen) ein Müll-Waggon mit. Die Tonne passt zum Namen im Kalender: Gelber Sack/Wertstoff = gelbe Säcke, Papier = blau, Bio = braun, Glas = grün, sonst schwarze Restmüll-Tonne. Zwei Abholungen am selben Tag = je Müllart ein eigener Waggon. Geht auch mit einem an/aus-Schalter oder einem Sensor, der die Tage zählt (1 = morgen).",
         "Kalender suchen, z. B. Abfall");
       if (c.garbage_entity) {
         const gb = garbageList(c, this._hass);
