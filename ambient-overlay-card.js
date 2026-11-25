@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.14";
+const CARD_VERSION = "1.0.21-beta.15";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -1964,7 +1964,7 @@ function renderTrain(cfg, hass, hostEl) {
   // 🚦 Bahnübergang mitten im Bild (wie Marcos Vorlage "Vollschranke"):
   // links und rechts ein Mast mit Ampel und Andreaskreuz, grüner Antriebs-
   // kasten, rot-weißer Schrankenbaum, dazwischen die graue Straße. Steht
-  // HINTER dem Zug. Ein paar Sekunden bevor die Lok die Mitte erreicht,
+  // VOR dem Zug (Marco 25.11: Sicht wie als Autofahrer an der Schranke). Ein paar Sekunden bevor die Lok die Mitte erreicht,
   // geht die Ampel auf Rot und die Schranken senken sich; ist der letzte
   // Wagen durch, gehen sie wieder hoch. Alles reine CSS-Animation im
   // selben Takt wie der Zug (Fire TV: einmal gezeichnet, nur Drehen).
@@ -1995,12 +1995,24 @@ function renderTrain(cfg, hass, hostEl) {
     // Rot an während der Zug kommt/fährt, Grün (unten) an, wenn alles frei ist
     const lightKf = (onDuring) => {
       const on = onDuring ? 1 : 0, off = 1 - on;
-      const pts = [`0% { opacity: ${off}; }`];
-      for (const [front, tail] of [...wins].sort((x, y) => x[0] - y[0])) {
+      // Rot-Fenster in Prozent; geht eins über den Rundenanfang hinaus
+      // (schmaler Bildschirm, Schnellzug startet schon kurz vor der Mitte),
+      // wird es in zwei Stücke geteilt, sonst bliebe die Ampel grün.
+      const spans = [];
+      for (const [front, tail] of wins) {
         const a = parseFloat(pct(front - 6)), b = parseFloat(pct(tail + 3));
-        pts.push(`${a.toFixed(3)}% { opacity: ${off}; }`, `${(a + 0.01).toFixed(3)}% { opacity: ${on}; }`, `${b.toFixed(3)}% { opacity: ${on}; }`, `${(b + 0.01).toFixed(3)}% { opacity: ${off}; }`);
+        if (a < b) spans.push([a, b]);
+        else { spans.push([0, b]); spans.push([a, 100]); }
       }
-      pts.push(`100% { opacity: ${off}; }`);
+      spans.sort((x, y) => x[0] - y[0]);
+      const startsOn = spans.length && spans[0][0] === 0;
+      const pts = [`0% { opacity: ${startsOn ? on : off}; }`];
+      for (const [a, b] of spans) {
+        if (a > 0) pts.push(`${a.toFixed(3)}% { opacity: ${off}; }`, `${(a + 0.01).toFixed(3)}% { opacity: ${on}; }`);
+        if (b < 100) pts.push(`${b.toFixed(3)}% { opacity: ${on}; }`, `${(b + 0.01).toFixed(3)}% { opacity: ${off}; }`);
+      }
+      const endsOn = spans.length && spans[spans.length - 1][1] === 100;
+      pts.push(`100% { opacity: ${endsOn ? on : off}; }`);
       return pts.join(" ");
     };
     const xw = Math.round(200 * scale);
@@ -2132,9 +2144,9 @@ function renderTrain(cfg, hass, hostEl) {
   const html = `
     <div class="train-container" style="opacity:${finalOpacity};" aria-hidden="true">
       ${railHtml}
-      ${addRim(crossingHtml)}
       ${mode !== "ice" ? addRim(steamHtml) : ""}
       ${mode !== "steam" ? addRim(iceHtml) : ""}
+      ${addRim(crossingHtml)}
     </div>
   `;
   return { css: css + railCss + (mode !== "steam" ? iceCss : "") + crossingCss, html };
@@ -5693,6 +5705,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "🚦 Der Bahnübergang steht jetzt vor dem Zug: du schaust wie als Autofahrer über die Schranke, der Zug rauscht dahinter vorbei. Die Ampel zeigt jetzt auch auf schmalen Bildschirmen beim Schnellzug sicher Rot",
   "🚄 Schnellzug mit längeren, spitzeren Nasen vorne und hinten",
   "📢 Die Dampflok ruft zweimal „TUUT“, 2 Sekunden bevor sie über den Bahnübergang fährt",
   "💡 Laternen oben an den Ampelmasten am Bahnübergang: nachts leuchten sie warmgelb und beleuchten Straße, Schranken und Gleis",
