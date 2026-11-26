@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.15";
+const CARD_VERSION = "1.0.21-beta.16";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -815,18 +815,23 @@ function renderShootingStars(cfg, hass, hostEl) {
     return `<div class="shooting-star" style="top:${s.top}vh; left:${s.left}vw; animation-duration:${s.dur}s; animation-delay:-${phase}s; color:${color};"></div>`;
   }).join("\n");
 
-  const html = `<div class="shooting-stars-container" style="opacity:${opacity};" aria-hidden="true">${starsHtml}</div>`;
+  // ⚡ Sparsam: die Deckkraft steckt direkt in jeder Schnuppe und NICHT
+  // auf dem bildschirmgroßen Behälter. Sonst muss die Grafik bei jedem
+  // Bild den ganzen Bildschirm einmal extra zusammenrechnen (teuer auf dem
+  // Fire TV). Die Schnuppen überlappen sich nicht - sieht also gleich aus.
+  const kf = kfName("shooting-star-anim", Math.round(opacity * 100));
+  const html = `<div class="shooting-stars-container" aria-hidden="true">${starsHtml}</div>`;
   const css = `
     ${overlayBaseCss("shooting-stars-container")}
     .shooting-star {
       position: absolute; width: 100px; height: 2px;
       background: linear-gradient(90deg, currentColor, transparent);
       transform: rotate(-45deg); opacity: 0;
-      animation: shooting-star-anim linear infinite;
+      animation: ${kf} linear infinite;
       will-change: transform, opacity;
     }
-    @keyframes shooting-star-anim {
-      0% { transform: translateX(0) translateY(0) rotate(-45deg); opacity: 1; }
+    @keyframes ${kf} {
+      0% { transform: translateX(0) translateY(0) rotate(-45deg); opacity: ${opacity}; }
       100% { transform: translateX(-300px) translateY(300px) rotate(-45deg); opacity: 0; }
     }
   `;
@@ -876,14 +881,16 @@ function renderFog(cfg, hass, hostEl) {
   const fogHTML = banks.map((b) => {
     const bankOp = isHigh ? Math.max(b.baseOp, 0.7) : (b.baseOp * opacity);
     const dir = b.reverse ? "fog-drift-reverse" : "fog-drift";
-    return `<div class="fog-bank" style="top:${b.top}vh; width:${b.width}vw; height:${b.height}vh; animation-duration:${b.dur}s; animation-delay:${b.delay}s; animation-name:${dir}; opacity:${bankOp.toFixed(2)}; background:radial-gradient(ellipse at center, ${color} 0%, transparent 70%);"></div>`;
+    return `<div class="fog-bank" style="top:${b.top}vh; width:${b.width}vw; height:${b.height}vh; animation-duration:${b.dur}s; animation-delay:${b.delay}s; animation-name:${dir}; opacity:${bankOp.toFixed(2)};"><div class="fog-puff" style="background:radial-gradient(ellipse at center, ${color} 0%, transparent 70%);"></div></div>`;
   }).join("\n");
 
   const css = `
     ${overlayBaseCss("fog-container")}
+    /* ⚡ Unschärfe innen = nur einmal malen, danach nur verschieben (wie Wolken) */
     .fog-bank {
-      position: absolute; left: -20vw; border-radius: 50%; filter: blur(10px); will-change: transform;
+      position: absolute; left: -20vw; will-change: transform;
     }
+    .fog-puff { position: absolute; inset: 0; border-radius: 50%; filter: blur(10px); }
     @keyframes fog-drift {
       0%   { transform: translateX(0); }
       100% { transform: translateX(140vw); }
@@ -1557,6 +1564,10 @@ function renderTrain(cfg, hass, hostEl) {
     @keyframes train-hoot-pop {
       ${hootKf()}
     }
+    /* ⚡ Sparsam: das grüne Licht liegt als eigener Kreis über dem roten
+       und wird nur ein-/ausgeblendet. Früher wurde die Füllfarbe animiert -
+       das hat den Browser gezwungen, JEDES Bild neu zu berechnen und zu
+       malen (auch wenn der Zug gar nicht im Bild war). Sieht genauso aus. */
     .end-lamp-a, .end-lamp-b {
       animation: end-lamp-blink 1.4s steps(1) infinite;
     }
@@ -1564,8 +1575,8 @@ function renderTrain(cfg, hass, hostEl) {
       animation-delay: -0.7s;
     }
     @keyframes end-lamp-blink {
-      0%, 49% { fill: #ff2222; }
-      50%, 100% { fill: #22cc44; }
+      0%, 49% { opacity: 0; }
+      50%, 100% { opacity: 1; }
     }
   `;
 
@@ -1731,7 +1742,9 @@ function renderTrain(cfg, hass, hostEl) {
   const endMarkerCargo = `
     ${nightLights ? `<circle cx="28" cy="20" r="15" fill="url(#aoc-tr-tail)"/><circle cx="55" cy="20" r="15" fill="url(#aoc-tr-tail)"/>` : ""}
     <rect x="15" y="10" width="53" height="20" rx="3" fill="#3a3a3a" stroke="#1a1a1a" stroke-width="1.5"/>
-    <circle class="end-lamp-a" cx="28" cy="20" r="7" fill="#ff2222" stroke="#1a1a1a" stroke-width="1.5"/>
+    <circle cx="28" cy="20" r="7" fill="#ff2222" stroke="#1a1a1a" stroke-width="1.5"/>
+    <circle cx="55" cy="20" r="7" fill="#ff2222" stroke="#1a1a1a" stroke-width="1.5"/>
+    <circle class="end-lamp-a" cx="28" cy="20" r="7" fill="#22cc44" stroke="#1a1a1a" stroke-width="1.5"/>
     <circle class="end-lamp-b" cx="55" cy="20" r="7" fill="#22cc44" stroke="#1a1a1a" stroke-width="1.5"/>
     <circle cx="28" cy="20" r="3" fill="#ffffff" opacity="0.6"/>
     <circle cx="55" cy="20" r="3" fill="#ffffff" opacity="0.6"/>
@@ -2899,18 +2912,21 @@ function renderClouds(cfg, hass, hostEl) {
 
   const cloudHtml = clouds.map((c) => {
     const op = isHigh ? Math.max(parseFloat(c.baseOp), 0.65) : (parseFloat(c.baseOp) * opacity);
-    return `<div class="cloud" style="top:${c.top}vh; transform:scale(${c.scale}); animation-duration:${c.dur}s; animation-delay:${c.delay}s; opacity:${op.toFixed(2)}; background:${color}; box-shadow: 6vw 1vh 0 -1vh ${color}, -5vw 1.5vh 0 -1.5vh ${color}, 3vw -1vh 0 -0.5vh ${color};"></div>`;
+    return `<div class="cloud" style="top:${c.top}vh; transform:scale(${c.scale}); animation-duration:${c.dur}s; animation-delay:${c.delay}s; opacity:${op.toFixed(2)};"><div class="cloud-puff" style="background:${color}; box-shadow: 6vw 1vh 0 -1vh ${color}, -5vw 1.5vh 0 -1.5vh ${color}, 3vw -1vh 0 -0.5vh ${color};"></div></div>`;
   }).join("\n");
 
   const css = `
     ${overlayBaseCss("clouds-container")}
+    /* ⚡ Sparsam: die Unschärfe sitzt auf dem INNEREN Teil (.cloud-puff).
+       So wird sie nur einmal gemalt und die Wolke danach nur noch
+       verschoben. Saß sie auf dem bewegten Teil selbst, musste die Grafik
+       sie bei jedem Bild neu rechnen (teuer auf dem Fire TV). Gleiche Optik. */
     .cloud {
       position: absolute; left: -30vw; width: 22vw; height: 8vh;
-      border-radius: 50%;
-      filter: blur(4px);
       animation-name: cloud-drift; animation-timing-function: linear; animation-iteration-count: infinite;
       will-change: transform;
     }
+    .cloud-puff { position: absolute; inset: 0; border-radius: 50%; filter: blur(4px); }
     @keyframes cloud-drift {
       0% { transform: translateX(0) scale(var(--s, 1)); }
       100% { transform: translateX(160vw) scale(var(--s, 1)); }
@@ -5160,6 +5176,7 @@ class AmbientOverlayCard extends HTMLElement {
     }
     this._layerCfg = {};
     this._lastSig = undefined;
+    this._watched = null;
     this._render();
     this._syncForecasts();
   }
@@ -5252,10 +5269,39 @@ class AmbientOverlayCard extends HTMLElement {
     this._tickConditions();
   }
 
+  // Alle Entitäten, die irgendwo in den Einstellungen stehen (Bedingungen,
+  // Wetter, Personen, Schalter …) plus die Sonne. Einmal pro Einstellung.
+  _watchedEntities() {
+    if (this._watched) return this._watched;
+    const out = new Set(["sun.sun"]);
+    const walk = (v) => {
+      if (typeof v === "string") { if (/^[a-z_]+\.[a-z0-9_]+$/.test(v.trim())) out.add(v.trim()); else if (v.includes(",")) v.split(",").forEach(walk); }
+      else if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === "object") Object.values(v).forEach(walk);
+    };
+    walk(this._config);
+    return (this._watched = out);
+  }
+
+  // ⚡ Hat sich für DIESE Karte überhaupt etwas geändert? Home Assistant
+  // meldet sich bei JEDER Änderung im Haus (oft mehrmals pro Sekunde).
+  // Geändert = ein anderes Zustands-Objekt bei einer unserer Entitäten.
+  // Uhrzeit-Sachen prüft ohnehin der 30-Sekunden-Takt (_tickConditions).
+  _hassRelevantChange(prev, next) {
+    if (!prev || !next || prev.user !== next.user || prev.connection !== next.connection || prev.themes !== next.themes) return true;
+    const a = prev.states || {}, b = next.states || {};
+    for (const eid of this._watchedEntities()) if (a[eid] !== b[eid]) return true;
+    return false;
+  }
+
   set hass(hass) {
     if (this._usesConditions()) {
       const first = !this._hasRenderedOnce;
+      const prev = this._hass;
       this._hass = hass;
+      // Nichts Wichtiges passiert: gar nichts tun (spart Rechenzeit auf
+      // schwachen Geräten wie dem Fire TV). Sichtbarkeit prüft der eigene Takt.
+      if (!first && !this._hassRelevantChange(prev, hass)) return;
       const sig = this._signature();
       if (first || sig !== this._lastSig) {
         this._lastSig = sig;
@@ -5426,15 +5472,20 @@ class AmbientOverlayCard extends HTMLElement {
     if (wishstarActive) {
       if (!this._wishstarTimer) {
         const cycle = { low: 12000, medium: 8000, high: 5000 }[this._cfgFor("night_sky")?.opacity_preset || "medium"] || 8000;
-        const regen = () => {
+        const pick = () => {
           this._wishstarPos = {
             top: Math.random() * 60 + 8,
             left: Math.random() * 80 + 10,
           };
-          this._render();
         };
-        this._wishstarTimer = setInterval(regen, cycle);
-        regen();
+        // ⚡ Sparsam: beim Weiterspringen wird NUR der Wunschstern selbst
+        // versetzt und neu gestartet. Früher wurde dafür alle paar Sekunden
+        // der ganze Nachthimmel (Sternschnuppen, Komet …) neu aufgebaut.
+        this._wishstarTimer = setInterval(() => {
+          pick();
+          if (!this._moveWishstar()) this._render();
+        }, cycle);
+        pick();
       }
     } else {
       if (this._wishstarTimer) {
@@ -5451,6 +5502,25 @@ class AmbientOverlayCard extends HTMLElement {
   // Zwischen den Reshuffles läuft alles rein über CSS, ganz ohne
   // JavaScript-Beteiligung - das spart 239 von 240 Sekunden komplett den
   // Timer-Aufwand, verglichen mit einer Sekunden-Prüfung.
+  // Wunschstern an die neue Stelle setzen und sein Aufblitzen neu starten,
+  // ohne die übrige Nachthimmel-Ebene anzufassen. false = keiner da.
+  _moveWishstar() {
+    const pos = this._wishstarPos;
+    if (!pos || !this._layerEls) return false;
+    let moved = false;
+    for (const [key, L] of this._layerEls) {
+      if (key.split("#")[0] !== "night_sky") continue;
+      const el = L.div.querySelector(".wishstar");
+      if (!el) continue;
+      const fresh = el.cloneNode(true); // neues Element = Animation beginnt von vorn
+      fresh.style.top = `${pos.top.toFixed(2)}vh`;
+      fresh.style.left = `${pos.left.toFixed(2)}vw`;
+      el.replaceWith(fresh);
+      moved = true;
+    }
+    return moved;
+  }
+
   _updateStarsReshuffle(events) {
     if (events.includes("stars")) {
       if (!this._starsReshuffleTimer) {
@@ -5586,7 +5656,8 @@ class AmbientOverlayCard extends HTMLElement {
           _drift: pState.drift,
         };
       }
-      const sig = JSON.stringify([event, cfgForRender, this._layerInputs(layerCfg), dark, day,
+      // Die Wunschstern-Stelle zählt nicht: die setzt _moveWishstar() direkt
+      const sig = JSON.stringify([event, { ...cfgForRender, _wishstarPos: undefined }, this._layerInputs(layerCfg), dark, day,
         base === "stars" ? (this._starsGen || 0) : 0]);
       let L = this._layerEls.get(event);
       if (!L) {
@@ -5705,6 +5776,7 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 const AOC_BETA_NEWS = [
+  "⚡ Weniger Last, gleiche Optik (gut für schwache Geräte wie den Fire TV): das blinkende Schlusslicht am Zug zwang den Browser bei jedem Bild zum Neumalen, jetzt nicht mehr. Sternschnuppen, Wolken und Nebel brauchen viel weniger Grafik-Arbeit, der Wunschstern baut beim Weiterspringen nicht mehr den ganzen Nachthimmel neu, und Änderungen in Home Assistant, die die Karte nicht betreffen, werden sofort übersprungen",
   "🚦 Der Bahnübergang steht jetzt vor dem Zug: du schaust wie als Autofahrer über die Schranke, der Zug rauscht dahinter vorbei. Die Ampel zeigt jetzt auch auf schmalen Bildschirmen beim Schnellzug sicher Rot",
   "🚄 Schnellzug mit längeren, spitzeren Nasen vorne und hinten",
   "📢 Die Dampflok ruft zweimal „TUUT“, 2 Sekunden bevor sie über den Bahnübergang fährt",
