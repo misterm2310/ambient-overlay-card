@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21-beta.16";
+const CARD_VERSION = "1.0.21";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -64,7 +64,7 @@ function spreadSample(arr, count) {
 }
 
 function hexToRgb(hex) {
-  let h = (hex || "").trim();
+  let h = String(hex || "").trim();
   if (h === "auto" || !h) h = "#ffffff";
   if (h.startsWith("#")) h = h.slice(1);
   if (h.length === 3) h = h.split("").map((c) => c + c).join("");
@@ -296,8 +296,14 @@ function isDarkModeActive(hassInstance, hostEl) {
   }
 }
 
+// Nur die Editor-Vorschau darf "immer hell" erzwingen. Ein Symbol kann nicht
+// aus der YAML-Konfiguration kommen - so landet nie fremder Text im style="".
+const PREVIEW_LIGHT_COLOR = Symbol("preview-light");
+
 function resolveDynamicColor(cfgColor, hassInstance, defaultLight = "#000000", defaultDark = "#ffffff", hostEl) {
-  if (cfgColor && cfgColor !== "auto") return cfgColor;
+  // Farbe ist seit 1.0.21 immer automatisch (passend zu Hell/Dunkel).
+  // Eine alte "color:"-Angabe in der Konfiguration wird einfach ignoriert.
+  if (cfgColor === PREVIEW_LIGHT_COLOR) return defaultDark;
   const dark = isDarkModeActive(hassInstance, hostEl);
   return dark ? defaultDark : defaultLight;
 }
@@ -4772,8 +4778,6 @@ const EFFECT_DEFAULTS = {
   event: "off",
   count_preset: "medium",
   opacity_preset: "medium",
-  color: "auto",
-  color_mode: "auto",
   leaf_colors: ["#c9a227", "#a83232", "#d9812c"],
   weather_entity: "",
   frost_edges: true,
@@ -5440,7 +5444,7 @@ class AmbientOverlayCard extends HTMLElement {
     // Muss ein im Dropdown WAEHLBARER Effekt sein (siehe EVENT_CAPABILITIES),
     // sonst steht eine frisch hinzugefuegte Karte ohne Auswahl und ohne
     // Regler da. "night_sky" laeuft sofort, ganz ohne weitere Einstellungen.
-    return { event: "night_sky", count_preset: "medium", opacity_preset: "medium", color: "auto" };
+    return { event: "night_sky", count_preset: "medium", opacity_preset: "medium" };
   }
 
   static getConfigElement() {
@@ -5775,32 +5779,15 @@ const GROUP_TEXT = {
 
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
-const AOC_BETA_NEWS = [
-  "⚡ Weniger Last, gleiche Optik (gut für schwache Geräte wie den Fire TV): das blinkende Schlusslicht am Zug zwang den Browser bei jedem Bild zum Neumalen, jetzt nicht mehr. Sternschnuppen, Wolken und Nebel brauchen viel weniger Grafik-Arbeit, der Wunschstern baut beim Weiterspringen nicht mehr den ganzen Nachthimmel neu, und Änderungen in Home Assistant, die die Karte nicht betreffen, werden sofort übersprungen",
-  "🚦 Der Bahnübergang steht jetzt vor dem Zug: du schaust wie als Autofahrer über die Schranke, der Zug rauscht dahinter vorbei. Die Ampel zeigt jetzt auch auf schmalen Bildschirmen beim Schnellzug sicher Rot",
-  "🚄 Schnellzug mit längeren, spitzeren Nasen vorne und hinten",
-  "📢 Die Dampflok ruft zweimal „TUUT“, 2 Sekunden bevor sie über den Bahnübergang fährt",
-  "💡 Laternen oben an den Ampelmasten am Bahnübergang: nachts leuchten sie warmgelb und beleuchten Straße, Schranken und Gleis",
-  "✍️ Größere Schrift am Schnellzug: „ICM“ vorne und hinten und dein eigener Text in der Mitte, direkt unter den Fenstern im roten Streifen",
-  "🚦 Andreaskreuz am Bahnübergang steiler und schmaler, wie das echte Schild",
-  "🚄 Der Schnellzug ist jetzt so hoch wie der Personenwagen (vorher nur gut halb so hoch wie die Lok), mit größeren Fenstern",
-  "✨ Zug, Wagen, Räder, Gleis und Bahnübergang haben jetzt einen feinen hellen Rand, damit man sie auch auf dunklem Hintergrund gut sieht (bei Tag und Nacht)",
-  "🚦 Bahnübergang mitten im Bild: Ampel, Andreaskreuz, grüner Kasten und rot-weiße Schranken. Ist alles frei, leuchtet unten Grün. Kommt ein Zug, springt die Ampel auf Rot und die Schranken senken sich, nach dem letzten Wagen gehen sie wieder hoch und es wird wieder Grün. Im Editor an/aus (Standard an)",
-  "🚄 Der Schnellzug fährt jetzt doppelt so schnell wie die Dampflok",
-  "🛤️ Durchgehendes Gleis quer über den ganzen Bildschirm, auf dem beide Züge fahren",
-  "🚂 Neuer Zug, gezeichnet wie auf der Vorlage (flach, ohne schwarze Ränder): blaue Dampflok mit Tender und EINEM orangen Personenwagen (dunkles Dach, nachts leuchtende Fenster). Alles andere fährt auf Flachwagen: Obst, Spielzeug, Post, Holz (oder Weihnachten, Abendessen, Halloween), Personen zuhause, Gäste, Müll-Tonnen und der blinkende Schlusswagen. Alle Einstellungen bleiben wie sie sind",
-  "✏️ Schnellzug: „ICM“ vorne und hinten (wie beim echten Vorbild, nur ohne fremde Marke), in der Mitte ein eigener Text als Option (Editor: „Schriftzug am Schnellzug“)",
-  "🚄 Dazu ein silberner Schnellzug wie auf der Vorlage (lang, flach, spitze Nasen, roter Streifen bis in die Nasenspitze, „ICM“ vorne und hinten, unten nur leichte Rad-Ansätze), der einfach nur mit Licht fährt: leuchtende Fenster, vorne Scheinwerfer, hinten rote Schlusslichter, nachts mit Lichtkegel. Neue Einstellung „Welcher Zug?“: Abwechselnd (Standard), Nur Dampflok oder Nur Schnellzug. Auch an Mülltagen abwechselnd, die Müll-Wagen fahren mit der Dampflok",
-  "🪟 Feste Reihenfolge wie beim Blick durchs Fenster: hinten Himmel (Sonne, Mond, Sterne, Wolken), davor Zug, Hund, Eule & Co., davor Schnee, Regen, Laub und Feuerwerk, ganz vorne auf der Scheibe Tau, Eis-Rand und Eiszapfen. Vorher hing das davon ab, welcher Effekt zuerst gestartet ist",
-  "❄️ Frost-Rand ein Drittel schmaler: reicht jetzt höchstens 15 % ins Bild, die Eiskristalle in den Ecken sind mit kleiner geworden",
-  "❄️ Frost-Rand ganz neu, wie eine vereiste Scheibe: am Rand dichter weißer Eis-Zucker aus feinen Körnchen, nach innen immer lockerer, große Eiskristalle in den Ecken, die Mitte bleibt frei. Ragt nie weiter ins Bild als der Morgentau-Beschlag und steht still (einmal gemalt, sparsam für den Fire TV)",
-  "🗑️ Die Tonnen auf dem Müll-Waggon sehen jetzt aus wie echte Tret-Mülleimer: kantig, oben breiter, Deckel zu, unten vorne ein kleines Pedal",
-  "🗑️ Zwei Abholungen am selben Tag (z. B. Gelber Sack + Bio): jetzt fährt für jede Müllart ein eigener Waggon mit. Die Karte fragt dafür wie Trash-Card & Co. alle Termine beim Kalender ab (höchstens einmal pro Stunde)",
-  "🌫️ Milchiger Nebel im Beschlag nur noch halb so stark (Tropfen und Höhe bleiben)",
-  "🌫️ Beschlag etwa halb so hoch und durchsichtiger, damit man das Dashboard dahinter gut sieht",
-  "🌫️ Morgentau ganz neu, wie eine beschlagene Fensterscheibe: unten ein Streifen Beschlag, oben fein, unten dicke Tropfen und Laufspuren. Ein paar dicke Tropfen laufen langsam mit Spur nach unten, der Rest steht still (sparsam für den Fire TV)",
-];
+// Neuerungen der laufenden Beta (nur sichtbar, wenn CARD_VERSION "-beta" enthält)
+const AOC_BETA_NEWS = [];
 const AOC_NEWS = [
+  ["1.0.21", "🔒 Sicherheit: Namen aus Home Assistant (z. B. vom Müll-Kalender) werden im Editor sicher angezeigt. 🎨 Die Farbwahl ist weg, Farben passen sich jetzt immer automatisch an Hell/Dunkel an (alte color-Angaben werden ignoriert)"],
+  ["1.0.21", "⚡ Weniger Last bei gleicher Optik, gut für schwache Geräte wie den Fire TV"],
+  ["1.0.21", "🚦 Bahnübergang mit Ampel, Andreaskreuz, Schranken und Laternen; 📢 Dampflok ruft „TUUT“"],
+  ["1.0.21", "🚂 Neuer Zug: blaue Dampflok und silberner Schnellzug mit eigenem Schriftzug, durchgehendes Gleis"],
+  ["1.0.21", "🗑️ Echte Tret-Mülleimer, je Müllart ein eigener Waggon"],
+  ["1.0.21", "❄️ Neuer Frost-Rand wie eine vereiste Scheibe, 🌫️ Morgentau als beschlagenes Fenster, 🪟 feste Reihenfolge der Ebenen"],
   ["1.0.20", "🌫️ Morgentau wieder entfernt (sah nicht schön aus)"],
   ["1.0.19", "🫧 Spritzer am Boden, 🔦 Zug nachts mit Licht, 🗑️ Müll-Waggon am Tag vor der Abholung"],
   ["1.0.19", "🎄 Eule & Vogelhäuschen im Weihnachts-Look"],
@@ -6171,6 +6158,15 @@ class AmbientOverlayCardEditor extends HTMLElement {
 
   _commit(config, rerender) {
     this._suppressNextRender = true;
+    // Alte Farb-Angaben (color / color_mode) gibt es seit 1.0.21 nicht mehr:
+    // beim nächsten Speichern still aus dem YAML räumen.
+    const dropColor = (o) => {
+      if (!o || typeof o !== "object") return o;
+      const { color, color_mode, ...rest } = o;
+      return rest;
+    };
+    config = dropColor(config);
+    if (Array.isArray(config.effects)) config.effects = config.effects.map(dropColor);
     this._config = config;
     fireEvent(this, "config-changed", { config: this._config });
     if (rerender) this._render();
@@ -6312,7 +6308,6 @@ class AmbientOverlayCardEditor extends HTMLElement {
     const pid = (id) => (sub ? `${scope}:${id}` : id);
     const caps = EVENT_CAPABILITIES[ev] || { count: false, opacity: false, color: false };
     const tile = this._tile(ev);
-    const colorMode = c.color_mode || (c.color === "auto" ? "auto" : "custom");
     let html = "";
 
     // 1) Effekt
@@ -6365,7 +6360,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
     }
 
     // 3) Aussehen
-    if (caps.count || caps.opacity || caps.color) {
+    if (caps.count || caps.opacity) {
       const countLabels = { low: "Wenig", medium: "Mittel", high: "Viel" };
       const opLabels = { low: "Zart", medium: "Dezent", high: "Kräftig" };
       let body = "";
@@ -6382,17 +6377,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
           + this._seg(scope, "opacity_preset", [["low", "Zart"], ["medium", "Dezent"], ["high", "Kräftig"]], c.opacity_preset || "medium");
         sum.push(opLabels[c.opacity_preset || "medium"]);
       }
-      if (caps.color) {
-        const hint = ev === "weather_auto"
-          ? "Gilt für Regen, Schnee, Hagel, Nebel und Sturm (Blitz bleibt immer weiß). Automatisch = passend zu Hell/Dunkel."
-          : "Automatisch = passend zu Hell/Dunkel. Oder du suchst dir selbst eine Farbe aus.";
-        body += this._label("Farbe", `${scope}:color`, hint) + this._seg(scope, "color_mode", [["auto", "Automatisch"], ["custom", "Eigene Farbe"]], colorMode);
-        if (colorMode === "custom") {
-          body += `<div style="margin-top:10px;"><input class="field" data-scope="${scope}" data-color type="color" value="${c.color === "auto" ? "#ffffff" : escapeHtml(c.color)}"/></div>`;
-          sum.push("eigene Farbe");
-        }
-      }
-      html += this._panel(pid("aussehen"), "🎨", "Aussehen", sum.join(" · "), body, false, sub);
+      html += this._panel(pid("aussehen"), "🎨", "Aussehen", escapeHtml(sum.join(" · ")), body, false, sub);
     }
 
     // 4) Einstellungen (Sensoren, Schalter, Personen, Gäste)
@@ -6530,7 +6515,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
     }
     if (set) {
       if (warn) this._open[pid("einstellungen")] = true;
-      html += this._panel(pid("einstellungen"), "⚙️", "Einstellungen", sum.join(" · ") || "nichts eingestellt", set, warn, sub);
+      // Namen aus HA (Müll-Kalender, Sensoren …) sind fremder Text -> immer absichern
+      html += this._panel(pid("einstellungen"), "⚙️", "Einstellungen", escapeHtml(sum.join(" · ") || "nichts eingestellt"), set, warn, sub);
     }
 
     // 5) Wann anzeigen?
@@ -7003,11 +6989,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
     if ((b = el("[data-seg]"))) {
       const scope = b.dataset.scope || "root";
       const key = b.dataset.seg, val = b.dataset.val;
-      if (key === "color_mode") {
-        this._set(scope, val === "auto" ? { color_mode: "auto", color: "auto" } : { color_mode: "custom", color: "#ffffff" }, true);
-      } else {
-        this._set(scope, { [key]: val }, true);
-      }
+      this._set(scope, { [key]: val }, true);
       return;
     }
     if ((b = el("[data-person]"))) {
@@ -7201,10 +7183,6 @@ class AmbientOverlayCardEditor extends HTMLElement {
       this._set(t.dataset.scope || "root", { [key]: key === "birthday_text" ? t.value : t.value.trim() }, false);
       return;
     }
-    if (t.dataset.color !== undefined) {
-      this._set(t.dataset.scope || "root", { color: t.value }, false);
-      return;
-    }
     if (t.dataset.num) {
       this._setNum(t, true);
       return;
@@ -7239,9 +7217,8 @@ class AmbientOverlayCardEditor extends HTMLElement {
 
   _onInput(e) {
     const t = e.target;
-    // Wimpel-Text und Farbe sofort in der Vorschau zeigen
+    // Wimpel-Text sofort in der Vorschau zeigen
     if (t.dataset.text === "birthday_text") this._set(t.dataset.scope || "root", { birthday_text: t.value }, false);
-    else if (t.dataset.color !== undefined) this._set(t.dataset.scope || "root", { color: t.value }, false);
     else if (t.dataset.num) this._setNum(t);
   }
 
@@ -7433,8 +7410,7 @@ class AmbientOverlayCardEditor extends HTMLElement {
       // Farbe würde der Effekt sonst die Farbe des (evtl. hellen) Editor-
       // Fensters übernehmen und wäre unsichtbar - deshalb hier immer hell.
       const caps = EVENT_CAPABILITIES[cfg.event] || {};
-      const auto = (cfg.color_mode || (cfg.color === "auto" ? "auto" : "custom")) === "auto";
-      const c = ((caps.color || cfg.event === "holidays") && auto) ? { ...cfg, color: "#ffffff" } : cfg;
+      const c = (caps.color || cfg.event === "holidays") ? { ...cfg, color: PREVIEW_LIGHT_COLOR } : cfg;
       out.push(renderer(c, this._hass, this));
     }
     return out;

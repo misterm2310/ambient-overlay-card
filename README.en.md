@@ -143,7 +143,7 @@ Add card → **Ambient Overlay Card** → in the editor. A new card starts with 
 1. **▶ Preview (Live-Vorschau):** at the top you see the effect live. If a figure only comes by rarely (witch, train, dog, Santa …), send it off right away with **“▶ Jetzt vorbeifliegen lassen”**.
 2. **✨ Effect (Effekt):** tap a tile – the selection then closes by itself. Tapping the row opens it again. The pure weather effects are deliberately not listed one by one – the **🌦️ weather** automation does that.
 3. **🧩 What to show? (Was soll gezeigt werden?)** (birthday, night sky, seasons and holidays): every part has its own toggle. For the birthday you also enter the bunting text here and get a number field for the height of the text (in pixels). For the holidays, the Halloween parts follow below. If today is no holiday, the preview shows the next one.
-4. **🎨 Appearance (Aussehen):** amount (Wenig/Mittel/Viel = low/medium/high), opacity (Zart/Dezent/Kräftig = soft/subtle/strong) and for some effects the colour.
+4. **🎨 Appearance (Aussehen):** amount (Wenig/Mittel/Viel = low/medium/high), opacity (Zart/Dezent/Kräftig = soft/subtle/strong). The colour always adjusts automatically to light/dark mode.
 5. **⚙️ Settings (Einstellungen)** – depending on the effect:
    * **🌦️ Weather:** your `weather.*` entity (without it the section shows a red “Wetter fehlt!” = weather missing). Plus switches for frosty edges, rain intensity, wind, 🫧 splashes on the ground, 🌫️ morning dew and the rain heads-up.
    * **🐕 Labrador:** optionally the weather entity for shaking in the rain.
@@ -161,7 +161,7 @@ Good to know:
 * For **seasons and holidays** it depends on the part: leaves, lantern parade, Easter bunny, Santa, witch and ghost = *how often*; blossoms, bees, ice crystals, pumpkins, bats, rockets, hearts, eggs and stars = *how many*.
 * For **clouds and birthday**, “amount” is a normal quantity.
 * There is only one **spider**, so it has no amount setting.
-* **Dog, steam train, owl & birdhouse, seasons, holidays and birthday** have fixed colours, so no colour mode.
+* **Colour:** can no longer be set since 1.0.21. Night sky, spider web and weather effects adapt automatically to light/dark mode, all other effects have fixed colours. If your YAML still contains `color:` or `color_mode:`, no problem: the card ignores it, and it disappears on its own the next time you save in the editor.
 
 </details>
 
@@ -239,7 +239,7 @@ From front to back: **engine** → the **four fixed wagons** → the **people** 
 
 **And when it freezes:** below 0 °C the 🥶 screen edges ice over – whatever the weather. The colder, the wider the ice (4 steps: down to -3 °C, -6 °C, -10 °C, below that full strength). The temperature comes from the weather entity or from your own `temperature_entity` (e.g. your weather station). To switch it off: `frost_edges: false`, or in the editor under ⚙️ Settings („Einstellungen“ → „Frost-Ränder“).
 
-Amount, opacity and colour mode apply to **all** weather effects together in the automation. Animals and decoration do not run via the automation – just add them as another effect to the list.
+Amount and opacity apply to **all** weather effects together in the automation. Animals and decoration do not run via the automation – just add them as another effect to the list.
 
 </details>
 
@@ -348,7 +348,6 @@ night_comet: true
 ```yaml
 type: custom:ambient-overlay-card
 event: spider
-color_mode: auto
 ```
 
 **Autumn leaves with your own colours** (YAML only)
@@ -373,8 +372,6 @@ leaf_colors:
 | `event` | `off` | Which effect runs (see table above) |
 | `count_preset` | `medium` | `low`, `medium` or `high` – how many or how often |
 | `opacity_preset` | `medium` | `low`, `medium` or `high` – how strong. With `high` every effect gets noticeably stronger |
-| `color_mode` | `auto` | `auto` = matching the theme, `custom` = fixed colour |
-| `color` | `auto` | your own colour (hex) for the night sky, spider web and weather effects |
 | `weather_entity` | – | `weather.*` entity for the automation, and for the dog’s shaking |
 | `frost_edges` | `true` | Weather automation: 🥶 frosty edges below 0 °C on/off |
 | `temperature_entity` | – | Weather automation: your own temperature sensor for the frost (°C or °F). Empty = temperature from `weather_entity` |

@@ -141,7 +141,7 @@ Karte hinzufügen → **Ambient Overlay Card** → im Editor. Eine neue Karte st
 1. **▶ Vorschau:** Oben siehst du den Effekt live. Kommt eine Figur nur selten vorbei (Hexe, Zug, Hund, Weihnachtsmann …), schick sie mit **„▶ Jetzt vorbeifliegen lassen“** sofort los.
 2. **✨ Effekt:** Kachel antippen – danach klappt die Auswahl von selbst zu. Antippen der Zeile öffnet sie wieder. Die reinen Wetter-Effekte stehen bewusst nicht einzeln da, die macht die **🌦️ Wetter**-Automatik.
 3. **🧩 Was soll gezeigt werden?** (bei Geburtstag, Nachthimmel, Jahreszeiten und Feiertage): jedes Teil mit eigenem Schiebeschalter. Beim Geburtstag steht hier auch der Text für die Wimpelkette und ein Zahlenfeld für die Höhe des Schriftzugs (in Pixeln). Bei den Feiertagen kommen darunter die Teile von Halloween. Ist heute kein Feiertag, zeigt die Vorschau den nächsten.
-4. **🎨 Aussehen:** Anzahl (Wenig/Mittel/Viel), Deckkraft (Zart/Dezent/Kräftig) und bei manchen Effekten die Farbe.
+4. **🎨 Aussehen:** Anzahl (Wenig/Mittel/Viel), Deckkraft (Zart/Dezent/Kräftig). Die Farbe stellt sich immer automatisch passend zu Hell/Dunkel ein.
 5. **⚙️ Einstellungen** – je nach Effekt:
    * **🌦️ Wetter:** deine `weather.*`-Entity (ohne sie zeigt der Bereich rot „Wetter fehlt!“). Dazu Schiebeschalter für Frost-Ränder, Regenstärke, Wind, 🫧 Spritzer am Boden, 🌫️ Morgentau und Regen-Vorbote.
    * **🐕 Labrador:** optional die Wetter-Entity fürs Schütteln bei Regen.
@@ -159,7 +159,7 @@ Gut zu wissen:
 * Bei **Jahreszeiten und Feiertagen** kommt es aufs Teil an: Laub, Laternenumzug, Osterhase, Weihnachtsmann, Hexe und Gespenst = *wie oft*; Blüten, Bienen, Eiskristalle, Kürbisse, Fledermäuse, Raketen, Herzen, Eier und Sterne = *wie viele*.
 * Bei **Wolken und Geburtstag** ist „Anzahl“ eine ganz normale Menge.
 * Die **Spinne** gibt es nur einmal, da gibt's keinen Anzahl-Regler.
-* **Hund, Dampflok, Eule & Vogelhäuschen, Jahreszeiten, Feiertage und Geburtstag** haben feste Farben, also keinen Farbmodus.
+* **Farbe:** gibt es seit 1.0.21 nicht mehr zum Einstellen. Nachthimmel, Spinnennetz und Wetter-Effekte passen sich automatisch an Hell/Dunkel an, alle anderen Effekte haben feste Farben. Steht in deinem YAML noch `color:` oder `color_mode:`, ist das kein Problem: die Karte ignoriert es, und beim nächsten Speichern im Editor verschwindet es von selbst.
 
 </details>
 
@@ -237,7 +237,7 @@ Von vorn nach hinten: **Lok** → die **vier festen Waggons** → die **Personen
 
 **Und bei Frost:** Unter 0 °C vereisen die 🥶 Bildschirmränder – egal welches Wetter. Je kälter, desto breiter das Eis (4 Stufen: bis -3 °C, bis -6 °C, bis -10 °C, darunter volle Stärke). Die Temperatur kommt aus dem Wetter-Sensor oder aus einem eigenen `temperature_entity` (z. B. deiner Wetterstation). Abschalten: `frost_edges: false` oder im Editor unter ⚙️ Einstellungen.
 
-Anzahl, Deckkraft und Farbmodus gelten bei der Automatik für **alle** Wetter-Effekte gemeinsam. Tiere und Deko laufen nicht über die Automatik – nimm sie einfach als weiteren Effekt in die Liste.
+Anzahl und Deckkraft gelten bei der Automatik für **alle** Wetter-Effekte gemeinsam. Tiere und Deko laufen nicht über die Automatik – nimm sie einfach als weiteren Effekt in die Liste.
 
 </details>
 
@@ -346,7 +346,6 @@ night_comet: true
 ```yaml
 type: custom:ambient-overlay-card
 event: spider
-color_mode: auto
 ```
 
 **Herbstlaub mit eigenen Farben** (nur per YAML)
@@ -371,8 +370,6 @@ leaf_colors:
 | `event` | `off` | Welcher Effekt läuft (siehe Tabelle oben) |
 | `count_preset` | `medium` | `low`, `medium` oder `high` – wie viele bzw. wie oft |
 | `opacity_preset` | `medium` | `low`, `medium` oder `high` – wie kräftig. Bei `high` wird jeder Effekt spürbar kräftiger |
-| `color_mode` | `auto` | `auto` = passend zum Theme, `custom` = feste Farbe |
-| `color` | `auto` | eigene Farbe (Hex) für Nachthimmel, Spinnennetz und die Wetter-Effekte |
 | `weather_entity` | – | `weather.*`-Entity für die Automatik, beim Hund fürs Schütteln |
 | `frost_edges` | `true` | Wetter-Automatik: 🥶 Frost-Ränder unter 0 °C an/aus |
 | `temperature_entity` | – | Wetter-Automatik: eigener Temperatur-Sensor für den Frost (°C oder °F). Leer = Temperatur aus `weather_entity` |
