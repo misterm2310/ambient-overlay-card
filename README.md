@@ -8,6 +8,8 @@
 
 Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=misterm2310&repository=ambient-overlay-card&category=plugin)
 
+> ✅ **Offiziell in HACS** (seit 27.11.2026): einfach in HACS nach **Ambient Overlay Card** suchen, kein eigenes Repository mehr nötig. 🎉
+
 ![Vorschau – Nacht mit Eule, Mond, Sternen und Dampflok, Tag mit Vogelhäuschen, Sonne, Bienen und Labrador](docs/screenshot.png)
 
 <details><summary>🎂 Geburtstags-Modus ansehen</summary>
@@ -83,11 +85,10 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 
 ## 📦 Installation
 
-1. **HACS** öffnen (ab Home Assistant 2026.11: **Einstellungen → Marketplace**) → oben rechts **⋮ → Benutzerdefinierte Repositories**.
-2. `https://github.com/misterm2310/ambient-overlay-card` eintragen, Typ **Dashboard** (früher „Lovelace“), **Hinzufügen**.
-3. Nach **Ambient Overlay Card** suchen, **Herunterladen**.
-4. Dashboard neu laden (`Strg` + `F5`).
-5. Dashboard → **Bearbeiten → Karte hinzufügen → Ambient Overlay Card**. 🎉
+1. **HACS** öffnen (ab Home Assistant 2026.11: **Einstellungen → Marketplace**) und nach **Ambient Overlay Card** suchen. Oder oben einfach auf „In HACS öffnen“ tippen.
+2. **Herunterladen**.
+3. Dashboard neu laden (`Strg` + `F5`).
+4. Dashboard → **Bearbeiten → Karte hinzufügen → Ambient Overlay Card**. 🎉
 
 ```yaml
 type: custom:ambient-overlay-card
@@ -99,7 +100,12 @@ effects:
 
 > 💡 Sieht nach einem Update alles aus wie vorher? Das ist fast immer der Browser-Zwischenspeicher. In der App einmal nach unten ziehen oder im Browser `Strg` + `Shift` + `R`.
 
-> 🧪 **Beta-Versionen testen:** In HACS bei der Karte die Option **„Beta-Versionen anzeigen“** einschalten. Dann bietet HACS dir auch Vorabversionen an (z. B. `1.0.10-beta.1`). Wer sie nicht einschaltet, bekommt nur fertige Versionen.
+<details><summary>Plan B: Taucht die Ambient Overlay Card bei dir noch nicht auf? (als benutzerdefiniertes Repository)</summary>
+
+In HACS oben rechts **⋮ → Benutzerdefinierte Repositories** öffnen, `https://github.com/misterm2310/ambient-overlay-card` eintragen, Typ **Dashboard** (früher „Lovelace“), **Hinzufügen**. Danach weiter mit Schritt 1.
+</details>
+
+> 🧪 **Beta-Versionen testen:** Neue offizielle Versionen kommen immer **sonntags**. In HACS (ab Home Assistant 2026.11: Marketplace) bei der Karte die Option **„Beta-Versionen anzeigen“** einschalten. Dann bietet HACS dir auch Vorabversionen an (z. B. `1.0.10-beta.1`). Wer sie nicht einschaltet, bekommt nur fertige Versionen.
 
 <details><summary>Ohne HACS (von Hand)</summary>
 

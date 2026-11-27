@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.21";
+const CARD_VERSION = "1.0.22-beta.1";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -31,7 +31,8 @@ function creditsHtml() {
     <p><b>Ambient Overlay Card</b> v${CARD_VERSION}</p>
     <p>Gemacht von <b>Mister-M</b> – mit Hilfe von Claude 🤖</p>
     <p>Ich versuche, Updates und Fehler-Korrekturen zeitnah zu erledigen.</p>
-    <p class="aoc-small">📅 Neue offizielle Versionen kommen immer sonntags. An den anderen Tagen gibt es nur Test-Versionen (Beta) – die siehst du in HACS unter „Beta-Versionen anzeigen“.</p>
+    <p>✅ <b>Offiziell in HACS</b> – seit 27.11.2026 im HACS-Verzeichnis (<a href="https://github.com/hacs/default/pull/11902" target="_blank" rel="noopener">Antrag</a>)</p>
+    <p class="aoc-small">📅 Neue offizielle Versionen kommen immer sonntags. An den anderen Tagen gibt es nur Test-Versionen (Beta) – die siehst du in HACS (ab Home Assistant 2026.11: Marketplace) unter „Beta-Versionen anzeigen“.</p>
     <div class="aoc-btns">
       <a class="aoc-btn" href="${CREDITS_REPO}" target="_blank" rel="noopener">🐙 GitHub</a>
       <a class="aoc-btn" href="${CREDITS_REPO}/discussions" target="_blank" rel="noopener">💡 Idee oder Wunsch</a>
@@ -5780,7 +5781,9 @@ const GROUP_TEXT = {
 // 🆕 "Was ist neu" im Editor: oben der orange Beta-Kasten (nur bei -beta),
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 // Neuerungen der laufenden Beta (nur sichtbar, wenn CARD_VERSION "-beta" enthält)
-const AOC_BETA_NEWS = [];
+const AOC_BETA_NEWS = [
+  "🎉 <b>Jetzt offiziell in HACS!</b> Die Ambient Overlay Card steht seit 27.11.2026 im HACS-Verzeichnis. Neue Nutzer finden sie einfach über die Suche (ab Home Assistant 2026.11: Einstellungen → Marketplace). Wer sie schon hat, muss nichts tun. Danke an alle, die getestet und mitgeholfen haben! Mehr unten bei den Credits.",
+];
 const AOC_NEWS = [
   ["1.0.21", "🔒 Sicherheit: Namen aus Home Assistant (z. B. vom Müll-Kalender) werden im Editor sicher angezeigt. 🎨 Die Farbwahl ist weg, Farben passen sich jetzt immer automatisch an Hell/Dunkel an (alte color-Angaben werden ignoriert)"],
   ["1.0.21", "⚡ Weniger Last bei gleicher Optik, gut für schwache Geräte wie den Fire TV"],
