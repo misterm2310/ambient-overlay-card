@@ -438,7 +438,9 @@ leaf_colors:
 
 Sie ist und bleibt **kostenlos**. Wenn du magst, kannst du mir ganz freiwillig eine kleine Spende per PayPal schicken: [paypal.me/MarcoStrickmann](https://paypal.me/MarcoStrickmann). Den Link gibt es auch im Karten-Editor unter 💙 Über die Karte. Danke! 🙏
 
-[![PayPal](https://img.shields.io/badge/PayPal-Spenden-0070BA?logo=paypal&logoColor=white)](https://paypal.me/MarcoStrickmann)
+⭐ **Gib uns einen Stern!** Oben rechts auf dieser GitHub-Seite auf **☆ Star** tippen (GitHub-Konto nötig). So sehe ich, wie viele die Karte mögen. Den Knopf „⭐ Gefällt dir die Karte? Gib uns einen Stern“ gibt es auch im Karten-Editor unter 💙 Über die Karte. Die Karte zählt dabei nichts und schickt nichts ins Internet.
+
+[![GitHub Sterne](https://img.shields.io/github/stars/misterm2310/ambient-overlay-card?style=flat&logo=github&label=Sterne)](https://github.com/misterm2310/ambient-overlay-card/stargazers) [![PayPal](https://img.shields.io/badge/PayPal-Spenden-0070BA?logo=paypal&logoColor=white)](https://paypal.me/MarcoStrickmann)
 
 ---
 

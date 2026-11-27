@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.22-beta.1";
+const CARD_VERSION = "1.0.22-beta.2";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -26,6 +26,7 @@ function creditsHtml() {
       .aoc-btn.pp { display:inline-flex; align-items:center; gap:8px; background:#0070BA; color:#fff; border:2px solid #003087; font-weight:700; }
       .aoc-btn.pp svg { width:20px; height:20px; flex:none; }
       .aoc-small { font-size:12px; opacity:.7; }
+      .aoc-btn.star { display:inline-block; background:#FFF4C2; color:#5C4300; border:2px solid #E0B000; font-weight:700; }
     </style>
     <div class="aoc-logo"><img src="${CREDITS_LOGO}" alt="Mister-M" loading="lazy"></div>
     <p><b>Ambient Overlay Card</b> v${CARD_VERSION}</p>
@@ -33,6 +34,8 @@ function creditsHtml() {
     <p>Ich versuche, Updates und Fehler-Korrekturen zeitnah zu erledigen.</p>
     <p>✅ <b>Offiziell in HACS</b> – seit 27.11.2026 im HACS-Verzeichnis (<a href="https://github.com/hacs/default/pull/11902" target="_blank" rel="noopener">Antrag</a>)</p>
     <p class="aoc-small">📅 Neue offizielle Versionen kommen immer sonntags. An den anderen Tagen gibt es nur Test-Versionen (Beta) – die siehst du in HACS (ab Home Assistant 2026.11: Marketplace) unter „Beta-Versionen anzeigen“.</p>
+    <p><a class="aoc-btn star" href="${CREDITS_REPO}" target="_blank" rel="noopener">⭐ Gefällt dir die Karte? Gib uns einen Stern</a></p>
+    <p class="aoc-small">Oben rechts auf GitHub auf „☆ Star“ tippen (GitHub-Konto nötig). So sehe ich, wie viele die Karte mögen. Beim Antippen öffnet sich nur GitHub im Browser; die Karte selbst schickt nichts ins Internet.</p>
     <div class="aoc-btns">
       <a class="aoc-btn" href="${CREDITS_REPO}" target="_blank" rel="noopener">🐙 GitHub</a>
       <a class="aoc-btn" href="${CREDITS_REPO}/discussions" target="_blank" rel="noopener">💡 Idee oder Wunsch</a>
@@ -5782,6 +5785,7 @@ const GROUP_TEXT = {
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 // Neuerungen der laufenden Beta (nur sichtbar, wenn CARD_VERSION "-beta" enthält)
 const AOC_BETA_NEWS = [
+  "⭐ <b>Stern-Knopf bei den Credits:</b> Unten bei den Credits steht jetzt „Gefällt dir die Karte? Gib uns einen Stern“. Der Knopf öffnet nur die GitHub-Seite der Karte, dort oben rechts auf „☆ Star“ tippen. So sehe ich, wie viele die Karte mögen. Es wird nichts gezählt oder heimlich verschickt.",
   "🎉 <b>Jetzt offiziell in HACS!</b> Die Ambient Overlay Card steht seit 27.11.2026 im HACS-Verzeichnis. Neue Nutzer finden sie einfach über die Suche (ab Home Assistant 2026.11: Einstellungen → Marketplace). Wer sie schon hat, muss nichts tun. Danke an alle, die getestet und mitgeholfen haben! Mehr unten bei den Credits.",
 ];
 const AOC_NEWS = [

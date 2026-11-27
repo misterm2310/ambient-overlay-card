@@ -442,7 +442,9 @@ leaf_colors:
 
 It is and stays **free**. If you like, you can send me a small donation via PayPal – completely voluntary: [paypal.me/MarcoStrickmann](https://paypal.me/MarcoStrickmann). The link is also in the card editor under 💙 Über die Karte (About the card). Thank you! 🙏
 
-[![PayPal](https://img.shields.io/badge/PayPal-Donate-0070BA?logo=paypal&logoColor=white)](https://paypal.me/MarcoStrickmann)
+⭐ **Give us a star!** Tap **☆ Star** at the top right of this GitHub page (GitHub account needed). That shows me how many people like the card. The button “⭐ Gefällt dir die Karte? Gib uns einen Stern” (Like the card? Give us a star) is also in the card editor under 💙 Über die Karte (About the card). The card counts nothing and sends nothing to the internet.
+
+[![GitHub stars](https://img.shields.io/github/stars/misterm2310/ambient-overlay-card?style=flat&logo=github&label=Stars)](https://github.com/misterm2310/ambient-overlay-card/stargazers) [![PayPal](https://img.shields.io/badge/PayPal-Donate-0070BA?logo=paypal&logoColor=white)](https://paypal.me/MarcoStrickmann)
 
 ---
 
