@@ -5,7 +5,7 @@
 
 // 🏷️ Versionsnummer: Wird sie erhöht und auf GitHub hochgeladen, legt
 // GitHub automatisch ein Release an (z. B. v1.0.9). Beta: "1.1.0-beta.1".
-const CARD_VERSION = "1.0.22-beta.2";
+const CARD_VERSION = "1.0.22-beta.3";
 
 /* ============================== CREDITS ============================== */
 // 🎩 Mister-M-Logo direkt in der Datei (die Karte ist nur eine einzige Datei,
@@ -182,6 +182,65 @@ function getMoonPhase(date) {
   const diffDays = (date.getTime() - knownNewMoon) / 86400000;
   const phase = ((diffDays % synodicMonthDays) + synodicMonthDays) % synodicMonthDays;
   return phase / synodicMonthDays;
+}
+
+// 🌕 Abstand Erde-Mond in km, rein aus dem Datum (vereinfachte Formel
+// nach Meeus, Kapitel 47, die größten Glieder - genau auf ca. 1.000 km,
+// reicht locker, um einen Supermond zu erkennen). Kein Sensor nötig.
+function moonDistanceKm(date) {
+  const jd = date.getTime() / 86400000 + 2440587.5;
+  const T = (jd - 2451545) / 36525;
+  const rad = Math.PI / 180;
+  const D = (297.8501921 + 445267.1114034 * T) * rad;
+  const M = (357.5291092 + 35999.0502909 * T) * rad;
+  const Mp = (134.9633964 + 477198.8675055 * T) * rad;
+  const F = (93.2720950 + 483202.0175233 * T) * rad;
+  return 385000.56 - 20905.355 * Math.cos(Mp) - 3699.111 * Math.cos(2 * D - Mp)
+    - 2955.968 * Math.cos(2 * D) - 569.925 * Math.cos(2 * Mp) + 48.888 * Math.cos(M)
+    - 3.149 * Math.cos(2 * F) + 246.158 * Math.cos(2 * D - 2 * Mp) - 152.138 * Math.cos(2 * D - M - Mp)
+    - 170.733 * Math.cos(2 * D + Mp) - 204.586 * Math.cos(2 * D - M) - 129.620 * Math.cos(M - Mp)
+    + 108.743 * Math.cos(D) + 104.755 * Math.cos(M + Mp) + 10.321 * Math.cos(2 * D - 2 * F)
+    + 79.661 * Math.cos(Mp - 2 * F) - 34.782 * Math.cos(4 * D - Mp) - 23.210 * Math.cos(3 * Mp)
+    - 21.636 * Math.cos(4 * D - 2 * Mp) + 24.208 * Math.cos(2 * D + M - Mp) + 30.824 * Math.cos(2 * D + M);
+}
+
+// 🌑🔴 Feste Liste der Mondfinsternisse (nur partiell + total, die
+// Halbschatten-Finsternisse sieht man kaum). Quelle: NASA
+// eclipse.gsfc.nasa.gov (LEdecade 2021 + 2031). Je Eintrag:
+// [Mitte der Finsternis in UTC, Dauer Kernschatten-Phase in Minuten,
+//  Dauer der totalen Phase in Minuten (0 = nur partiell)]
+const LUNAR_ECLIPSES = [
+  [Date.UTC(2026, 2, 3, 11, 34), 207, 58],
+  [Date.UTC(2026, 7, 28, 4, 14), 198, 0],
+  [Date.UTC(2028, 0, 12, 4, 14), 56, 0],
+  [Date.UTC(2028, 6, 6, 18, 20), 141, 0],
+  [Date.UTC(2028, 11, 31, 16, 52), 209, 71],
+  [Date.UTC(2029, 5, 26, 3, 22), 220, 102],
+  [Date.UTC(2029, 11, 20, 22, 42), 213, 54],
+  [Date.UTC(2030, 5, 15, 18, 33), 144, 0],
+  [Date.UTC(2032, 3, 25, 15, 14), 211, 66],
+  [Date.UTC(2032, 9, 18, 19, 3), 196, 47],
+  [Date.UTC(2033, 3, 14, 19, 13), 215, 49],
+  [Date.UTC(2033, 9, 8, 10, 55), 202, 79],
+  [Date.UTC(2034, 8, 28, 2, 46), 27, 0],
+  [Date.UTC(2035, 7, 19, 1, 11), 77, 0],
+];
+
+// Wie sieht der Mond gerade aus?
+// "total" = Mond steckt ganz im Erdschatten (kupferrot),
+// "partial" = Erdschatten knabbert am Mond (rötlich),
+// "super" = Vollmond in Erdnähe (etwas größer), "" = ganz normal.
+function moonLook(date) {
+  const t = date.getTime();
+  for (const [mid, partMin, totMin] of LUNAR_ECLIPSES) {
+    const dt = Math.abs(t - mid) / 60000;
+    if (totMin && dt <= totMin / 2) return "total";
+    if (dt <= partMin / 2) return "partial";
+  }
+  // Supermond: rund um Vollmond (± ca. 1,3 Tage) und näher als 366.000 km.
+  // Ergibt 2-4 Supermonde im Jahr, z. B. 2026: 3. Jan, 24. Nov, 24. Dez.
+  if (Math.abs(getMoonPhase(date) - 0.5) <= 0.045 && moonDistanceKm(date) < 366000) return "super";
+  return "";
 }
 
 // Erzeugt den SVG-Pfad für die beleuchtete Mondfläche bei einer gegebenen
@@ -2592,10 +2651,19 @@ function renderMoon(cfg, hass, hostEl) {
   const finalOpacity = isHigh ? 1 : opacity;
 
   // 🎃 An Halloween: der Mond behält seine echte Phase, wird aber orange.
-  const halloweenMoon = isHalloweenTime(cfg, hass);
-  const phase = getMoonPhase(new Date());
-  const lightPath = moonPhasePath(29, 39, 24, phase);
-  const litFill = halloweenMoon ? "#f5a142" : "#f0e6c8";
+  const now = new Date();
+  // 🌕 Supermond = etwas größer, 🔴 Mondfinsternis = rötlich (hat Vorrang
+  // vor Halloween, kommt ja nur alle paar Jahre). Nur Größe und Farbe,
+  // kein neues Teil = keine Extra-Last.
+  const look = cfg._moonLook !== undefined ? cfg._moonLook : moonLook(now);
+  const eclipse = look === "total" || look === "partial";
+  const halloweenMoon = !eclipse && isHalloweenTime(cfg, hass);
+  const phase = getMoonPhase(now);
+  // Bei einer Finsternis ist immer Vollmond (die Mittelwert-Phase kann
+  // ein paar Stunden daneben liegen, darum hier fest)
+  const lightPath = eclipse ? "full" : moonPhasePath(29, 39, 24, phase);
+  const litFill = look === "total" ? "#b5523a" : look === "partial" ? "#d9906e"
+    : halloweenMoon ? "#f5a142" : "#f0e6c8";
 
   // Der unbeleuchtete Mondteil braucht auf hellem und dunklem Hintergrund
   // unterschiedliche Farben: auf Dunkel darf er kräftig dunkel sein (wirkt
@@ -2624,7 +2692,11 @@ function renderMoon(cfg, hass, hostEl) {
   // clipPath auf den jeweils beleuchteten Bereich begrenzt, damit sie
   // bei jeder Phase (nicht nur Vollmond) nur dort auftauchen, wo gerade
   // wirklich Licht drauf fällt.
-  const craterStyle = halloweenMoon
+  const craterStyle = look === "total"
+    ? `fill="#97402c" stroke="#7a3122" stroke-width="0.7"`
+    : look === "partial"
+    ? `fill="#c07656" stroke="#a35f43" stroke-width="0.7"`
+    : halloweenMoon
     ? `fill="#d9822b" stroke="#b8651a" stroke-width="0.7"`
     : `fill="#cfbf8c" stroke="#b09d68" stroke-width="0.7"`;
   const cratersSvg = `
@@ -2644,7 +2716,10 @@ function renderMoon(cfg, hass, hostEl) {
   } else if (lightPath === "full") {
     moonSvg = `
       ${halloweenMoon ? `<circle cx="29" cy="39" r="31" fill="#ff8a1e" opacity="0.18"/><circle cx="29" cy="39" r="27.5" fill="#ff8a1e" opacity="0.22"/>` : ""}
-      <circle cx="29" cy="39" r="24" fill="${litFill}" stroke="${halloweenMoon ? "#c96a1a" : unlitStroke}" stroke-width="1"/>
+      ${eclipse ? `<circle cx="29" cy="39" r="29" fill="#c4583a" opacity="${look === "total" ? 0.22 : 0.14}"/>` : ""}
+      <circle cx="29" cy="39" r="24" fill="${litFill}" stroke="${halloweenMoon ? "#c96a1a" : eclipse ? "#8a3a28" : unlitStroke}" stroke-width="1"/>
+      ${look === "partial" ? `<defs><clipPath id="moon-disc-clip"><circle cx="29" cy="39" r="24"/></clipPath></defs>
+      <circle cx="3" cy="20" r="30" fill="#5a2418" opacity="0.5" clip-path="url(#moon-disc-clip)"/>` : ""}
       ${cratersSvg}
     `;
   } else {
@@ -2663,8 +2738,8 @@ function renderMoon(cfg, hass, hostEl) {
   }
 
   const html = `
-    <div class="moon-container" style="opacity:${finalOpacity};" aria-hidden="true">
-      <svg viewBox="0 0 58 78" style="width:100%; height:100%;">
+    <div class="moon-container" style="opacity:${finalOpacity};${look === "super" ? " width:67px; height:90px;" : ""}" aria-hidden="true">
+      <svg viewBox="0 0 58 78" style="width:100%; height:100%; overflow:visible;">
         <g transform="translate(-4.143,-12.571) scale(1.1429)">
         <g class="moon-glow">
           ${moonSvg}
@@ -3832,7 +3907,7 @@ function dewNow(cfg, hass, w, events, now = Date.now()) {
 function weatherSig(cfg, hass) {
   if (cfg?.event !== "weather_auto") return "";
   const i = weatherInfo(cfg, hass);
-  return `${i.events.join("+")}|r${i.rain}|w${i.wind.lvl}${i.wind.dir}`;
+  return `${i.events.join("+")}|r${i.rain}|w${i.wind.lvl}${i.wind.dir}${i.events.includes("moon") ? `|m${moonLook(new Date())}` : ""}`;
 }
 
 // Wetter-Daten für einen einzelnen Regen-/Schnee-/Hagel-Renderer
@@ -5665,7 +5740,7 @@ class AmbientOverlayCard extends HTMLElement {
         };
       }
       // Die Wunschstern-Stelle zählt nicht: die setzt _moveWishstar() direkt
-      const sig = JSON.stringify([event, { ...cfgForRender, _wishstarPos: undefined }, this._layerInputs(layerCfg), dark, day,
+      const sig = JSON.stringify([event, { ...cfgForRender, _wishstarPos: undefined }, this._layerInputs(layerCfg), dark, day, base === "moon" ? moonLook(new Date()) : "",
         base === "stars" ? (this._starsGen || 0) : 0]);
       let L = this._layerEls.get(event);
       if (!L) {
@@ -5785,6 +5860,7 @@ const GROUP_TEXT = {
 // darunter die letzten Neuerungen, Neuestes oben, höchstens 15.
 // Neuerungen der laufenden Beta (nur sichtbar, wenn CARD_VERSION "-beta" enthält)
 const AOC_BETA_NEWS = [
+  "🌕 <b>Supermond & Mondfinsternis:</b> Steht der Vollmond besonders nah an der Erde (Supermond, 2–4 Mal im Jahr, z. B. 24. Dezember 2026), wird der Mond oben rechts ein Stück größer. Bei einer Mondfinsternis färbt er sich rötlich, bei einer totalen Finsternis richtig kupferrot (nächste bei uns sichtbare: 31. Dezember 2028 am frühen Abend). Alles wird aus dem Datum berechnet, kein Sensor nötig, keine Extra-Last.",
   "⭐ <b>Stern-Knopf bei den Credits:</b> Unten bei den Credits steht jetzt „Gefällt dir die Karte? Gib uns einen Stern“. Der Knopf öffnet nur die GitHub-Seite der Karte, dort oben rechts auf „☆ Star“ tippen. So sehe ich, wie viele die Karte mögen. Es wird nichts gezählt oder heimlich verschickt.",
   "🎉 <b>Jetzt offiziell in HACS!</b> Die Ambient Overlay Card steht seit 27.11.2026 im HACS-Verzeichnis. Neue Nutzer finden sie einfach über die Suche (ab Home Assistant 2026.11: Einstellungen → Marketplace). Wer sie schon hat, muss nichts tun. Danke an alle, die getestet und mitgeholfen haben! Mehr unten bei den Credits.",
 ];

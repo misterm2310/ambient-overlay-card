@@ -44,7 +44,7 @@ Ein Klick öffnet es direkt in deinem Home Assistant: [![In HACS öffnen](https:
 | Funktion | So klappt's |
 |---|---|
 | 🌦️ **Wetter-Automatik** | Die Karte schaut auf deine `weather.*`-Entity und zeigt selbst das Passende: Regen, Schnee, Hagel, Blitz, Nebel, Sturm, Wolken, Sterne oder Sonne. Bei „Schneeregen“ laufen Schnee **und** Regen gleichzeitig, bei „Gewitter mit Regen“ Blitz **und** Regen. |
-| 🌙 **Mond mit echter Mondphase** | Erscheint oben rechts, sobald die Sonne weg ist – auch zusammen mit Regen oder Schnee. Die Phase wird aus dem Datum berechnet, ganz ohne Sensor. Tagsüber sitzt dort bei „sonnig“ die ☀️ Sonne. |
+| 🌙 **Mond mit echter Mondphase** | Erscheint oben rechts, sobald die Sonne weg ist – auch zusammen mit Regen oder Schnee. Die Phase wird aus dem Datum berechnet, ganz ohne Sensor. 🌕 Beim Supermond (Vollmond ganz nah an der Erde) wird er etwas größer, bei einer 🔴 Mondfinsternis rötlich (total: kupferrot). Tagsüber sitzt dort bei „sonnig“ die ☀️ Sonne. |
 | 🚂 **Dampflok** | Fährt unten durchs Bild: blaue Lok mit Tender, Dampf und „TUUT“, dahinter EIN oranger Personenwagen, alles andere fährt auf Flachwagen. Vier Flachwagen mit Alltags-Ladung – per Schalter auf 🎅 Weihnachten oder 🍽️ Abendessen umstellbar. Ganz selten wird der Dampf zum Herz. Nachts (Sonne untergegangen) fährt er mit 🔦 Licht: Lichtkegel vor der Lok, warm leuchtendes Führerhaus und Personenwagen, hellere Schlusslichter. |
 | 🛤️ **Gleis** | Ein durchgehendes Gleis quer über den ganzen Bildschirm, auf dem Dampflok und Schnellzug fahren. |
 | ✨ **Heller Rand** | Alle dunklen Teile vom Zug (Räder, Rahmen, Dächer, Schornstein, Kupplungen), das Gleis und der Bahnübergang haben einen feinen hellen Rand. So sieht man alles auch auf dunklem Hintergrund. |

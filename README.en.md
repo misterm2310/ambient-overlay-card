@@ -46,7 +46,7 @@ One click opens it right in your Home Assistant: [![Open in HACS](https://my.hom
 | Feature | How it works |
 |---|---|
 | 🌦️ **Weather automation** | The card watches your `weather.*` entity and shows the matching effect by itself: rain, snow, hail, lightning, fog, storm, clouds, stars or sun. With “snowy-rainy” you get snow **and** rain at once, with “lightning-rainy” lightning **and** rain. |
-| 🌙 **Moon with real moon phase** | Appears top right as soon as the sun is down – also together with rain or snow. The phase is calculated from the date, no sensor needed. During the day, on “sunny”, the ☀️ sun sits there instead. |
+| 🌙 **Moon with real moon phase** | Appears top right as soon as the sun is down – also together with rain or snow. The phase is calculated from the date, no sensor needed. 🌕 On a supermoon (full moon very close to Earth) it gets a bit bigger, during a 🔴 lunar eclipse it turns reddish (total: copper red). During the day, on “sunny”, the ☀️ sun sits there instead. |
 | 🚂 **Steam train** | Drives along the bottom: blue engine with tender, steam and a “TOOT”, behind it ONE orange passenger coach, everything else rides on flat wagons. Four flat wagons with everyday cargo – switchable to 🎅 Christmas or 🍽️ dinner. Very rarely the steam turns into a heart. At night (after sunset) it runs with 🔦 lights: a light beam in front of the engine, a warmly glowing cab and passenger coach, brighter tail lights. |
 | 🛤️ **Track** | A continuous track across the whole screen that the steam train and the high-speed train run on. |
 | ✨ **Light outline** | All dark train parts (wheels, frames, roofs, chimney, couplings), the track and the level crossing have a thin light outline, so they stay visible on dark backgrounds. |
